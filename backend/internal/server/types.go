@@ -15,16 +15,9 @@ type loginRequest struct {
 
 type appConfig struct {
 	Addr                string
-	CodexHome           string
-	RootDir             string
 	DataDir             string
-	CodexBin            string
-	AppServerEndpoint   string
 	Password            string
 	PasswordIsGenerated bool
-}
-
-type reasoningEffortSummary struct {
-	ReasoningEffort string `json:"reasoningEffort"`
-	Description     string `json:"description,omitempty"`
+	AgentToken          string
+	AgentTokenGenerated bool
 }

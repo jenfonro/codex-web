@@ -2,24 +2,24 @@
 set -euo pipefail
 
 MODE="check"
-MIN_VERSION="${CODEX_WEB_MIN_CODEX_VERSION:-0.138.0}"
-PACKAGE="${CODEX_WEB_CODEX_NPM_PACKAGE:-@openai/codex}"
-PACKAGE_VERSION="${CODEX_WEB_CODEX_NPM_VERSION:-latest}"
+MIN_VERSION="${CODEX_AGENT_MIN_CODEX_VERSION:-0.138.0}"
+PACKAGE="${CODEX_AGENT_CODEX_NPM_PACKAGE:-@openai/codex}"
+PACKAGE_VERSION="${CODEX_AGENT_CODEX_NPM_VERSION:-latest}"
 
 usage() {
   cat <<'EOF'
 Usage: scripts/ensure-codex-cli.sh [--check|--install|--update]
 
-Checks, installs, or updates the official Codex CLI used by codex-web.
-codex-web talks to Codex through `codex app-server`; it does not implement
-the agent runtime itself.
+Checks, installs, or updates the official Codex CLI used by codex-agent.
+codex-web is only the controller; agents talk to Codex through
+`codex exec --json`.
 
 Environment:
-  CODEX_HOME                  Shared Codex state directory. Default: /root/.codex
-  CODEX_WEB_CODEX_BIN          Explicit codex executable path. Default: PATH lookup
-  CODEX_WEB_MIN_CODEX_VERSION  Minimum accepted CLI version. Default: 0.138.0
-  CODEX_WEB_CODEX_NPM_PACKAGE  npm package to install. Default: @openai/codex
-  CODEX_WEB_CODEX_NPM_VERSION  npm version/range. Default: latest
+  CODEX_HOME                  Shared Codex state directory
+  CODEX_AGENT_CODEX_BIN        Explicit codex executable path. Default: PATH lookup
+  CODEX_AGENT_MIN_CODEX_VERSION  Minimum accepted CLI version. Default: 0.138.0
+  CODEX_AGENT_CODEX_NPM_PACKAGE  npm package to install. Default: @openai/codex
+  CODEX_AGENT_CODEX_NPM_VERSION  npm version/range. Default: latest
 EOF
 }
 
@@ -48,21 +48,22 @@ while [[ $# -gt 0 ]]; do
 done
 
 codex_home() {
-  if [[ -n "${CODEX_HOME:-}" ]]; then
-    printf '%s\n' "${CODEX_HOME}"
-  else
-    printf '%s\n' "/root/.codex"
+  if [[ -z "${CODEX_HOME:-}" ]]; then
+    echo "CODEX_HOME is required" >&2
+    exit 1
   fi
+  printf '%s\n' "${CODEX_HOME}"
 }
 
 find_codex() {
-  if [[ -n "${CODEX_WEB_CODEX_BIN:-}" ]]; then
-    if [[ "${CODEX_WEB_CODEX_BIN}" == */* && -x "${CODEX_WEB_CODEX_BIN}" ]]; then
-      printf '%s\n' "${CODEX_WEB_CODEX_BIN}"
+  local codex_bin="${CODEX_AGENT_CODEX_BIN:-}"
+  if [[ -n "${codex_bin}" ]]; then
+    if [[ "${codex_bin}" == */* && -x "${codex_bin}" ]]; then
+      printf '%s\n' "${codex_bin}"
       return 0
     fi
-    if [[ "${CODEX_WEB_CODEX_BIN}" != */* ]]; then
-      command -v "${CODEX_WEB_CODEX_BIN}" 2>/dev/null
+    if [[ "${codex_bin}" != */* ]]; then
+      command -v "${codex_bin}" 2>/dev/null
       return $?
     fi
     return 1
@@ -79,19 +80,19 @@ require_npm() {
 
 install_codex() {
   require_npm
-  echo "[codex-web] installing official Codex CLI: ${PACKAGE}@${PACKAGE_VERSION}"
+  echo "[codex-agent] installing official Codex CLI: ${PACKAGE}@${PACKAGE_VERSION}"
   npm install -g "${PACKAGE}@${PACKAGE_VERSION}"
 }
 
 update_codex() {
   local bin
   bin="$(find_codex || true)"
-  if [[ -n "${bin}" ]] && "${bin}" update >/tmp/codex-web-update.log 2>&1; then
-    cat /tmp/codex-web-update.log
+  if [[ -n "${bin}" ]] && "${bin}" update >/tmp/codex-agent-update.log 2>&1; then
+    cat /tmp/codex-agent-update.log
     return 0
   fi
-  if [[ -s /tmp/codex-web-update.log ]]; then
-    cat /tmp/codex-web-update.log >&2
+  if [[ -s /tmp/codex-agent-update.log ]]; then
+    cat /tmp/codex-agent-update.log >&2
   fi
   install_codex
 }
@@ -113,7 +114,7 @@ check_codex() {
 
   bin="$(find_codex || true)"
   if [[ -z "${bin}" ]]; then
-    echo "Codex CLI is not installed or CODEX_WEB_CODEX_BIN is invalid." >&2
+    echo "Codex CLI is not installed or CODEX_AGENT_CODEX_BIN is invalid." >&2
     echo "Run: ./scripts/ensure-codex-cli.sh --install" >&2
     exit 1
   fi
@@ -130,14 +131,14 @@ check_codex() {
     exit 1
   fi
 
-  if ! "${bin}" app-server --help >/dev/null 2>&1; then
-    echo "Codex CLI exists but does not expose 'codex app-server'." >&2
+  if ! "${bin}" exec --help >/dev/null 2>&1; then
+    echo "Codex CLI exists but does not expose 'codex exec'." >&2
     echo "Run: ./scripts/ensure-codex-cli.sh --update" >&2
     exit 1
   fi
 
-  echo "[codex-web] Codex CLI OK: ${version_output} (${bin})"
-  echo "[codex-web] CODEX_HOME=${home}"
+  echo "[codex-agent] Codex CLI OK: ${version_output} (${bin})"
+  echo "[codex-agent] CODEX_HOME=${home}"
 }
 
 case "${MODE}" in

@@ -1,40 +1,31 @@
 package server
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"log"
 	"mime"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
-	"codex-web/backend/internal/appserver"
+	"codex-web/backend/internal/config"
+	"codex-web/backend/internal/node"
 	"codex-web/backend/public"
 )
 
 type App struct {
 	cfg      appConfig
-	appsrv   *appserver.Client
+	nodes    *node.Registry
 	sessions map[string]time.Time
 	mu       sync.Mutex
-	state    persistedState
-}
-
-type persistedState struct {
-	HostState       map[string]any `json:"hostState,omitempty"`
-	SharedObjects   map[string]any `json:"sharedObjects,omitempty"`
-	PinnedThreadIDs []string       `json:"pinnedThreadIds,omitempty"`
 }
 
 func New() (*App, error) {
@@ -42,25 +33,18 @@ func New() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	appsrv := appserver.New(appserver.Config{
-		Endpoint:  cfg.AppServerEndpoint,
-		CodexBin:  cfg.CodexBin,
-		CodexHome: cfg.CodexHome,
-		RootDir:   cfg.RootDir,
-	})
-	if err := appsrv.Start(context.Background()); err != nil {
+	nodes := node.NewRegistry(filepath.Join(cfg.DataDir, "nodes.json"))
+	if err := nodes.Load(); err != nil {
+		return nil, err
+	}
+	if err := nodes.Save(); err != nil {
 		return nil, err
 	}
 	app := &App{
 		cfg:      cfg,
-		appsrv:   appsrv,
+		nodes:    nodes,
 		sessions: map[string]time.Time{},
-		state: persistedState{
-			HostState:     map[string]any{},
-			SharedObjects: map[string]any{},
-		},
 	}
-	app.loadState()
 	return app, nil
 }
 
@@ -69,66 +53,35 @@ func (a *App) Run() error {
 	mux.HandleFunc("/api/auth/status", a.handleAuthStatus)
 	mux.HandleFunc("/api/auth/login", a.handleLogin)
 	mux.HandleFunc("/api/auth/logout", a.handleLogout)
+	mux.HandleFunc("/api/agent/connect", a.handleAgentConnect)
 	mux.Handle("/api/", a.requireAuth(http.HandlerFunc(a.handleAPI)))
 	mux.Handle("/", a.staticHandler())
 
 	if a.cfg.PasswordIsGenerated {
 		log.Printf("generated login password: %s", a.cfg.Password)
 	}
+	if a.cfg.AgentTokenGenerated {
+		log.Printf("generated agent token stored in %s", filepath.Join(a.cfg.DataDir, "agent-token.txt"))
+	}
 	log.Printf("codex-web listening on http://%s", a.cfg.Addr)
-	log.Printf("codex home: %s, root dir: %s, app server: %s", a.cfg.CodexHome, a.cfg.RootDir, a.cfg.AppServerEndpoint)
+	log.Printf("codex-web controller data dir: %s", a.cfg.DataDir)
 	return http.ListenAndServe(a.cfg.Addr, mux)
 }
 
 func loadConfig() (appConfig, error) {
-	home, _ := os.UserHomeDir()
-	if home == "" {
-		home = "/root"
+	loaded, err := config.LoadController()
+	if err != nil {
+		return appConfig{}, err
 	}
-	dataDir := getenv("CODEX_WEB_DATA", "./data")
 	cfg := appConfig{
-		Addr:              getenv("CODEX_WEB_ADDR", "127.0.0.1:58888"),
-		CodexHome:         getenv("CODEX_HOME", filepath.Join(home, ".codex")),
-		RootDir:           getenv("CODEX_WEB_ROOT", "/root"),
-		DataDir:           dataDir,
-		CodexBin:          getenv("CODEX_WEB_CODEX_BIN", "codex"),
-		AppServerEndpoint: getenv("CODEX_WEB_APP_SERVER", "stdio"),
+		Addr:                loaded.Addr,
+		DataDir:             loaded.DataDir,
+		Password:            loaded.Password,
+		PasswordIsGenerated: loaded.PasswordIsGenerated,
+		AgentToken:          loaded.AgentToken,
+		AgentTokenGenerated: loaded.AgentTokenIsGenerated,
 	}
-	password := os.Getenv("CODEX_WEB_PASSWORD")
-	if password == "" {
-		generated, err := loadOrCreatePassword(filepath.Join(dataDir, "password.txt"))
-		if err != nil {
-			return cfg, err
-		}
-		password = generated
-		cfg.PasswordIsGenerated = true
-	}
-	cfg.Password = password
 	return cfg, nil
-}
-
-func loadOrCreatePassword(path string) (string, error) {
-	if data, err := os.ReadFile(path); err == nil {
-		if password := strings.TrimSpace(string(data)); password != "" {
-			return password, nil
-		}
-	}
-	password := randomToken(18)
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return "", err
-	}
-	if err := os.WriteFile(path, []byte(password+"\n"), 0o600); err != nil {
-		return "", err
-	}
-	return password, nil
-}
-
-func getenv(key, defaultValue string) string {
-	value := strings.TrimSpace(os.Getenv(key))
-	if value == "" {
-		return defaultValue
-	}
-	return value
 }
 
 func randomToken(byteCount int) string {
@@ -215,10 +168,22 @@ func (a *App) isAuthenticated(r *http.Request) bool {
 func (a *App) handleAPI(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api")
 	switch {
-	case path == "/bridge/events":
-		a.handleBridgeEvents(w, r)
-	case path == "/bridge/message":
-		a.handleBridgeMessage(w, r)
+	case path == "/nodes":
+		a.handleNodes(w, r)
+	case path == "/nodes/active":
+		a.handleActiveNode(w, r)
+	case strings.HasPrefix(path, "/nodes/"):
+		a.handleNodeItem(w, r, strings.TrimPrefix(path, "/nodes/"))
+	case path == "/sessions":
+		a.handleSessions(w, r)
+	case path == "/sessions/events":
+		a.handleSessionEvents(w, r)
+	case strings.HasPrefix(path, "/sessions/"):
+		a.handleSessionItem(w, r, strings.TrimPrefix(path, "/sessions/"))
+	case path == "/workspace":
+		a.handleWorkspace(w, r)
+	case path == "/git":
+		a.handleGit(w, r)
 	default:
 		writeError(w, http.StatusNotFound, "not found")
 	}
@@ -235,58 +200,23 @@ func (a *App) staticHandler() http.Handler {
 			writeError(w, http.StatusNotFound, "not found")
 			return
 		}
-		if !a.isAuthenticated(r) {
-			path := strings.TrimPrefix(r.URL.Path, "/")
-			if path != "login.html" {
-				http.Redirect(w, r, "/login.html", http.StatusFound)
-				return
-			}
-		}
 		path := strings.TrimPrefix(r.URL.Path, "/")
 		if path == "" {
 			path = "index.html"
 		}
-		if path == "login.html" && a.isAuthenticated(r) {
-			http.Redirect(w, r, "/", http.StatusFound)
-			return
-		}
 		if _, err := staticFS.Open(path); err != nil {
 			r.URL.Path = "/"
+			path = "index.html"
 		}
+		w.Header().Set("Cache-Control", "no-store, max-age=0")
+		w.Header().Set("Clear-Site-Data", `"cache"`)
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
 		if ctype := mime.TypeByExtension(filepath.Ext(path)); ctype != "" {
 			w.Header().Set("Content-Type", ctype)
 		}
 		fileServer.ServeHTTP(w, r)
 	})
-}
-
-func (a *App) statePath() string {
-	return filepath.Join(a.cfg.DataDir, "state.json")
-}
-
-func (a *App) loadState() {
-	data, err := os.ReadFile(a.statePath())
-	if err != nil {
-		return
-	}
-	_ = json.Unmarshal(data, &a.state)
-	if a.state.HostState == nil {
-		a.state.HostState = map[string]any{}
-	}
-	if a.state.SharedObjects == nil {
-		a.state.SharedObjects = map[string]any{}
-	}
-}
-
-func (a *App) saveState() {
-	if err := os.MkdirAll(a.cfg.DataDir, 0o700); err != nil {
-		return
-	}
-	data, err := json.MarshalIndent(a.state, "", "  ")
-	if err != nil {
-		return
-	}
-	_ = os.WriteFile(a.statePath(), data, 0o600)
 }
 
 func readJSON(r *http.Request, v any) error {
@@ -314,10 +244,6 @@ func methodNotAllowed(w http.ResponseWriter) {
 	writeError(w, http.StatusMethodNotAllowed, "请求方法不允许")
 }
 
-func cleanRelativeID(id string) string {
-	return strings.TrimSpace(strings.Trim(id, "/"))
-}
-
 func firstString(values ...string) string {
 	for _, value := range values {
 		if strings.TrimSpace(value) != "" {
@@ -325,33 +251,4 @@ func firstString(values ...string) string {
 		}
 	}
 	return ""
-}
-
-func parseTime(value string) time.Time {
-	if value == "" {
-		return time.Time{}
-	}
-	if t, err := time.Parse(time.RFC3339Nano, value); err == nil {
-		return t
-	}
-	if t, err := time.Parse(time.RFC3339, value); err == nil {
-		return t
-	}
-	return time.Time{}
-}
-
-func safePath(base, requested string) (string, error) {
-	base = filepath.Clean(base)
-	if requested == "" {
-		return base, nil
-	}
-	path := requested
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(base, path)
-	}
-	clean := filepath.Clean(path)
-	if clean != base && !strings.HasPrefix(clean, base+string(os.PathSeparator)) {
-		return "", errors.New("invalid path")
-	}
-	return clean, nil
 }

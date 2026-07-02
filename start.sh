@@ -8,9 +8,6 @@ fi
 
 mkdir -p "./build/data" "./build/tmp"
 
-export CODEX_HOME="${CODEX_HOME:-/root/.codex}"
-./scripts/ensure-codex-cli.sh --check
-
 cd "./build"
 
 if [[ ! -x "./codex-web" ]]; then

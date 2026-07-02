@@ -1,27 +1,23 @@
 [Unit]
-Description=Codex Web
+Description=Codex Web Controller
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/my_code/codex-web/build
-Environment=CODEX_WEB_ADDR=127.0.0.1:58888
-Environment=CODEX_WEB_ROOT=/root
-Environment=CODEX_HOME=/root/.codex
+WorkingDirectory=/root/code/codex-web/build
+Environment=CODEX_WEB_ADDR=0.0.0.0:58888
+Environment=CODEX_WEB_DATA=/root/code/codex-web/build/data
 Environment=PATH=/root/.nvm/versions/node/v24.13.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-Environment=CODEX_WEB_CODEX_BIN=codex
-Environment=CODEX_WEB_APP_SERVER=stdio
-ExecStartPre=/root/my_code/codex-web/scripts/ensure-codex-cli.sh --check
-ExecStartPre=/bin/bash -lc 'cd /root/my_code/codex-web/build && mkdir -p data tmp && rm -f codex-web.5.log && [ ! -e codex-web.4.log ] || mv codex-web.4.log codex-web.5.log && [ ! -e codex-web.3.log ] || mv codex-web.3.log codex-web.4.log && [ ! -e codex-web.2.log ] || mv codex-web.2.log codex-web.3.log && [ ! -e codex-web.1.log ] || mv codex-web.1.log codex-web.2.log && [ ! -s codex-web.log ] || mv codex-web.log codex-web.1.log && : > codex-web.log'
-ExecStart=/root/my_code/codex-web/build/codex-web
+ExecStartPre=/bin/bash -lc 'cd /root/code/codex-web/build && mkdir -p data tmp && rm -f codex-web.5.log && [ ! -e codex-web.4.log ] || mv codex-web.4.log codex-web.5.log && [ ! -e codex-web.3.log ] || mv codex-web.3.log codex-web.4.log && [ ! -e codex-web.2.log ] || mv codex-web.2.log codex-web.3.log && [ ! -e codex-web.1.log ] || mv codex-web.1.log codex-web.2.log && [ ! -s codex-web.log ] || mv codex-web.log codex-web.1.log && : > codex-web.log'
+ExecStart=/root/code/codex-web/build/codex-web
 Restart=on-failure
 RestartSec=3
 KillSignal=SIGTERM
 TimeoutStopSec=30
-StandardOutput=append:/root/my_code/codex-web/build/codex-web.log
-StandardError=append:/root/my_code/codex-web/build/codex-web.log
+StandardOutput=append:/root/code/codex-web/build/codex-web.log
+StandardError=append:/root/code/codex-web/build/codex-web.log
 
 [Install]
 WantedBy=multi-user.target

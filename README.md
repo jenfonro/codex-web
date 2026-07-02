@@ -1,68 +1,58 @@
 # Codex Web
 
-Standalone web shell for the official Codex VS Code/code-server webview.
+Codex Web is a controller website for managing Codex sessions across multiple
+servers. The controller owns login, node registry, and browser streaming. Each
+server runs a `codex-agent` that owns the Codex CLI process and keeps sessions
+alive even when the browser is closed.
 
-codex-web does not build a custom chat UI and does not implement its own Codex
-agent runtime. The frontend build copies the installed official Codex extension
-`webview/` bundle, injects a small browser shim for `acquireVsCodeApi`, and lets
-the official React UI render conversations, approvals, queued follow-ups,
-reasoning, review panels, model controls, and permission controls.
+The previous frontend implementation has been reset. The next frontend should
+be rebuilt from the captured code-server shell reference in
+`reference/code-server-shell`; do not reuse the deleted approximate UI.
 
-The Go backend provides:
-
-- password login
-- static serving for the copied official webview
-- a VS Code Host bridge for the official webview messages
-- shared host/global state such as pinned threads
-- a bridge to `codex app-server --listen stdio://`
-- lightweight local Host services used by the official webview, such as git
-  metadata and file reads
-
-Recommended architecture:
+## Architecture
 
 ```text
-frontend/ official Codex extension webview copy + shim
-  -> backend/ Go HTTP auth + VS Code Host bridge
-    -> official codex app-server JSON-RPC
-      -> official Codex CLI/runtime
+browser UI
+  -> backend controller HTTP/SSE
+    -> codex-agent WebSocket
+      -> codex exec --json / codex exec resume --json
         -> CODEX_HOME sessions and config
 ```
 
-Use the same `CODEX_HOME` as VS Code/code-server Codex and the CLI to keep
-conversation history shared. The default is `/root/.codex`.
+The browser can disconnect at any time. The agent keeps the running CLI turn and
+the in-memory event log. When the browser reconnects, it asks for events after
+the last sequence number and continues streaming new events over SSE.
 
-## Codex CLI / App Server
+## Capabilities
 
-Check the current official Codex CLI and App Server support:
+- Password-protected controller UI.
+- Persistent node registry in `build/data/nodes.json`.
+- Agent token in `build/data/agent-token.txt`.
+- Outbound agent WebSocket connection to the controller.
+- CLI-backed sessions using `codex exec --json`.
+- Session resume using the Codex thread id.
+- SSE event stream with sequence numbers for reconnect/backlog.
+- Workspace directory listing and git status helpers executed on the agent.
 
-```bash
-./scripts/ensure-codex-cli.sh --check
-```
-
-Install the official CLI when it is missing:
-
-```bash
-./scripts/ensure-codex-cli.sh --install
-```
-
-Update it when the installed version is too old:
-
-```bash
-./scripts/ensure-codex-cli.sh --update
-```
-
-The script installs `@openai/codex` with npm by default. You can override the
-package or version with:
-
-```bash
-CODEX_WEB_CODEX_NPM_PACKAGE=@openai/codex
-CODEX_WEB_CODEX_NPM_VERSION=latest
-```
-
-## Run
+## Build
 
 ```bash
 ./build-all.sh
+```
+
+Outputs:
+
+```text
+build/codex-web
+build/codex-agent
+```
+
+The current build intentionally does not embed a frontend. Until the new UI is
+rebuilt, non-API browser routes return a service-unavailable response.
+
+## Run Controller
+
+```bash
 ./start.sh
 ```
 
@@ -72,73 +62,128 @@ Default URL:
 http://127.0.0.1:58888
 ```
 
-If `CODEX_WEB_PASSWORD` is not set, the server creates a local password at:
+If `CODEX_WEB_PASSWORD` is not set, the controller creates one at:
 
 ```text
 build/data/password.txt
 ```
 
-## Environment
+Controller environment:
 
 ```bash
 CODEX_WEB_ADDR=127.0.0.1:58888
+CODEX_WEB_DATA=/path/to/data
 CODEX_WEB_PASSWORD=change-me
-CODEX_WEB_ROOT=/root
+CODEX_WEB_AGENT_TOKEN=change-me
+```
+
+## Run Agent
+
+Each agent needs an installed Codex CLI and a persistent `CODEX_HOME`.
+
+```bash
+./scripts/ensure-codex-cli.sh --check
+```
+
+Agent environment:
+
+```bash
+CODEX_AGENT_CONTROLLER=ws://controller.example.com:58888/api/agent/connect
+CODEX_AGENT_ID=server-a
+CODEX_AGENT_NAME="Server A"
+CODEX_AGENT_TOKEN=change-me
+CODEX_AGENT_ROOT=/root
 CODEX_HOME=/root/.codex
-CODEX_WEB_CODEX_BIN=codex
-CODEX_WEB_APP_SERVER=stdio
-CODEX_WEB_MIN_CODEX_VERSION=0.138.0
-CODEX_WEB_EXTENSION_WEBVIEW_DIR=/path/to/openai.chatgpt-*/webview
+CODEX_AGENT_CODEX_BIN=codex
 ```
 
-`CODEX_WEB_APP_SERVER=stdio` starts `codex app-server --listen stdio://`. To
-connect to an already running App Server instead, use a Unix socket or WebSocket
-endpoint:
+Local example:
 
 ```bash
-CODEX_WEB_APP_SERVER=unix:///run/codex-app-server.sock
-CODEX_WEB_APP_SERVER=ws://127.0.0.1:3456
+export CODEX_AGENT_CONTROLLER=ws://127.0.0.1:58888/api/agent/connect
+export CODEX_AGENT_ID=server-a
+export CODEX_AGENT_NAME="Server A"
+export CODEX_AGENT_TOKEN="$(cat build/data/agent-token.txt)"
+export CODEX_AGENT_ROOT=/root
+export CODEX_HOME=/root/.codex
+export CODEX_AGENT_CODEX_BIN=codex
+./agent-start.sh
 ```
 
-`start.sh` and the systemd service run `scripts/ensure-codex-cli.sh --check`
-before launching codex-web. They do not install or update Codex automatically
-during service startup; run `--install` or `--update` explicitly when needed.
-
-## Systemd
+Docker helper:
 
 ```bash
-install -m 0644 systemd/codex-web.service /etc/systemd/system/codex-web.service
-systemctl daemon-reload
-systemctl start codex-web
+./scripts/build-agent-image.sh
+./scripts/start-agent-container.sh
 ```
 
-Logs are written to:
+The Docker helper mounts a persistent Codex home at `build/agent-data/codex-home`
+and imports `auth.json` / `config.toml` from the host Codex home when missing.
+
+## Public API
+
+Controller:
 
 ```text
-build/codex-web.log
+GET    /api/nodes
+POST   /api/nodes/active
+DELETE /api/nodes/{id}
+GET    /api/agent/connect
+
+GET    /api/sessions?nodeId=...
+POST   /api/sessions
+POST   /api/sessions/{id}/send
+POST   /api/sessions/{id}/cancel
+GET    /api/sessions/{id}/events?nodeId=...&lastSeq=...
+GET    /api/sessions/events?nodeId=...&sessionId=...&lastSeq=...
+
+POST   /api/workspace
+POST   /api/git
+```
+
+Agent protocol operations:
+
+```text
+session.list
+session.create
+session.send
+session.cancel
+session.events
+workspace.fetch
+git.request
+```
+
+Agent events:
+
+```text
+agent.hello
+agent.heartbeat
+agent.response
+agent.event -> session.event
 ```
 
 ## Verification
 
 ```bash
-node scripts/verify-thread-states.cjs
+go test ./...
+(cd agent && go test ./...)
+./build-all.sh
 ```
 
-The verifier logs in, opens the official webview, checks extension window mode,
-Chinese text, dark VS Code theme classes, official assets, absence of the old
-custom session-list DOM, and new unhandled bridge messages. It writes:
+Refresh the code-server shell reference when needed:
 
-```text
-build/codex-web-official-report.json
-build/codex-web-official-webview.png
+```bash
+node --check scripts/capture-code-server-shell-reference.cjs
+node scripts/capture-code-server-shell-reference.cjs
 ```
 
 ## Project Layout
 
 ```text
-backend/   Go HTTP server, auth, Codex App Server client, VS Code Host bridge
-frontend/  official Codex webview copy step and browser shim
-scripts/   CLI installer/checker and browser verification
+backend/   Controller HTTP server, auth, node registry, session routing, SSE
+agent/     Agent process, Codex CLI session manager, workspace and git services
+reference/ Captured code-server shell DOM, CSS, assets, HAR, and screenshots
+scripts/   CLI checker, Docker helpers, and shell reference capture
 systemd/   codex-web.service
-build/     built binary, local state, generated password, logs, temporary caches
+build/     Binaries, controller state, generated secrets, logs, temp caches
 ```

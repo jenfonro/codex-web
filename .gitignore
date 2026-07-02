@@ -19,6 +19,9 @@
 /build/tmp/go-mod-cache/
 /build/tmp/go-path/
 
+# Local captured references for visual comparison
+/reference/
+
 # Local env and secrets
 .env
 .env.*

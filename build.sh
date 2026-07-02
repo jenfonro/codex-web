@@ -7,6 +7,7 @@ if [[ ! -f "./backend/go.mod" || ! -d "./frontend" ]]; then
 fi
 
 BACKEND_DIR="./backend"
+AGENT_DIR="./agent"
 FRONTEND_EMBED_DIST="./backend/public/dist"
 BUILD_DIR="./build"
 ROOT_ABS="$(pwd -P)"
@@ -34,4 +35,10 @@ fi
   go build -buildvcs=false -o "../build/codex-web" ./cmd/codex-web
 )
 
+(
+  cd "${AGENT_DIR}"
+  go build -buildvcs=false -o "../build/codex-agent" .
+)
+
 echo "built: ${BUILD_DIR}/codex-web"
+echo "built: ${BUILD_DIR}/codex-agent"

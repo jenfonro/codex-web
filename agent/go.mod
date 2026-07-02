@@ -1,4 +1,4 @@
-module codex-web/backend
+module codex-web/agent
 
 go 1.22
 
