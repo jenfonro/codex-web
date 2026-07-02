@@ -12,8 +12,6 @@ import (
 type Controller struct {
 	Addr                  string
 	DataDir               string
-	Password              string
-	PasswordIsGenerated   bool
 	AgentToken            string
 	AgentTokenIsGenerated bool
 }
@@ -24,17 +22,6 @@ func LoadController() (Controller, error) {
 		Addr:    getenv("CODEX_WEB_ADDR", "127.0.0.1:58888"),
 		DataDir: dataDir,
 	}
-	password := os.Getenv("CODEX_WEB_PASSWORD")
-	if password == "" {
-		generated, err := loadOrCreateSecret(filepath.Join(dataDir, "password.txt"), 18)
-		if err != nil {
-			return cfg, err
-		}
-		password = generated
-		cfg.PasswordIsGenerated = true
-	}
-	cfg.Password = password
-
 	agentToken := os.Getenv("CODEX_WEB_AGENT_TOKEN")
 	if agentToken == "" {
 		generated, err := loadOrCreateSecret(filepath.Join(dataDir, "agent-token.txt"), 32)
