@@ -433,7 +433,7 @@ body {
   width: 4px;
   cursor: col-resize;
   touch-action: none;
-  background: rgb(0, 105, 204);
+  background: transparent;
 }
 
 .sidebar-resize-handle::before {
@@ -443,10 +443,12 @@ body {
   right: 0;
   width: 4px;
   height: 100%;
-  background: rgb(0, 105, 204);
+  background: transparent;
 }
 
 .sidebar-resize-handle:hover::before,
+.sidebar-resize-handle:active::before,
+.sidebar-resize-handle:focus-visible::before,
 .sidebar-resize-handle.resizing::before {
   background: rgb(0, 105, 204);
 }

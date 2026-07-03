@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T18:19:13.207Z",
+  "generatedAt": "2026-07-03T20:44:16.471Z",
   "basis": "Compares local runtime computed styles against captured code-server ChatGPT/Codex extension computed styles. Screenshots are not used.",
   "appUrl": "http://127.0.0.1:58888/",
   "viewport": {

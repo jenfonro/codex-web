@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T18:19:01.251165Z",
+  "generatedAt": "2026-07-03T20:44:05.169063Z",
   "appUrl": "http://127.0.0.1:58888/?codexFixture=reference",
   "referenceCapture": "20260702-184840-codex-session-list-wide-611",
   "viewport": {
@@ -817,6 +817,20 @@
         }
       },
       "differences": []
+    }
+  ],
+  "localRules": [
+    {
+      "name": "sidebarResizeHandle",
+      "selector": ".sidebar-resize-handle",
+      "status": "exact",
+      "differences": [],
+      "current": {
+        "present": true,
+        "baseBackgroundColor": "rgba(0, 0, 0, 0)",
+        "baseBeforeBackgroundColor": "rgba(0, 0, 0, 0)",
+        "resizingBeforeBackgroundColor": "rgb(0, 105, 204)"
+      }
     }
   ]
 }

@@ -92,6 +92,20 @@
   opacity: 1;
 }
 
+.ProseMirror[data-codex-empty="true"]::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  inset: 0 auto auto 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--color-token-input-placeholder-foreground);
+  opacity: .5;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  user-select: none;
+  white-space: nowrap;
+}
+
 #root > span.pointer-events-none.fixed.inset-0 {
   padding-bottom: 0;
 }

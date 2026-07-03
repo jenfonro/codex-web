@@ -10,8 +10,8 @@
     <link rel="stylesheet" href="assets/code-server-theme.css">
     <link rel="stylesheet" href="assets/code-server-codicon.css">
     <link rel="stylesheet" href="assets/code-server-seti.css">
-    <link rel="stylesheet" href="styles.css?v=20260703-codex-panel-2">
-    <link rel="stylesheet" href="codex-panel.css?v=20260704-codex-panel-3">
+    <link rel="stylesheet" href="app/index.css?v=20260704-sash-idle">
+    <link rel="stylesheet" href="pages/codex/panel.css?v=20260704-openlist-layout">
   </head>
   <body class="agent-status-enabled unified-agents-bar">
     <div class="monaco-enable-motion monaco-workbench windows web chromium nopanel noauxiliarybar fullscreen file-icons-enabled vs vscode-theme-defaults-themes-2026-light-json" role="application" aria-label="code-server layout shell">
@@ -144,7 +144,7 @@
             </div>
           </div>
           <div class="content codex-sidebar-content">
-            <div id="codexPanel" class="codex-webview" aria-label="Codex"></div>
+            <div id="codexPanel" class="codex-panel-frame" aria-label="Codex"></div>
           </div>
         </aside>
         <div class="monaco-sash vertical sidebar-resize-handle" id="sidebarResizeHandle" role="separator" aria-orientation="vertical" aria-label="调整主侧栏大小" tabindex="0"></div>
@@ -214,8 +214,14 @@
         </div>
       </footer>
     </div>
-    <script src="codex-icons.js?v=20260704-codex-panel-3"></script>
-    <script src="codex-panel.js?v=20260704-codex-panel-3"></script>
-    <script src="app.js?v=20260703-codex-panel-2"></script>
+    <script src="components/icons/codex-icons.js?v=20260704-openlist-layout"></script>
+    <script src="pages/codex/config.js?v=20260704-composer-input"></script>
+    <script src="pages/codex/utils.js?v=20260704-openlist-layout"></script>
+    <script src="pages/codex/api.js?v=20260704-openlist-layout"></script>
+    <script src="pages/codex/fixtures.js?v=20260704-openlist-layout"></script>
+    <script src="pages/codex/renderer.js?v=20260704-composer-input-2"></script>
+    <script src="store/codex.js?v=20260704-openlist-layout"></script>
+    <script src="pages/codex/index.js?v=20260704-composer-input"></script>
+    <script src="app/shell.js?v=20260704-openlist-layout"></script>
   </body>
 </html>

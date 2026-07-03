@@ -1,10 +1,10 @@
 # Codex Dynamic State Audit
 
-Generated: 2026-07-03T18:19:14.369Z
+Generated: 2026-07-03T20:44:17.865Z
 
 ## Summary
 
-- Checks: 21
+- Checks: 26
 - Failed: 0
 
 ## Checks
@@ -31,7 +31,12 @@ Generated: 2026-07-03T18:19:14.369Z
 | running activity header present | ok | button class="group/activity-header inline-flex min-w-0 max-w-full self-start items-center gap-1.5 p-0 text-left cursor-interaction" aria-expanded="true"<br>  span class="text-size-chat flex min-w-0 shrink items-center gap-1.5 truncate"<br>    svg class="[object SVGAnimatedString]"<br>      path class="[object SVGAnimatedString]"<br>    span class="loading-shimmer-pure-text _cadencedShimmer_18j3y_1 text-size-chat min-w-0 truncate text-token-conversation-summary-leading group-hover/activity-header:text-token-foreground _cadencedShimmerActive_18j3y_46"<br>      #text "已编辑 1 个文件"<br>      span class="_cadencedShimmerSweep_18j3y_12" aria-hidden="true"<br>        span class="_cadencedShimmerHighlight_18j3y_37"<br>          #text "已编辑 1 个文件"<br>  svg class="[object SVGAnimatedString]"<br>    path class="[object SVGAnimatedString]" |
 | running activity is expanded | ok | aria-expanded=true |
 | running activity shimmer source classes present | ok | span class="loading-shimmer-pure-text _cadencedShimmer_18j3y_1 text-size-chat min-w-0 truncate text-token-conversation-summary-leading group-hover/activity-header:text-token-foreground _cadencedShimmerActive_18j3y_46"<br>  #text "已编辑 1 个文件"<br>  span class="_cadencedShimmerSweep_18j3y_12" aria-hidden="true"<br>    span class="_cadencedShimmerHighlight_18j3y_37"<br>      #text "已编辑 1 个文件" |
-| running activity body present | ok | div class="flex flex-col gap-2 pt-2 pb-1 pl-6"<br>  div class="text-size-chat text-token-text-secondary"<br>    #text "frontend/src/codex-panel.js"<br>  div class="text-size-chat text-token-text-secondary"<br>    #text "scripts/audit-codex-dynamic-states.cjs" |
+| running activity body present | ok | div class="flex flex-col gap-2 pt-2 pb-1 pl-6"<br>  div class="text-size-chat text-token-text-secondary"<br>    #text "frontend/src/pages/codex/index.js"<br>  div class="text-size-chat text-token-text-secondary"<br>    #text "scripts/audit-codex-dynamic-states.cjs" |
+| composer placeholder is not editable text | ok | {"found":true,"text":"","empty":"true","html":"<p><br class=\"ProseMirror-trailingBreak\"></p>","placeholder":"\"要求后续变更\"","sendReady":false,"sendOpacity":"0.5","sendAriaDisabled":""} |
+| empty composer delete keeps placeholder state | ok | {"found":true,"text":"","empty":"true","html":"<p><br class=\"ProseMirror-trailingBreak\"></p>","placeholder":"\"要求后续变更\"","sendReady":false,"sendOpacity":"0.5","sendAriaDisabled":"","defaultPrevented":true,"dispatchResult":false} |
+| composer typed text is visible text | ok | {"found":true,"text":"hello codex","empty":"false","html":"hello codex","placeholder":"none","sendReady":true,"sendOpacity":"1","sendAriaDisabled":""} |
+| send button becomes ready with text | ok | {"found":true,"text":"hello codex","empty":"false","html":"hello codex","placeholder":"none","sendReady":true,"sendOpacity":"1","sendAriaDisabled":""} |
+| send button resets when composer is cleared | ok | {"found":true,"text":"","empty":"true","html":"<p><br class=\"ProseMirror-trailingBreak\"></p>","placeholder":"\"要求后续变更\"","sendReady":false,"sendOpacity":"0.5","sendAriaDisabled":""} |
 
 ## DOM Signatures
 
@@ -59,5 +64,54 @@ button class="group/activity-header inline-flex min-w-0 max-w-full self-start it
           #text "已编辑 1 个文件"
   svg class="[object SVGAnimatedString]"
     path class="[object SVGAnimatedString]"
+```
+
+### Composer
+
+```json
+{
+  "initial": {
+    "found": true,
+    "text": "",
+    "empty": "true",
+    "html": "<p><br class=\"ProseMirror-trailingBreak\"></p>",
+    "placeholder": "\"要求后续变更\"",
+    "sendReady": false,
+    "sendOpacity": "0.5",
+    "sendAriaDisabled": ""
+  },
+  "afterDelete": {
+    "found": true,
+    "text": "",
+    "empty": "true",
+    "html": "<p><br class=\"ProseMirror-trailingBreak\"></p>",
+    "placeholder": "\"要求后续变更\"",
+    "sendReady": false,
+    "sendOpacity": "0.5",
+    "sendAriaDisabled": "",
+    "defaultPrevented": true,
+    "dispatchResult": false
+  },
+  "afterType": {
+    "found": true,
+    "text": "hello codex",
+    "empty": "false",
+    "html": "hello codex",
+    "placeholder": "none",
+    "sendReady": true,
+    "sendOpacity": "1",
+    "sendAriaDisabled": ""
+  },
+  "afterClear": {
+    "found": true,
+    "text": "",
+    "empty": "true",
+    "html": "<p><br class=\"ProseMirror-trailingBreak\"></p>",
+    "placeholder": "\"要求后续变更\"",
+    "sendReady": false,
+    "sendOpacity": "0.5",
+    "sendAriaDisabled": ""
+  }
+}
 ```
 

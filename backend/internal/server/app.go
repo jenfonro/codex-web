@@ -110,10 +110,11 @@ func (a *App) staticHandler() http.Handler {
 			r.URL.Path = "/"
 			path = "index.html"
 		}
-		w.Header().Set("Cache-Control", "no-store, max-age=0")
-		w.Header().Set("Clear-Site-Data", `"cache"`)
-		w.Header().Set("Pragma", "no-cache")
-		w.Header().Set("Expires", "0")
+		if path == "index.html" {
+			w.Header().Set("Cache-Control", "no-cache")
+		} else {
+			w.Header().Set("Cache-Control", "public, max-age=3600")
+		}
 		if ctype := mime.TypeByExtension(filepath.Ext(path)); ctype != "" {
 			w.Header().Set("Content-Type", ctype)
 		}

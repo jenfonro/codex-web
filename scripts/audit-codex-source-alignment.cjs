@@ -10,9 +10,14 @@ const outJSON = path.join(outDir, "source-alignment-audit.json");
 const outMD = path.join(outDir, "source-alignment-audit.md");
 
 const localFiles = [
-  "frontend/src/codex-panel.js",
-  "frontend/src/codex-panel-shadow.css",
-  "frontend/src/codex-panel.css",
+  "frontend/src/pages/codex/index.js",
+  "frontend/src/pages/codex/api.js",
+  "frontend/src/pages/codex/config.js",
+  "frontend/src/pages/codex/fixtures.js",
+  "frontend/src/pages/codex/renderer.js",
+  "frontend/src/pages/codex/utils.js",
+  "frontend/src/pages/codex/panel-shadow.css",
+  "frontend/src/pages/codex/panel.css",
 ];
 
 const localAssetDir = "frontend/src/assets/chatgpt";
@@ -33,10 +38,9 @@ const allowedLocalClasses = new Set([
   "codex-floating-menu-approval",
   "codex-floating-menu-model",
   "codex-home-watermark",
+  "codex-panel-frame",
   "codex-send-ready",
   "codex-sidebar-content",
-  "codex-webview",
-  "codex-webview-frame",
   "light",
   "vscode-light",
 ]);
@@ -45,6 +49,7 @@ const allowedLocalDataAttrs = new Set([
   "data-action",
   "data-codex-archive-button",
   "data-codex-composer",
+  "data-codex-empty",
   "data-codex-intelligence-trigger",
   "data-codex-os",
   "data-codex-panel-root",
@@ -207,7 +212,8 @@ function compareLocalAssets() {
   const officialDir = path.join(repoRoot, officialAssetDir);
   if (!fs.existsSync(localDir) || !fs.existsSync(officialDir)) return [];
   return fs.readdirSync(localDir)
-    .filter((name) => name.endsWith(".css") && name !== "codex-webview-vars.css")
+    .filter((name) => name.endsWith(".css"))
+    .filter((name) => name !== "codex-panel-vars.css" && name !== "codex-panel-bundle.css")
     .sort()
     .map((name) => {
       const localPath = path.join(localDir, name);

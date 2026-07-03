@@ -217,8 +217,8 @@ function canonicalSource() {
       /^data-radix-collection-item$/,
       /^data-radix-focus-guard$/,
     ];
-    const focusOnlyClasses = new Set(["ProseMirror-focused", "codex-send-ready"]);
-    const adapterAttrs = new Set(["data-popover", "data-action"]);
+    const focusOnlyClasses = new Set(["ProseMirror-focused", "codex-send-ready", "placeholder"]);
+    const adapterAttrs = new Set(["data-popover", "data-action", "data-codex-empty", "data-placeholder"]);
     const volatileStyleProps = new Set(["--radix-dropdown-menu-content-transform-origin", "--radix-dropdown-menu-content-available-width", "--radix-dropdown-menu-content-available-height", "--radix-dropdown-menu-trigger-width", "--radix-dropdown-menu-trigger-height"]);
     const lines = [];
     let truncated = false;
@@ -256,6 +256,7 @@ function canonicalSource() {
         if (shouldSkipAttr(name)) continue;
         let value = attr.value;
         if (name === "class") value = normalizeClass(value);
+        if (name === "class" && !value) continue;
         if (name === "style") value = normalizeStyle(value);
         if (name === "style" && !value) continue;
         attrs.push([name, value]);

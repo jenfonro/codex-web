@@ -1,6 +1,6 @@
 # Codex Computed Style Audit
 
-Generated: 2026-07-03T18:19:13.207Z
+Generated: 2026-07-03T20:44:16.471Z
 
 Compares local runtime computed styles against captured code-server ChatGPT/Codex extension computed styles. Screenshots are not used.
 

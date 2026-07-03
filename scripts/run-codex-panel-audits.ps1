@@ -31,7 +31,21 @@ try {
 
   Set-Location -LiteralPath $RepoRoot
 
-  Invoke-Step "node syntax: codex-panel.js" { node --check "frontend\src\codex-panel.js" }
+  Invoke-Step "node syntax: codex page" { node --check "frontend\src\pages\codex\index.js" }
+  Invoke-Step "node syntax: frontend modules" {
+    foreach ($File in @(
+      "frontend\src\pages\codex\config.js",
+      "frontend\src\pages\codex\utils.js",
+      "frontend\src\pages\codex\api.js",
+      "frontend\src\pages\codex\fixtures.js",
+      "frontend\src\pages\codex\renderer.js",
+      "frontend\src\app\shell.js",
+      "frontend\src\store\codex.js"
+    )) {
+      node --check $File
+      if ($LASTEXITCODE -ne 0) { throw "$File failed syntax check" }
+    }
+  }
   Invoke-Step "node syntax: source audit" { node --check "scripts\audit-codex-source-alignment.cjs" }
   Invoke-Step "node syntax: DOM audit" { node --check "scripts\audit-codex-dom-structure.cjs" }
   Invoke-Step "node syntax: markup audit" { node --check "scripts\audit-codex-markup-alignment.cjs" }

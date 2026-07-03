@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T18:19:14.369Z",
+  "generatedAt": "2026-07-03T20:44:17.865Z",
   "basis": "Dynamic state audit for thinking shimmer and running tool activity. Source snippets come from official extension JS/CSS; DOM comes from the local panel fixture.",
   "fixtureURL": "http://127.0.0.1:58888/?codexFixture=dynamic",
   "sourceFiles": [
@@ -152,9 +152,9 @@
       "found": true,
       "tagName": "div",
       "className": "flex flex-col gap-2 pt-2 pb-1 pl-6",
-      "text": "frontend/src/codex-panel.js scripts/audit-codex-dynamic-states.cjs",
+      "text": "frontend/src/pages/codex/index.js scripts/audit-codex-dynamic-states.cjs",
       "ariaExpanded": null,
-      "signature": "div class=\"flex flex-col gap-2 pt-2 pb-1 pl-6\"\n  div class=\"text-size-chat text-token-text-secondary\"\n    #text \"frontend/src/codex-panel.js\"\n  div class=\"text-size-chat text-token-text-secondary\"\n    #text \"scripts/audit-codex-dynamic-states.cjs\""
+      "signature": "div class=\"flex flex-col gap-2 pt-2 pb-1 pl-6\"\n  div class=\"text-size-chat text-token-text-secondary\"\n    #text \"frontend/src/pages/codex/index.js\"\n  div class=\"text-size-chat text-token-text-secondary\"\n    #text \"scripts/audit-codex-dynamic-states.cjs\""
     },
     "headers": [
       {
@@ -168,10 +168,54 @@
     ],
     "activeShimmerCount": 2,
     "shimmerCount": 2,
-    "headerCount": 1
+    "headerCount": 1,
+    "composer": {
+      "initial": {
+        "found": true,
+        "text": "",
+        "empty": "true",
+        "html": "<p><br class=\"ProseMirror-trailingBreak\"></p>",
+        "placeholder": "\"要求后续变更\"",
+        "sendReady": false,
+        "sendOpacity": "0.5",
+        "sendAriaDisabled": ""
+      },
+      "afterDelete": {
+        "found": true,
+        "text": "",
+        "empty": "true",
+        "html": "<p><br class=\"ProseMirror-trailingBreak\"></p>",
+        "placeholder": "\"要求后续变更\"",
+        "sendReady": false,
+        "sendOpacity": "0.5",
+        "sendAriaDisabled": "",
+        "defaultPrevented": true,
+        "dispatchResult": false
+      },
+      "afterType": {
+        "found": true,
+        "text": "hello codex",
+        "empty": "false",
+        "html": "hello codex",
+        "placeholder": "none",
+        "sendReady": true,
+        "sendOpacity": "1",
+        "sendAriaDisabled": ""
+      },
+      "afterClear": {
+        "found": true,
+        "text": "",
+        "empty": "true",
+        "html": "<p><br class=\"ProseMirror-trailingBreak\"></p>",
+        "placeholder": "\"要求后续变更\"",
+        "sendReady": false,
+        "sendOpacity": "0.5",
+        "sendAriaDisabled": ""
+      }
+    }
   },
   "summary": {
-    "checks": 21,
+    "checks": 26,
     "failed": 0
   },
   "checks": [
@@ -278,7 +322,32 @@
     {
       "name": "running activity body present",
       "ok": true,
-      "details": "div class=\"flex flex-col gap-2 pt-2 pb-1 pl-6\"\n  div class=\"text-size-chat text-token-text-secondary\"\n    #text \"frontend/src/codex-panel.js\"\n  div class=\"text-size-chat text-token-text-secondary\"\n    #text \"scripts/audit-codex-dynamic-states.cjs\""
+      "details": "div class=\"flex flex-col gap-2 pt-2 pb-1 pl-6\"\n  div class=\"text-size-chat text-token-text-secondary\"\n    #text \"frontend/src/pages/codex/index.js\"\n  div class=\"text-size-chat text-token-text-secondary\"\n    #text \"scripts/audit-codex-dynamic-states.cjs\""
+    },
+    {
+      "name": "composer placeholder is not editable text",
+      "ok": true,
+      "details": "{\"found\":true,\"text\":\"\",\"empty\":\"true\",\"html\":\"<p><br class=\\\"ProseMirror-trailingBreak\\\"></p>\",\"placeholder\":\"\\\"要求后续变更\\\"\",\"sendReady\":false,\"sendOpacity\":\"0.5\",\"sendAriaDisabled\":\"\"}"
+    },
+    {
+      "name": "empty composer delete keeps placeholder state",
+      "ok": true,
+      "details": "{\"found\":true,\"text\":\"\",\"empty\":\"true\",\"html\":\"<p><br class=\\\"ProseMirror-trailingBreak\\\"></p>\",\"placeholder\":\"\\\"要求后续变更\\\"\",\"sendReady\":false,\"sendOpacity\":\"0.5\",\"sendAriaDisabled\":\"\",\"defaultPrevented\":true,\"dispatchResult\":false}"
+    },
+    {
+      "name": "composer typed text is visible text",
+      "ok": true,
+      "details": "{\"found\":true,\"text\":\"hello codex\",\"empty\":\"false\",\"html\":\"hello codex\",\"placeholder\":\"none\",\"sendReady\":true,\"sendOpacity\":\"1\",\"sendAriaDisabled\":\"\"}"
+    },
+    {
+      "name": "send button becomes ready with text",
+      "ok": true,
+      "details": "{\"found\":true,\"text\":\"hello codex\",\"empty\":\"false\",\"html\":\"hello codex\",\"placeholder\":\"none\",\"sendReady\":true,\"sendOpacity\":\"1\",\"sendAriaDisabled\":\"\"}"
+    },
+    {
+      "name": "send button resets when composer is cleared",
+      "ok": true,
+      "details": "{\"found\":true,\"text\":\"\",\"empty\":\"true\",\"html\":\"<p><br class=\\\"ProseMirror-trailingBreak\\\"></p>\",\"placeholder\":\"\\\"要求后续变更\\\"\",\"sendReady\":false,\"sendOpacity\":\"0.5\",\"sendAriaDisabled\":\"\"}"
     }
   ]
 }

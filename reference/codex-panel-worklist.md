@@ -88,6 +88,16 @@
 - [x] DOM and markup audit scripts previously wrote reports but could exit successfully when non-exact rows appeared. They now print failing components and return nonzero, so verification cannot silently accept drift.
 - [x] Manual CDP audit runs were easy to contaminate by parallel scripts or the active user browser. Added a single audit runner that starts a temporary headless Chrome, runs audits in order, and tears it down.
 
+## Structure Refactor Notes
+- [x] Split the static Codex panel runtime out of the single large `frontend/src/codex-panel.js` file into focused runtime files under `frontend/src/codex-panel/`: `config.js`, `utils.js`, `api.js`, `fixtures.js`, and `renderer.js`.
+- [x] Replaced the stale `frontend/src/app.js` explorer/demo script with `frontend/src/shell.js`, which only owns platform class detection and sidebar resizing.
+- [x] Renamed the local panel wrapper from `codex-webview` to `codex-panel-frame`, and renamed the local variable stylesheet from `codex-webview-vars.css` to `codex-panel-vars.css`.
+- [x] Kept official extension DOM/classes and copied CSS assets intact for visual parity; the refactor only changes our local runtime organization and adapter naming.
+- [x] Tested a combined CSS bundle and rejected it because it changed Tailwind layer/cascade behavior and produced computed-style radius drift. Runtime continues to load the copied local CSS assets in the proven order.
+- [x] Removed the remote `sourceMappingURL` hint from the local code-server workbench CSS so local devtools do not reference `main.vscode-cdn.net`.
+- [x] Changed static serving headers: `index.html` uses `Cache-Control: no-cache`, static assets use `Cache-Control: public, max-age=3600`, and `Clear-Site-Data` is no longer sent for every asset.
+- [x] Rebuilt, restarted, and re-ran source, shell, DOM, markup, computed, dynamic, Go, screenshot, and visual-diff verification after the refactor.
+
 ## Latest Verification
 - Syntax: `node --check frontend/src/codex-panel.js`, `node --check scripts/capture-chatgpt-extension-source.cjs`, `node --check scripts/audit-codex-source-alignment.cjs`, `node --check scripts/audit-codex-dynamic-states.cjs`, `node --check scripts/audit-codex-dom-structure.cjs`, `node --check scripts/audit-codex-markup-alignment.cjs`, `node --check scripts/audit-codex-computed-styles.cjs`, `node --check scripts/verify-codex-panel-cdp.cjs`, `python -m py_compile scripts/verify-codex-panel-playwright.py`, and PowerShell parse check for `scripts/audit-codex-visual-diff.ps1`.
 - Unified audit runner: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-codex-panel-audits.ps1 -CdpPort 9338` passed after the latest rebuild/restart; it runs source, shell, DOM, markup, computed-style, and dynamic audits serially in a temporary Chrome.

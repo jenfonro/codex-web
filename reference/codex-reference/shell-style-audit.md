@@ -1,6 +1,6 @@
 # Code-Server Shell Style Audit
 
-Generated: 2026-07-03T18:19:01.251165Z
+Generated: 2026-07-03T20:44:05.169063Z
 
 Compares current Codex Web shell geometry/computed styles against captured code-server top-level runtime styles.
 
@@ -35,6 +35,12 @@ Compares current Codex Web shell geometry/computed styles against captured code-
 | `.activitybar .action-label` | 5 | `exact` |  |
 | `.activitybar .action-label` | 6 | `exact` |  |
 | `.activitybar .action-label` | 7 | `exact` |  |
+
+## Local Interaction Rules
+
+| Rule | Selector | Status | Differences |
+| --- | --- | --- | --- |
+| `sidebarResizeHandle` | `.sidebar-resize-handle` | `exact` |  |
 
 ## Rule
 

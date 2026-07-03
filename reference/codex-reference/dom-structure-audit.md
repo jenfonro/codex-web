@@ -1,6 +1,6 @@
 # Codex DOM Structure Audit
 
-Generated: 2026-07-03T18:19:02.961Z
+Generated: 2026-07-03T20:44:06.674Z
 
 This audit compares captured extension DOM against the current local Shadow DOM by tag/class/selected attributes. Screenshots are not used as evidence.
 

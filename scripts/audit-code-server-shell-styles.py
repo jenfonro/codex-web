@@ -38,6 +38,8 @@ SELECTORS = {
     "activityLabel": ".activitybar .action-label",
 }
 
+SIDEBAR_RESIZE_HANDLE_SELECTOR = ".sidebar-resize-handle"
+
 STYLE_PROPS = [
     "display",
     "position",
@@ -113,7 +115,7 @@ def collect_current() -> dict:
         page = context.new_page()
         page.goto(APP_URL, wait_until="load", timeout=15000)
         page.wait_for_timeout(800)
-        current = page.evaluate(
+        rows = page.evaluate(
             """([selectors, props]) => {
                 const out = {};
                 for (const [name, selector] of Object.entries(selectors)) {
@@ -145,8 +147,51 @@ def collect_current() -> dict:
             }""",
             [SELECTORS, STYLE_PROPS],
         )
+        local_rules = page.evaluate(
+            """(selector) => {
+                const element = document.querySelector(selector);
+                if (!element) return { present: false };
+                const base = getComputedStyle(element);
+                const baseBefore = getComputedStyle(element, "::before");
+                return {
+                    present: true,
+                    baseBackgroundColor: base.backgroundColor,
+                    baseBeforeBackgroundColor: baseBefore.backgroundColor,
+                };
+            }""",
+            SIDEBAR_RESIZE_HANDLE_SELECTOR,
+        )
+        if local_rules.get("present"):
+            page.evaluate(
+                """(selector) => {
+                    document.querySelector(selector)?.classList.add("resizing");
+                }""",
+                SIDEBAR_RESIZE_HANDLE_SELECTOR,
+            )
+            page.wait_for_timeout(150)
+            resizing_before_background = page.evaluate(
+                """(selector) => {
+                    const element = document.querySelector(selector);
+                    return element ? getComputedStyle(element, "::before").backgroundColor : "";
+                }""",
+                SIDEBAR_RESIZE_HANDLE_SELECTOR,
+            )
+            page.evaluate(
+                """(selector) => {
+                    document.querySelector(selector)?.classList.remove("resizing");
+                }""",
+                SIDEBAR_RESIZE_HANDLE_SELECTOR,
+            )
+            local_rules["resizingBeforeBackgroundColor"] = resizing_before_background
+        else:
+            local_rules["resizingBeforeBackgroundColor"] = ""
         browser.close()
-    return {name: [normalize_row(row) for row in rows] for name, rows in current.items()}
+    return {
+        "rows": {name: [normalize_row(row) for row in values] for name, values in rows.items()},
+        "localRules": {
+            "sidebarResizeHandle": local_rules,
+        },
+    }
 
 
 def normalize_row(row: dict) -> dict:
@@ -160,7 +205,9 @@ def normalize_row(row: dict) -> dict:
     }
 
 
-def build_audit(reference: dict, current: dict) -> dict:
+def build_audit(reference: dict, current_payload: dict) -> dict:
+    current = current_payload.get("rows", {})
+    local_rules = build_local_rule_rows(current_payload.get("localRules", {}))
     rows = []
     actionable = 0
     missing = 0
@@ -176,6 +223,7 @@ def build_audit(reference: dict, current: dict) -> dict:
             actionable += len(result["differences"])
             if result["status"].startswith("missing"):
                 missing += 1
+    actionable += sum(len(row["differences"]) for row in local_rules)
     return {
         "generatedAt": iso_now(),
         "appUrl": APP_URL,
@@ -188,7 +236,35 @@ def build_audit(reference: dict, current: dict) -> dict:
             "missingRows": missing,
         },
         "rows": rows,
+        "localRules": local_rules,
     }
+
+
+def build_local_rule_rows(local_rules: dict) -> list[dict]:
+    sash = local_rules.get("sidebarResizeHandle") or {}
+    differences = []
+    if not sash.get("present"):
+        differences.append({"property": "presence", "expected": "present", "actual": "missing"})
+    else:
+        transparent = "rgba(0, 0, 0, 0)"
+        blue = "rgb(0, 105, 204)"
+        checks = [
+            ("baseBackgroundColor", transparent, sash.get("baseBackgroundColor")),
+            ("baseBeforeBackgroundColor", transparent, sash.get("baseBeforeBackgroundColor")),
+            ("resizingBeforeBackgroundColor", blue, sash.get("resizingBeforeBackgroundColor")),
+        ]
+        for prop, expected, actual in checks:
+            if normalize_style_value(actual) != expected:
+                differences.append({"property": prop, "expected": expected, "actual": normalize_style_value(actual)})
+    return [
+        {
+            "name": "sidebarResizeHandle",
+            "selector": SIDEBAR_RESIZE_HANDLE_SELECTOR,
+            "status": "exact" if not differences else "different",
+            "differences": differences,
+            "current": sash,
+        }
+    ]
 
 
 def compare_row(name: str, selector: str, index: int, ref: dict | None, cur: dict | None) -> dict:
@@ -265,6 +341,19 @@ def render_markdown(audit: dict) -> str:
         if len(row["differences"]) > len(first):
             detail += f"<br>... +{len(row['differences']) - len(first)} more"
         lines.append(f"| `{row['selector']}` | {row['index']} | `{row['status']}` | {detail} |")
+    lines.extend([
+        "",
+        "## Local Interaction Rules",
+        "",
+        "| Rule | Selector | Status | Differences |",
+        "| --- | --- | --- | --- |",
+    ])
+    for row in audit.get("localRules", []):
+        detail = "<br>".join(
+            f"`{item['property']}`: expected `{item['expected']}`, got `{item['actual']}`"
+            for item in row["differences"]
+        )
+        lines.append(f"| `{row['name']}` | `{row['selector']}` | `{row['status']}` | {detail} |")
     lines.append("")
     lines.append("## Rule")
     lines.append("")

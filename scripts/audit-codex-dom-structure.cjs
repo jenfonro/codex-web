@@ -256,6 +256,7 @@ function signatureSource() {
     ];
     const ignoredClasses = new Set([
       "codex-send-ready",
+      "placeholder",
       "ProseMirror-focused",
     ]);
     function cleanClassName(value) {

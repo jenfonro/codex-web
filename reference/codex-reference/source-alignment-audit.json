@@ -1,11 +1,16 @@
 {
-  "generatedAt": "2026-07-03T18:18:59.045Z",
+  "generatedAt": "2026-07-03T20:44:02.617Z",
   "basis": "Static source alignment audit. Compares local component/CSS source against captured extension HTML and official extension CSS assets. Screenshots are not used.",
   "files": {
     "local": [
-      "frontend/src/codex-panel.js",
-      "frontend/src/codex-panel-shadow.css",
-      "frontend/src/codex-panel.css"
+      "frontend/src/pages/codex/index.js",
+      "frontend/src/pages/codex/api.js",
+      "frontend/src/pages/codex/config.js",
+      "frontend/src/pages/codex/fixtures.js",
+      "frontend/src/pages/codex/renderer.js",
+      "frontend/src/pages/codex/utils.js",
+      "frontend/src/pages/codex/panel-shadow.css",
+      "frontend/src/pages/codex/panel.css"
     ],
     "localAssetDir": "frontend/src/assets/chatgpt",
     "officialAssetDir": "reference/extension-source/openai.chatgpt-26.5623.31443/webview/assets",
@@ -20,10 +25,10 @@
   },
   "counts": {
     "referenceClassTokens": 4157,
-    "localClassTokens": 398,
+    "localClassTokens": 397,
     "referenceDataAttrs": 117,
-    "localDataAttrs": 43,
-    "localSelectors": 18,
+    "localDataAttrs": 44,
+    "localSelectors": 19,
     "assetIntegrity": 23
   },
   "assetIntegrity": [
@@ -1340,10 +1345,6 @@
       "source": "reference-or-official-css"
     },
     {
-      "name": "placeholder",
-      "source": "reference-or-official-css"
-    },
-    {
       "name": "pointer-events-auto",
       "source": "reference-or-official-css"
     },
@@ -1790,6 +1791,10 @@
       "source": "reference"
     },
     {
+      "name": "data-codex-empty",
+      "source": "local-behavior-allowlist"
+    },
+    {
       "name": "data-codex-intelligence-trigger",
       "source": "reference"
     },
@@ -1976,53 +1981,58 @@
       "source": "local-adapter-allowlist"
     },
     {
-      "selector": "#root > span.pointer-events-none.fixed.inset-0",
+      "selector": ".ProseMirror[data-codex-empty=\"true\"]::before",
       "line": 96,
+      "source": "official-class-target"
+    },
+    {
+      "selector": "#root > span.pointer-events-none.fixed.inset-0",
+      "line": 110,
       "source": "local-adapter-allowlist"
     },
     {
       "selector": ".codex-error-message",
-      "line": 100,
+      "line": 114,
       "source": "local-adapter-allowlist"
     },
     {
       "selector": ".codex-chevron-right",
-      "line": 104,
+      "line": 118,
       "source": "local-adapter-allowlist"
     },
     {
       "selector": "[data-composer-overlay-floating-ui]",
-      "line": 108,
+      "line": 122,
       "source": "local-adapter-allowlist"
     },
     {
       "selector": ".codex-floating-menu",
-      "line": 112,
+      "line": 126,
       "source": "local-adapter-allowlist"
     },
     {
       "selector": ".codex-floating-menu-approval",
-      "line": 120,
+      "line": 134,
       "source": "local-adapter-allowlist"
     },
     {
       "selector": ".codex-floating-menu-model",
-      "line": 124,
+      "line": 138,
       "source": "local-adapter-allowlist"
     },
     {
       "selector": "._content_1hiti_1",
-      "line": 128,
+      "line": 142,
       "source": "local-adapter-allowlist"
     },
     {
       "selector": ".codex-sidebar-content",
-      "line": 135,
+      "line": 149,
       "source": "local-adapter-allowlist"
     },
     {
       "selector": "#codexPanel",
-      "line": 139,
+      "line": 153,
       "source": "local-adapter-allowlist"
     }
   ],
@@ -2039,10 +2049,9 @@
       "codex-floating-menu-approval",
       "codex-floating-menu-model",
       "codex-home-watermark",
+      "codex-panel-frame",
       "codex-send-ready",
       "codex-sidebar-content",
-      "codex-webview",
-      "codex-webview-frame",
       "light",
       "vscode-light"
     ],
@@ -2050,6 +2059,7 @@
       "data-action",
       "data-codex-archive-button",
       "data-codex-composer",
+      "data-codex-empty",
       "data-codex-intelligence-trigger",
       "data-codex-os",
       "data-codex-panel-root",

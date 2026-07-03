@@ -1,6 +1,6 @@
 ﻿{
-    "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-022039-local-codex-panel-playwright",
-    "generatedAt":  "2026-07-03T18:21:07.3132657Z",
+    "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-035934-local-codex-panel-playwright",
+    "generatedAt":  "2026-07-03T20:17:58.7582244Z",
     "rows":  [
                  {
                      "referenceDir":  "20260702-184840-codex-session-list-wide-611",
@@ -29,7 +29,7 @@
                                    "referenceWidth":  610,
                                    "comparedPixels":  544730
                                },
-                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-022039-local-codex-panel-playwright"
+                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-035934-local-codex-panel-playwright"
                  },
                  {
                      "referenceDir":  "20260702-185302-codex-thread-wide-611",
@@ -58,7 +58,7 @@
                                    "referenceWidth":  610,
                                    "comparedPixels":  544730
                                },
-                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-022039-local-codex-panel-playwright"
+                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-035934-local-codex-panel-playwright"
                  },
                  {
                      "referenceDir":  "20260702-185715-codex-thread-plus-menu-wide-611-stable",
@@ -87,7 +87,7 @@
                                    "referenceWidth":  579,
                                    "comparedPixels":  517047
                                },
-                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-022039-local-codex-panel-playwright"
+                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-035934-local-codex-panel-playwright"
                  },
                  {
                      "referenceDir":  "20260702-185942-codex-thread-approval-menu-wide-stable",
@@ -116,7 +116,7 @@
                                    "referenceWidth":  579,
                                    "comparedPixels":  517047
                                },
-                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-022039-local-codex-panel-playwright"
+                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-035934-local-codex-panel-playwright"
                  },
                  {
                      "referenceDir":  "20260702-190248-codex-thread-model-menu-right-wide-stable",
@@ -145,7 +145,7 @@
                                    "referenceWidth":  579,
                                    "comparedPixels":  517047
                                },
-                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-022039-local-codex-panel-playwright"
+                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-035934-local-codex-panel-playwright"
                  }
              ],
     "threshold":  6

@@ -1,12 +1,12 @@
 # Codex Source Alignment Audit
 
-Generated: 2026-07-03T18:18:59.045Z
+Generated: 2026-07-03T20:44:02.617Z
 
 Static source alignment audit. Compares local component/CSS source against captured extension HTML and official extension CSS assets. Screenshots are not used.
 
 ## Summary
 
-- Local class tokens: 398
+- Local class tokens: 397
 - Reference/official class tokens: 4157
 - Unexplained local class tokens: 0
 - Unexplained local data attrs: 0
@@ -66,10 +66,9 @@ None.
 | `codex-floating-menu-approval` |
 | `codex-floating-menu-model` |
 | `codex-home-watermark` |
+| `codex-panel-frame` |
 | `codex-send-ready` |
 | `codex-sidebar-content` |
-| `codex-webview` |
-| `codex-webview-frame` |
 | `light` |
 | `vscode-light` |
 
@@ -80,6 +79,7 @@ None.
 | `data-action` |
 | `data-codex-archive-button` |
 | `data-codex-composer` |
+| `data-codex-empty` |
 | `data-codex-intelligence-trigger` |
 | `data-codex-os` |
 | `data-codex-panel-root` |

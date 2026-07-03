@@ -72,6 +72,7 @@ async function main() {
     await waitForShadow(page, "._cadencedShimmer_18j3y_1");
     await waitForShadow(page, "._cadencedShimmerActive_18j3y_46", 3000);
     dom = await evalPage(page, dynamicDOMExpression());
+    dom.composer = await evalPage(page, composerDOMExpression());
   } finally {
     page.close();
   }
@@ -85,6 +86,11 @@ async function main() {
     { name: "running activity is expanded", ok: dom.activityHeader.ariaExpanded === "true", details: `aria-expanded=${dom.activityHeader.ariaExpanded}` },
     { name: "running activity shimmer source classes present", ok: dom.activityShimmer.found, details: dom.activityShimmer.signature },
     { name: "running activity body present", ok: dom.activityBody.found, details: dom.activityBody.signature },
+    { name: "composer placeholder is not editable text", ok: dom.composer.initial.text === "" && dom.composer.initial.empty === "true", details: JSON.stringify(dom.composer.initial) },
+    { name: "empty composer delete keeps placeholder state", ok: dom.composer.afterDelete.defaultPrevented && dom.composer.afterDelete.text === "" && dom.composer.afterDelete.empty === "true", details: JSON.stringify(dom.composer.afterDelete) },
+    { name: "composer typed text is visible text", ok: dom.composer.afterType.text === "hello codex" && dom.composer.afterType.empty === "false", details: JSON.stringify(dom.composer.afterType) },
+    { name: "send button becomes ready with text", ok: dom.composer.afterType.sendReady && dom.composer.afterType.sendOpacity === "1", details: JSON.stringify(dom.composer.afterType) },
+    { name: "send button resets when composer is cleared", ok: !dom.composer.afterClear.sendReady && dom.composer.afterClear.empty === "true", details: JSON.stringify(dom.composer.afterClear) },
   ];
 
   const report = {
@@ -107,6 +113,53 @@ async function main() {
   console.log(outJSON);
   console.log(outMD);
   if (report.summary.failed > 0) process.exitCode = 1;
+}
+
+function composerDOMExpression() {
+  return `(async () => {
+    const root = document.querySelector("#codexPanel")?.shadowRoot;
+    const input = root?.querySelector("[data-codex-composer]");
+    const send = root?.querySelector("[data-action='send']");
+    function state() {
+      return {
+        found: !!input,
+        text: (input?.innerText || input?.textContent || "").replace(/\\s+/g, " ").trim(),
+        empty: input?.getAttribute("data-codex-empty") || "",
+        html: input?.innerHTML || "",
+        placeholder: input ? getComputedStyle(input, "::before").content : "",
+        sendReady: !!send?.classList.contains("codex-send-ready"),
+        sendOpacity: send ? getComputedStyle(send).opacity : "",
+        sendAriaDisabled: send?.getAttribute("aria-disabled") || "",
+      };
+    }
+    const initial = state();
+    input?.focus();
+    const deleteEvent = new InputEvent("beforeinput", {
+      inputType: "deleteContentBackward",
+      bubbles: true,
+      cancelable: true,
+    });
+    const deleteDispatchResult = input?.dispatchEvent(deleteEvent);
+    input?.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
+    const afterDelete = {
+      ...state(),
+      defaultPrevented: deleteEvent.defaultPrevented,
+      dispatchResult: deleteDispatchResult,
+    };
+    if (input) {
+      input.textContent = "hello codex";
+      input.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: "hello codex" }));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    const afterType = state();
+    if (input) {
+      input.textContent = "";
+      input.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    const afterClear = state();
+    return { initial, afterDelete, afterType, afterClear };
+  })()`;
 }
 
 function readSourceEvidence() {
@@ -236,6 +289,12 @@ function renderMarkdown(report) {
     "",
     "```text",
     report.dom.activityHeader.signature || "",
+    "```",
+    "",
+    "### Composer",
+    "",
+    "```json",
+    JSON.stringify(report.dom.composer || {}, null, 2),
     "```",
     "",
   );

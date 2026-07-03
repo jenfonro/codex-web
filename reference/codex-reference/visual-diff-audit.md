@@ -1,11 +1,11 @@
 ﻿# Codex Visual Diff Audit
 
-Generated: 2026-07-03T18:21:07.3132657Z
+Generated: 2026-07-03T20:17:58.7582244Z
 
 Compares captured code-server reference screenshots against the latest local Codex Web screenshots. This is an auxiliary visual audit; source, DOM, markup, and computed-style audits remain the primary exactness gates.
 
 - Threshold: max channel delta > 6 counts as different.
-- Local capture: C:\Users\79917\Desktop\codex\codex-web\reference\windows-captures\20260704-022039-local-codex-panel-playwright
+- Local capture: C:\Users\79917\Desktop\codex\codex-web\reference\windows-captures\20260704-035934-local-codex-panel-playwright
 
 | View | Layer | Size | Different Pixels | Different % | Mean Channel Delta | Max Channel Delta | Diff |
 | --- | --- | --- | ---: | ---: | ---: | ---: | --- |
