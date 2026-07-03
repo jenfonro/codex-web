@@ -21,6 +21,7 @@ fi
 GOCACHE_DIR="${ROOT_ABS}/build/tmp/go-cache"
 mkdir -p "${GOCACHE_DIR}" "${BUILD_DIR}"
 export GOCACHE="${GOCACHE_DIR}"
+GOEXE="$(go env GOEXE)"
 
 if [[ "${CODEX_WEB_GO_LOCAL_CACHE:-}" == "1" ]]; then
   GOMODCACHE_DIR="${ROOT_ABS}/build/tmp/go-mod-cache"
@@ -32,13 +33,13 @@ fi
 
 (
   cd "${BACKEND_DIR}"
-  go build -buildvcs=false -o "../build/codex-web" ./cmd/codex-web
+  go build -buildvcs=false -o "../build/codex-web${GOEXE}" ./cmd/codex-web
 )
 
 (
   cd "${AGENT_DIR}"
-  go build -buildvcs=false -o "../build/codex-agent" .
+  go build -buildvcs=false -o "../build/codex-agent${GOEXE}" .
 )
 
-echo "built: ${BUILD_DIR}/codex-web"
-echo "built: ${BUILD_DIR}/codex-agent"
+echo "built: ${BUILD_DIR}/codex-web${GOEXE}"
+echo "built: ${BUILD_DIR}/codex-agent${GOEXE}"

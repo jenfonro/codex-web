@@ -1,0 +1,152 @@
+﻿{
+    "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-022039-local-codex-panel-playwright",
+    "generatedAt":  "2026-07-03T18:21:07.3132657Z",
+    "rows":  [
+                 {
+                     "referenceDir":  "20260702-184840-codex-session-list-wide-611",
+                     "shell":  {
+                                   "width":  700,
+                                   "height":  985,
+                                   "diff":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\codex-reference\\visual-diffs\\list-shell-diff.png",
+                                   "differentPercent":  1.818,
+                                   "meanChannelDelta":  0.6061,
+                                   "differentPixels":  12535,
+                                   "referenceHeight":  985,
+                                   "maxChannelDelta":  249,
+                                   "referenceWidth":  700,
+                                   "comparedPixels":  689500
+                               },
+                     "name":  "list",
+                     "panel":  {
+                                   "width":  610,
+                                   "height":  893,
+                                   "diff":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\codex-reference\\visual-diffs\\list-panel-diff.png",
+                                   "differentPercent":  1.3502,
+                                   "meanChannelDelta":  0.5224,
+                                   "differentPixels":  7355,
+                                   "referenceHeight":  893,
+                                   "maxChannelDelta":  221,
+                                   "referenceWidth":  610,
+                                   "comparedPixels":  544730
+                               },
+                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-022039-local-codex-panel-playwright"
+                 },
+                 {
+                     "referenceDir":  "20260702-185302-codex-thread-wide-611",
+                     "shell":  {
+                                   "width":  700,
+                                   "height":  985,
+                                   "diff":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\codex-reference\\visual-diffs\\thread-shell-diff.png",
+                                   "differentPercent":  13.3999,
+                                   "meanChannelDelta":  5.1833,
+                                   "differentPixels":  92392,
+                                   "referenceHeight":  985,
+                                   "maxChannelDelta":  250,
+                                   "referenceWidth":  700,
+                                   "comparedPixels":  689500
+                               },
+                     "name":  "thread",
+                     "panel":  {
+                                   "width":  610,
+                                   "height":  893,
+                                   "diff":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\codex-reference\\visual-diffs\\thread-panel-diff.png",
+                                   "differentPercent":  15.667,
+                                   "meanChannelDelta":  5.7703,
+                                   "differentPixels":  85343,
+                                   "referenceHeight":  893,
+                                   "maxChannelDelta":  250,
+                                   "referenceWidth":  610,
+                                   "comparedPixels":  544730
+                               },
+                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-022039-local-codex-panel-playwright"
+                 },
+                 {
+                     "referenceDir":  "20260702-185715-codex-thread-plus-menu-wide-611-stable",
+                     "shell":  {
+                                   "width":  700,
+                                   "height":  985,
+                                   "diff":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\codex-reference\\visual-diffs\\plus-shell-diff.png",
+                                   "differentPercent":  3.1021,
+                                   "meanChannelDelta":  1.5242,
+                                   "differentPixels":  21389,
+                                   "referenceHeight":  985,
+                                   "maxChannelDelta":  255,
+                                   "referenceWidth":  700,
+                                   "comparedPixels":  689500
+                               },
+                     "name":  "plus",
+                     "panel":  {
+                                   "width":  579,
+                                   "height":  893,
+                                   "diff":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\codex-reference\\visual-diffs\\plus-panel-diff.png",
+                                   "differentPercent":  2.7032,
+                                   "meanChannelDelta":  1.1416,
+                                   "differentPixels":  13977,
+                                   "referenceHeight":  893,
+                                   "maxChannelDelta":  255,
+                                   "referenceWidth":  579,
+                                   "comparedPixels":  517047
+                               },
+                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-022039-local-codex-panel-playwright"
+                 },
+                 {
+                     "referenceDir":  "20260702-185942-codex-thread-approval-menu-wide-stable",
+                     "shell":  {
+                                   "width":  700,
+                                   "height":  985,
+                                   "diff":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\codex-reference\\visual-diffs\\approval-shell-diff.png",
+                                   "differentPercent":  3.3845,
+                                   "meanChannelDelta":  1.757,
+                                   "differentPixels":  23336,
+                                   "referenceHeight":  985,
+                                   "maxChannelDelta":  250,
+                                   "referenceWidth":  700,
+                                   "comparedPixels":  689500
+                               },
+                     "name":  "approval",
+                     "panel":  {
+                                   "width":  579,
+                                   "height":  893,
+                                   "diff":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\codex-reference\\visual-diffs\\approval-panel-diff.png",
+                                   "differentPercent":  3.0798,
+                                   "meanChannelDelta":  1.452,
+                                   "differentPixels":  15924,
+                                   "referenceHeight":  893,
+                                   "maxChannelDelta":  250,
+                                   "referenceWidth":  579,
+                                   "comparedPixels":  517047
+                               },
+                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-022039-local-codex-panel-playwright"
+                 },
+                 {
+                     "referenceDir":  "20260702-190248-codex-thread-model-menu-right-wide-stable",
+                     "shell":  {
+                                   "width":  700,
+                                   "height":  985,
+                                   "diff":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\codex-reference\\visual-diffs\\model-shell-diff.png",
+                                   "differentPercent":  3.3553,
+                                   "meanChannelDelta":  1.7446,
+                                   "differentPixels":  23135,
+                                   "referenceHeight":  985,
+                                   "maxChannelDelta":  250,
+                                   "referenceWidth":  700,
+                                   "comparedPixels":  689500
+                               },
+                     "name":  "model",
+                     "panel":  {
+                                   "width":  579,
+                                   "height":  893,
+                                   "diff":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\codex-reference\\visual-diffs\\model-panel-diff.png",
+                                   "differentPercent":  3.0409,
+                                   "meanChannelDelta":  1.4354,
+                                   "differentPixels":  15723,
+                                   "referenceHeight":  893,
+                                   "maxChannelDelta":  250,
+                                   "referenceWidth":  579,
+                                   "comparedPixels":  517047
+                               },
+                     "localCaptureDir":  "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\windows-captures\\20260704-022039-local-codex-panel-playwright"
+                 }
+             ],
+    "threshold":  6
+}

@@ -1,0 +1,122 @@
+{
+  "url": "https://code-tx.zelt.cn/?folder=/root",
+  "title": "欢迎 - root - code-server",
+  "readyState": "complete",
+  "config": "{\"remoteAuthority\":\"remote:443\",\"serverBasePath\":\".\",\"webviewEndpoint\":\"stable-2c06497ca93cab8ced876947c58e6b42be5a8210/static/out/vs/workbench/contrib/webview/browser/pre\",\"userDataPath\":\"/root/.local/share/code-server\",\"isEnabledFileDownloads\":true,\"isEnabledFileUploads\":true,\"isEnabledCoderGettingStarted\":true,\"developmentOptions\":{\"logLevel\":3},\"enableWorkspaceTrust\":true,\"productConfiguration\":{\"codeServerVersion\":\"4.126.0\",\"nameShort\":\"code-server\",\"nameLong\":\"code-server\",\"rootEndpoint\":\".\",\"updateEndpoint\":\"./update/check\",\"logoutEndpoint\":\"./logout\",\"proxyEndpointTemplate\":\"./proxy/{{port}}/\",\"serviceWorker\":{\"scope\":\"./\",\"path\":\"./_static/out/browser/serviceWorker.js\"},\"enableTelemetry\":true,\"telemetryEndpoint\":\"https://v1.telemetry.coder.com/track\",\"embedderIdentifier\":\"server-distro\",\"extensionsGallery\":{\"serviceUrl\":\"https://open-vsx.org/vscode/gallery\",\"itemUrl\":\"https://open-vsx.org/vscode/item\",\"extensionUrlTemplate\":\"https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest\",\"resourceUrlTemplate\":\"https://open-vsx.org/vscode/asset/{publisher}/{name}/{version}/Microsoft.VisualStudio.Code.WebResources/{path}\",\"controlUrl\":\"\",\"recommendationsUrl\":\"\"},\"linkProtectionTrustedDomains\":[\"https://open-vsx.org\"]},\"callbackRoute\":\"stable-2c06497ca93cab8ced876947c58e6b42be5a8210/callback\"}",
+  "resourceEntries": [
+    {
+      "name": "https://code-tx.zelt.cn/stable-2c06497ca93cab8ced876947c58e6b42be5a8210/static/out/vs/code/browser/workbench/workbench.css",
+      "initiatorType": "link",
+      "transferSize": 0,
+      "encodedBodySize": 154242,
+      "decodedBodySize": 1174771
+    },
+    {
+      "name": "https://code-tx.zelt.cn/stable-2c06497ca93cab8ced876947c58e6b42be5a8210/static/out/nls.messages.js",
+      "initiatorType": "script",
+      "transferSize": 0,
+      "encodedBodySize": 227467,
+      "decodedBodySize": 925382
+    },
+    {
+      "name": "https://code-tx.zelt.cn/vscode-remote-resource?path=%2Froot%2F.local%2Fshare%2Fcode-server%2Fclp%2F713d89d0b9c43d22b98de47d16f120f6.zh-cn%2F2c06497ca93cab8ced876947c58e6b42be5a8210%2Fnls.messages.js",
+      "initiatorType": "script",
+      "transferSize": 300,
+      "encodedBodySize": 235889,
+      "decodedBodySize": 860240
+    },
+    {
+      "name": "https://code-tx.zelt.cn/stable-2c06497ca93cab8ced876947c58e6b42be5a8210/static/out/vs/code/browser/workbench/workbench.js",
+      "initiatorType": "script",
+      "transferSize": 0,
+      "encodedBodySize": 4294459,
+      "decodedBodySize": 17066612
+    },
+    {
+      "name": "https://code-tx.zelt.cn/manifest.json",
+      "initiatorType": "link",
+      "transferSize": 579,
+      "encodedBodySize": 279,
+      "decodedBodySize": 858
+    },
+    {
+      "name": "https://code-tx.zelt.cn/_static/src/browser/media/favicon.ico",
+      "initiatorType": "other",
+      "transferSize": 300,
+      "encodedBodySize": 4200,
+      "decodedBodySize": 4368
+    },
+    {
+      "name": "https://code-tx.zelt.cn/_static/src/browser/media/pwa-icon-192.png",
+      "initiatorType": "other",
+      "transferSize": 300,
+      "encodedBodySize": 3304,
+      "decodedBodySize": 3276
+    },
+    {
+      "name": "https://code-tx.zelt.cn/stable-2c06497ca93cab8ced876947c58e6b42be5a8210/static/node_modules/vsda/rust/web/vsda_bg.wasm",
+      "initiatorType": "fetch",
+      "transferSize": 0,
+      "encodedBodySize": 64596,
+      "decodedBodySize": 64592
+    },
+    {
+      "name": "https://code-tx.zelt.cn/stable-2c06497ca93cab8ced876947c58e6b42be5a8210/static/node_modules/vsda/rust/web/vsda.js",
+      "initiatorType": "script",
+      "transferSize": 0,
+      "encodedBodySize": 3748,
+      "decodedBodySize": 17145
+    },
+    {
+      "name": "https://code-tx.zelt.cn/stable-2c06497ca93cab8ced876947c58e6b42be5a8210/static/out/vs/workbench/services/keybinding/browser/keyboardLayouts/layout.contribution.win.js",
+      "initiatorType": "script",
+      "transferSize": 0,
+      "encodedBodySize": 11204,
+      "decodedBodySize": 89184
+    },
+    {
+      "name": "https://code-tx.zelt.cn/stable-2c06497ca93cab8ced876947c58e6b42be5a8210/static/out/media/code-icon.svg",
+      "initiatorType": "css",
+      "transferSize": 0,
+      "encodedBodySize": 283,
+      "decodedBodySize": 559
+    },
+    {
+      "name": "https://code-tx.zelt.cn/update/check",
+      "initiatorType": "fetch",
+      "transferSize": 300,
+      "encodedBodySize": 81,
+      "decodedBodySize": 81
+    },
+    {
+      "name": "https://code-tx.zelt.cn/_static/src/browser/media/templates.png",
+      "initiatorType": "img",
+      "transferSize": 300,
+      "encodedBodySize": 46781,
+      "decodedBodySize": 46748
+    },
+    {
+      "name": "https://code-tx.zelt.cn/stable-2c06497ca93cab8ced876947c58e6b42be5a8210/static/out/media/codicon.ttf",
+      "initiatorType": "css",
+      "transferSize": 0,
+      "encodedBodySize": 67404,
+      "decodedBodySize": 140820
+    }
+  ],
+  "frames": [
+    {
+      "src": "https://code-tx.zelt.cn/stable-2c06497ca93cab8ced876947c58e6b42be5a8210/static/out/vs/workbench/services/extensions/worker/webWorkerExtensionHostIframe.html?&vscodeWebWorkerExtHostId=21890140-6c4b-4cef-8510-9ee8f5efb8d8",
+      "className": "web-worker-ext-host-iframe",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "top": 0,
+        "right": 0,
+        "bottom": 0,
+        "left": 0
+      }
+    }
+  ]
+}

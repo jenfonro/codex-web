@@ -1,0 +1,131 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  color: var(--color-token-foreground);
+  background: var(--color-token-bg-primary);
+  font-family: var(--vscode-font-family, "Segoe WPC", "Segoe UI", sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+  font-weight: var(--vscode-font-weight, normal);
+}
+
+:host,
+#root[data-codex-window-type="extension"] {
+  --color-background-surface: var(--vscode-editor-background);
+  --color-background-surface-under: var(--vscode-sideBar-background);
+  --codex-chat-font-size: var(--vscode-chat-font-size, var(--vscode-font-size, 13px));
+  --codex-chat-code-font-size: var(--vscode-chat-editor-font-size, var(--vscode-editor-font-size, 12px));
+  --conversation-block-gap: 12px;
+  --conversation-tool-assistant-gap: 16px;
+  --diffs-font-size: calc(var(--codex-chat-code-font-size) - 1px);
+  --height-token-row: var(--height-token-nav-row);
+  --padding-row-y: calc(var(--spacing) * 1);
+  --padding-panel-base: calc(var(--spacing) * 3);
+  --padding-panel: var(--padding-panel-base);
+  --padding-toolbar: calc(var(--spacing) * 4);
+  --radius-token-row: 9999px;
+  --thread-content-max-width: none;
+  --thread-content-top-inset: 0px;
+  --thread-footer-overlap: 0px;
+  --text-heading-md: 16px;
+}
+
+#root {
+  height: 100%;
+  min-height: 0;
+}
+
+@layer properties {
+  :where(
+    #root,
+    #root *,
+    #root::before,
+    #root::after,
+    #root *::before,
+    #root *::after
+  ) {
+    --tw-border-style: solid;
+    --tw-inset-shadow: 0 0 #0000;
+    --tw-inset-ring-shadow: 0 0 #0000;
+    --tw-ring-offset-shadow: 0 0 #0000;
+    --tw-ring-shadow: 0 0 #0000;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-color: initial;
+    --tw-ring-color: initial;
+    --tw-ring-offset-width: 0px;
+    --tw-ring-offset-color: #fff;
+  }
+}
+
+.codicon {
+  font-family: codicon;
+  font-size: 16px;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  text-rendering: auto;
+  text-transform: none;
+  user-select: none;
+}
+
+.codicon::before {
+  display: inline-block;
+}
+
+.codex-home-watermark {
+  position: absolute !important;
+  top: calc(50% - 55px);
+  left: 50%;
+  z-index: 0 !important;
+  width: 48px;
+  height: 48px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.codex-send-ready {
+  opacity: 1;
+}
+
+#root > span.pointer-events-none.fixed.inset-0 {
+  padding-bottom: 0;
+}
+
+.codex-error-message {
+  color: var(--color-token-error-foreground);
+}
+
+.codex-chevron-right {
+  transform: rotate(-90deg);
+}
+
+[data-composer-overlay-floating-ui] {
+  width: 100%;
+}
+
+.codex-floating-menu {
+  position: absolute;
+  z-index: 55;
+  bottom: 49px;
+  min-width: max-content;
+  max-width: calc(100% - 16px);
+}
+
+.codex-floating-menu-approval {
+  left: 58px;
+}
+
+.codex-floating-menu-model {
+  right: 158px;
+}
+
+._content_1hiti_1 {
+  max-width: min(567px, calc(100vw - 16px));
+  max-height: min(833px, calc(100vh - 16px));
+  outline: none;
+}

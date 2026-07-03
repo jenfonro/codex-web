@@ -2,7 +2,7 @@
   --cw-titlebar-height: 35px;
   --cw-statusbar-height: 22px;
   --cw-activitybar-width: 48px;
-  --cw-sidebar-width: clamp(300px, 23.87vw, 720px);
+  --cw-sidebar-width: min(611px, calc(100vw - 360px));
   --cw-border: rgb(240, 241, 242);
   --cw-shell-bg: rgb(250, 250, 253);
   --cw-editor-bg: rgb(255, 255, 255);
@@ -43,10 +43,12 @@ body {
 
 .monaco-workbench.windows.web {
   --cw-font-family: "Segoe WPC", "Segoe UI", sans-serif;
+  font-family: var(--cw-font-family);
 }
 
 .monaco-workbench.windows.web:lang(zh-Hans) {
-  --cw-font-family: "Segoe WPC", "Segoe UI", "Microsoft YaHei", sans-serif;
+  --cw-font-family: "Segoe WPC", "Segoe UI", sans-serif;
+  font-family: var(--cw-font-family);
 }
 
 .monaco-workbench.mac.web {
@@ -79,21 +81,22 @@ body {
 }
 
 .part.titlebar {
-  position: absolute;
-  inset: 0 0 auto 0;
+  position: static;
   box-sizing: border-box;
+  width: 100%;
   height: var(--cw-titlebar-height);
   display: flex;
+  flex: 0 0 var(--cw-titlebar-height);
   overflow: hidden;
   color: var(--cw-titlebar-foreground);
   background-color: var(--cw-shell-bg);
   border-bottom: 1px solid var(--cw-border);
-  box-shadow: none;
-  z-index: 5;
+  box-shadow: rgba(0, 0, 0, 0.08) 0 0 6px 0;
+  z-index: auto;
 }
 
 .monaco-workbench .part.titlebar {
-  box-shadow: none;
+  box-shadow: rgba(0, 0, 0, 0.08) 0 0 6px 0;
 }
 
 .titlebar-container {
@@ -256,11 +259,11 @@ body {
 }
 
 .workbench-main {
-  position: absolute;
-  top: var(--cw-titlebar-height);
-  right: 0;
-  bottom: var(--cw-statusbar-height);
-  left: 0;
+  position: relative;
+  width: 100%;
+  height: calc(100% - var(--cw-titlebar-height) - var(--cw-statusbar-height));
+  display: flex;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -287,11 +290,11 @@ body {
   --activity-bar-width: 48px;
   --activity-bar-action-height: 48px;
   --activity-bar-icon-size: 24px;
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
+  position: static;
+  box-sizing: border-box;
   width: var(--cw-activitybar-width);
+  height: 100%;
+  flex: 0 0 var(--cw-activitybar-width);
   overflow: hidden;
   color: var(--cw-foreground);
   background-color: var(--cw-shell-bg);
@@ -340,7 +343,11 @@ body {
   width: 48px;
   height: 48px;
   display: block;
-  color: var(--cw-muted);
+  overflow: visible;
+  color: var(--cw-foreground);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .activitybar .action-label {
@@ -348,17 +355,38 @@ body {
   width: 48px;
   height: 48px;
   display: flex;
+  z-index: 1;
   align-items: center;
   justify-content: center;
   padding: 3px;
   box-sizing: border-box;
   color: var(--cw-muted);
+  border-radius: 6px;
   font-size: 24px;
   line-height: 24px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .activitybar .action-item.checked .action-label {
   color: var(--cw-selected);
+}
+
+.activitybar .action-label.uri-icon {
+  align-items: normal;
+  justify-content: normal;
+  padding: 0 0 0 48px;
+  color: var(--cw-foreground);
+  background-color: var(--cw-foreground);
+  border-radius: 6px;
+  font-family: var(--cw-font-family);
+  font-size: 15px;
+  line-height: 48px;
+  text-align: left;
+  -webkit-mask: url("assets/blossom-black.svg") center / 24px 24px no-repeat;
+  mask: url("assets/blossom-black.svg") center / 24px 24px no-repeat;
 }
 
 .monaco-workbench .activitybar .active-item-indicator {
@@ -385,12 +413,11 @@ body {
 }
 
 .part.sidebar {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: var(--cw-activitybar-width);
+  position: static;
   box-sizing: border-box;
   width: var(--cw-sidebar-width);
+  height: 100%;
+  flex: 0 0 var(--cw-sidebar-width);
   overflow: hidden;
   color: var(--cw-foreground);
   background-color: var(--cw-shell-bg);
@@ -406,17 +433,17 @@ body {
   width: 4px;
   cursor: col-resize;
   touch-action: none;
-  background: transparent;
+  background: rgb(0, 105, 204);
 }
 
 .sidebar-resize-handle::before {
   content: "";
   position: absolute;
   top: 0;
-  right: 1px;
-  width: 1px;
+  right: 0;
+  width: 4px;
   height: 100%;
-  background: transparent;
+  background: rgb(0, 105, 204);
 }
 
 .sidebar-resize-handle:hover::before,
@@ -462,6 +489,10 @@ body {
   list-style: none;
 }
 
+.part.sidebar .title-actions {
+  display: none;
+}
+
 .sidebar .title-actions .action-label,
 .pane-header .action-label {
   width: 22px;
@@ -474,7 +505,8 @@ body {
 .sidebar .content {
   width: calc(var(--cw-sidebar-width) - 1px);
   height: calc(100% - 35px);
-  overflow: hidden;
+  overflow: visible;
+  background-color: transparent;
 }
 
 .monaco-pane-view {
@@ -603,14 +635,16 @@ body {
 }
 
 .monaco-workbench .part.editor {
-  position: absolute !important;
-  top: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  left: calc(var(--cw-activitybar-width) + var(--cw-sidebar-width)) !important;
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
   box-sizing: border-box;
   width: auto !important;
-  height: auto !important;
+  height: 100% !important;
+  min-width: 0;
+  flex: 1 1 auto;
   overflow: hidden;
   color: var(--cw-foreground);
 }
@@ -793,11 +827,12 @@ body {
 }
 
 .part.statusbar {
-  position: absolute;
-  inset: auto 0 0 0;
+  position: static;
   box-sizing: border-box;
+  width: 100%;
   height: var(--cw-statusbar-height);
   display: flex;
+  flex: 0 0 var(--cw-statusbar-height);
   overflow: hidden;
   color: var(--cw-muted);
   background-color: var(--cw-shell-bg);

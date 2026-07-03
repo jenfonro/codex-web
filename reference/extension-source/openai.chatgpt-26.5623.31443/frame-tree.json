@@ -1,0 +1,45 @@
+{
+  "frameTree": {
+    "frame": {
+      "id": "A5C3ACD7AEEF647508D71645219434F3",
+      "loaderId": "D651FA69A479BAE405A8128877533880",
+      "url": "https://code-tx.zelt.cn/?folder=/root",
+      "domainAndRegistry": "zelt.cn",
+      "securityOrigin": "https://code-tx.zelt.cn",
+      "securityOriginDetails": {
+        "isLocalhost": false
+      },
+      "mimeType": "text/html",
+      "adFrameStatus": {
+        "adFrameType": "none"
+      },
+      "secureContextType": "Secure",
+      "crossOriginIsolatedContextType": "NotIsolated",
+      "gatedAPIFeatures": []
+    },
+    "childFrames": [
+      {
+        "frame": {
+          "id": "15CCBC593810F137903A97E4FB488772",
+          "parentId": "A5C3ACD7AEEF647508D71645219434F3",
+          "loaderId": "FE67351927A58F1BA07B19137B4557EF",
+          "name": "",
+          "url": ":",
+          "domainAndRegistry": "",
+          "securityOrigin": "://",
+          "securityOriginDetails": {
+            "isLocalhost": false
+          },
+          "mimeType": "text/html",
+          "adFrameStatus": {
+            "adFrameType": "none",
+            "explanations": []
+          },
+          "secureContextType": "Secure",
+          "crossOriginIsolatedContextType": "NotIsolated",
+          "gatedAPIFeatures": []
+        }
+      }
+    ]
+  }
+}

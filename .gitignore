@@ -1,5 +1,7 @@
 # Build and runtime output
 /build/
+/data/
+/.browser-profile/
 
 # Frontend artifacts
 /frontend/dist/
@@ -21,6 +23,13 @@
 
 # Local captured references for visual comparison
 /reference/
+!/reference/
+/reference/*
+!/reference/codex-panel-worklist.md
+!/reference/codex-reference/
+!/reference/codex-reference/**
+!/reference/extension-source/
+!/reference/extension-source/**
 
 # Local env and secrets
 .env

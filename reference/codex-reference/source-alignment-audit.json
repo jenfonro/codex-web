@@ -1,0 +1,2088 @@
+{
+  "generatedAt": "2026-07-03T18:18:59.045Z",
+  "basis": "Static source alignment audit. Compares local component/CSS source against captured extension HTML and official extension CSS assets. Screenshots are not used.",
+  "files": {
+    "local": [
+      "frontend/src/codex-panel.js",
+      "frontend/src/codex-panel-shadow.css",
+      "frontend/src/codex-panel.css"
+    ],
+    "localAssetDir": "frontend/src/assets/chatgpt",
+    "officialAssetDir": "reference/extension-source/openai.chatgpt-26.5623.31443/webview/assets",
+    "referenceJSON": "reference/codex-reference/codex-reference.json",
+    "captures": [
+      "20260702-184840-codex-session-list-wide-611",
+      "20260702-185302-codex-thread-wide-611",
+      "20260702-185715-codex-thread-plus-menu-wide-611-stable",
+      "20260702-185942-codex-thread-approval-menu-wide-stable",
+      "20260702-190248-codex-thread-model-menu-right-wide-stable"
+    ]
+  },
+  "counts": {
+    "referenceClassTokens": 4157,
+    "localClassTokens": 398,
+    "referenceDataAttrs": 117,
+    "localDataAttrs": 43,
+    "localSelectors": 18,
+    "assetIntegrity": 23
+  },
+  "assetIntegrity": [
+    {
+      "name": "app-main-DH0Qggoi.css",
+      "status": "exact",
+      "localBytes": 549858,
+      "officialBytes": 549858
+    },
+    {
+      "name": "app-shell-DJDX7Pvr.css",
+      "status": "exact",
+      "localBytes": 1177,
+      "officialBytes": 1177
+    },
+    {
+      "name": "at-mention-list-BF8TOyej.css",
+      "status": "exact",
+      "localBytes": 460,
+      "officialBytes": 460
+    },
+    {
+      "name": "cmdk-pBm4kpmV.css",
+      "status": "exact",
+      "localBytes": 4680,
+      "officialBytes": 4680
+    },
+    {
+      "name": "composer-CXInBfIq.css",
+      "status": "exact",
+      "localBytes": 1005,
+      "officialBytes": 1005
+    },
+    {
+      "name": "composer-footer-D2K4qkyA.css",
+      "status": "exact",
+      "localBytes": 3036,
+      "officialBytes": 3036
+    },
+    {
+      "name": "composer-top-menu-chrome-EBEHrbNH.css",
+      "status": "exact",
+      "localBytes": 2311,
+      "officialBytes": 2311
+    },
+    {
+      "name": "dialog-layout-sS9Dm_y9.css",
+      "status": "exact",
+      "localBytes": 671,
+      "officialBytes": 671
+    },
+    {
+      "name": "diff-unified-updTK7TW.css",
+      "status": "exact",
+      "localBytes": 916,
+      "officialBytes": 916
+    },
+    {
+      "name": "dropdown-9F1MU8ql.css",
+      "status": "exact",
+      "localBytes": 2977,
+      "officialBytes": 2977
+    },
+    {
+      "name": "local-conversation-turn-CGBrbw6f.css",
+      "status": "exact",
+      "localBytes": 1544,
+      "officialBytes": 1544
+    },
+    {
+      "name": "local-task-row-Bj9zvK4d.css",
+      "status": "exact",
+      "localBytes": 302,
+      "officialBytes": 302
+    },
+    {
+      "name": "markdown-DmSBSKzD.css",
+      "status": "exact",
+      "localBytes": 8450,
+      "officialBytes": 8450
+    },
+    {
+      "name": "progression-donut-BI3OQbB8.css",
+      "status": "exact",
+      "localBytes": 236,
+      "officialBytes": 236
+    },
+    {
+      "name": "prompt-editor-BuS6Xjko.css",
+      "status": "exact",
+      "localBytes": 614,
+      "officialBytes": 614
+    },
+    {
+      "name": "prosemirror-ptHiDCW_.css",
+      "status": "exact",
+      "localBytes": 823,
+      "officialBytes": 823
+    },
+    {
+      "name": "rate-limit-reset-modal-D3jrmUOb.css",
+      "status": "exact",
+      "localBytes": 266,
+      "officialBytes": 266
+    },
+    {
+      "name": "referral-invite-modal-DeNnfVpo.css",
+      "status": "exact",
+      "localBytes": 7999,
+      "officialBytes": 7999
+    },
+    {
+      "name": "scroll-to-bottom-buton-H4NGgmRi.css",
+      "status": "exact",
+      "localBytes": 470,
+      "officialBytes": 470
+    },
+    {
+      "name": "thinking-shimmer-BhOGlSiR.css",
+      "status": "exact",
+      "localBytes": 1584,
+      "officialBytes": 1584
+    },
+    {
+      "name": "thread-page-bottom-panel-state-BrqwKW_G.css",
+      "status": "exact",
+      "localBytes": 4087,
+      "officialBytes": 4087
+    },
+    {
+      "name": "thread-side-panel-tabs-CYswclfQ.css",
+      "status": "exact",
+      "localBytes": 583,
+      "officialBytes": 583
+    },
+    {
+      "name": "worktree-init-tool-activities-CxuoHau6.css",
+      "status": "exact",
+      "localBytes": 2281,
+      "officialBytes": 2281
+    }
+  ],
+  "classTokens": [
+    {
+      "name": "!px-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "!py-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "-mt-[var(--thread-footer-overlap)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "-mx-1.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "-mx-[var(--padding-row-x)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "ProseMirror-trailingBreak",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&:has([data-thread-scroll-footer='true']:focus-within)]:[scroll-padding-bottom:0px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&>*:first-child]:mt-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&>*:last-child]:mb-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&>ol:first-child]:mt-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&>ul:first-child]:mt-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_.ProseMirror]:focus-visible:outline-none",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_.ProseMirror]:h-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_.ProseMirror]:leading-5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_.ProseMirror]:min-h-[2rem]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_.ProseMirror]:resize-none",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_.ProseMirror_p]:m-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_.contain-inline-size]:[contain:initial]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_[data-thread-find-target=conversation]]:scroll-mt-24",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_[data-virtualized-turn-content]]:[content-visibility:visible]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[--codex-diffs-header-padding-x:var(--thread-resource-card-row-padding-x)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[--codex-diffs-header-padding-y:var(--turn-diff-row-padding-y)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[--codex-diffs-surface-override:color-mix(in_oklab,var(--color-token-dropdown-background)_50%,transparent)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[--inline-mention-base-color:color-mix(in_srgb,var(--color-token-text-link-foreground)_80%,var(--color-token-foreground)_20%)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[--inline-mention-color:var(--inline-mention-resolved-base-color,var(--inline-mention-base-color))]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[--task-row-trailing-inset:calc(var(--spacing)*1.5)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[--thread-resource-card-row-padding-x:0.75rem]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[--turn-diff-row-padding-y:0.25rem]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[container-name:home-main-content]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[container-name:thread-content]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[container-type:inline-size]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[container-type:size]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[content-visibility:auto]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[mask-image:linear-gradient(to_right,black_calc(100%_-_0.25rem),transparent)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[mask-repeat:no-repeat]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[overflow-anchor:none]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[scroll-padding-bottom:var(--thread-scroll-padding-bottom,0px)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_attachmentsDefault_1u8sk_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_cadencedShimmerHighlight_18j3y_37",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_cadencedShimmerSweep_18j3y_12",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_cadencedShimmer_18j3y_1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_content_1hiti_1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_defaultExternalFooterOnly_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_externalFooterItemText_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_externalFooterItemValueContent_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_externalFooterItemValue_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_externalFooterItem_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_footerLabel_1u8sk_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_footer_1u8sk_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_footer_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_homeExternalFooterOnly_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_inlineMarkdown_lzkx4_385",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_labelSm_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_labelXs_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_listItem_lzkx4_168",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_list_lzkx4_133",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_markdownContent_lzkx4_60",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_markdownText_lzkx4_86",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_multilineSurface_1u8sk_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_orderedList_lzkx4_159",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_paragraph_lzkx4_82",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_tableCellFileLink_lzkx4_413",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_unorderedList_lzkx4_147",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "absolute",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "active:bg-transparent",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "align-bottom",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "aspect-square",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "backdrop-blur-lg",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "backdrop-blur-sm",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-clip-padding",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-gradient-to-t",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-bg-fog",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-bg-secondary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-border/70",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-dropdown-background/50",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-dropdown-background/90",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-dropdown-background/95",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-foreground/5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-input-background/90",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-main-surface-primary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-main-surface-primary/70",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-menu-border",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-transparent",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "block",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "border",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "border-t",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "border-token-border",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "border-token-border-default",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "border-token-border-heavy",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "border-token-border-light",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "border-transparent",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bottom-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bottom-[calc(100%+6*var(--spacing))]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bottom-full",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "break-words",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "codex-floating-menu",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-floating-menu-approval",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-floating-menu-model",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "composer-surface-chrome",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "contents",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "cursor-interaction",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "cursor-pointer",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "data-[state=open]:bg-token-list-hover-background",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "disabled:cursor-not-allowed",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "disabled:opacity-40",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "disambiguated-digits",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "draggable",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "duration-150",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "ease-in-out",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "electron:[&>svg]:icon-sm",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "electron:[--color-token-description-foreground:color-mix(in_srgb,var(--color-token-foreground)_70%,transparent)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "electron:[scrollbar-gutter:stable_both-edges]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "electron:dark:bg-token-dropdown-background",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "electron:elevation-stroke",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "electron:font-medium",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "electron:h-toolbar",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "electron:hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "electron:p-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "electron:rounded-md",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "empty:hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "enabled:hover:bg-token-list-hover-background",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "end-1/2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "extension:[--codex-diffs-surface-override:color-mix(in_oklab,var(--color-token-input-background)_50%,transparent)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "extension:bg-token-input-background/50",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "extension:bg-token-input-background/70",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "extension:border",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "extension:border-token-border",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "extension:from-token-bg-primary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "extension:hover:bg-token-list-hover-background/60",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "extension:px-panel",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "extension:py-row-y",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "extension:shadow-sm",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "extension:via-token-bg-primary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "fixed",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex-col",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex-col-reverse",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex-grow",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex-nowrap",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex-row-reverse",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex-shrink-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex-wrap",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:opacity-100",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:outline-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:outline-none",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:outline-offset-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:outline-offset-[-2px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:outline-token-button-background",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:outline-token-focus-ring",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:pointer-events-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:ring-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:ring-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:ring-inset",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:ring-token-focus-border",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-within:[&_.turn-diff-default-subtitle]:hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-within:[&_.turn-diff-hover-subtitle]:inline-flex",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus:bg-token-list-hover-background",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus:bg-transparent",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus:outline-none",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "font-medium",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "font-normal",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "from-token-main-surface-primary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-0.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-1.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-2.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-3",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-8",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-[5px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-px",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "grid",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "grid-cols-[minmax(0,auto)_auto_minmax(0,1fr)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-focus-within:hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-focus-within:opacity-100",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-focus-within:pointer-events-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover/activity-header:text-token-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover/inline-mention:decoration-[0.5px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover/inline-mention:decoration-current",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover/inline-mention:decoration-dashed",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover/inline-mention:underline",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover/inline-mention:underline-offset-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover/turn-diff-header:bg-token-list-hover-background/30",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover:hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover:opacity-100",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover:opacity-50",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover:pointer-events-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group/activity-header",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group/inline",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group/inline-mention",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group/turn-diff-header",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-4",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-8",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-9",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-[1lh]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-[1px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-[var(--height-token-row)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-full",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-token-button-composer",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-token-button-composer-sm",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hide-scrollbar",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "home-banners",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hover:!bg-transparent",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hover:[&_.turn-diff-default-subtitle]:hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hover:[&_.turn-diff-hover-subtitle]:inline-flex",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hover:bg-token-bg-subtle",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hover:bg-token-list-hover-background",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hover:bg-token-list-hover-background/60",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hover:bg-transparent",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hover:opacity-100",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hover:opacity-80",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hover:text-token-description-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "inline-block",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "inline-flex",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "inline-markdown",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "inline-mention-brand-aware",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "inset-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "inset-x-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "items-baseline",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "items-center",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "items-end",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "justify-between",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "justify-center",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "justify-end",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "justify-start",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "leading-4",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "leading-5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "leading-[18px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "left-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "line-clamp-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "loading-shimmer-pure-text",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "m-px",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-h-[250px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-h-[25dvh]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-h-[320px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-w-(--thread-content-max-width)",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-w-20",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-w-3xl",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-w-40",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-w-[560px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-w-[77%]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-w-full",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mb-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mb-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "md:pb-5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "min-h-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "min-h-6",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "min-h-full",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "min-w-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "min-w-[26px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "min-w-max",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "ml-[3px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mr-0.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mr-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mr-3",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mr-[3px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mr-[var(--task-row-trailing-inset)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "ms-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mt-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mt-3",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mt-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mx-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "my-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "no-drag",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "object-cover",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "opacity-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "opacity-50",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "opacity-70",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "opacity-75",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "outline-hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "overflow-hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "overflow-visible",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "overflow-x-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "overflow-x-hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "overflow-y-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "p-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "p-0.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "p-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pb-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pb-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pb-4",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pb-8",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pl-0.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pl-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pl-6",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "placeholder",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pointer-events-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pointer-events-none",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pr-0.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pr-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pr-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "print:hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pt-(--thread-content-top-inset)",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pt-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pt-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pt-4",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-0.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-1.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-3",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-[var(--padding-row-cell-x,var(--padding-row-x))]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-[var(--padding-row-x)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-[var(--thread-resource-card-row-padding-x)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-panel",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-row-x",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-toolbar",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "py-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "py-0.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "py-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "py-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "py-3",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "py-[var(--padding-row-y)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "py-[var(--turn-diff-row-padding-y)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "py-row-y",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "relative",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "right-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "ring-[0.5px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "ring-token-border",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "rounded-2xl",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "rounded-[var(--radius-token-row)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "rounded-full",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "rounded-lg",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "rounded-md",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "rounded-xl",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "scroll-mt-4",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "select-none",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "self-end",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "self-start",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "self-stretch",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "shadow-xl-spread",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "shrink",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "shrink-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "size-10",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "size-20",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "size-token-button-composer",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "space-y-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "sr-only",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "sticky",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "tabular-nums",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-[color:var(--inline-mention-color)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-base",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-left",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-right",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-size-chat",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-size-chat-sm",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-sm",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-button-tertiary-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-conversation-summary-trailing",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-description-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-foreground/60",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-git-decoration-added-resource-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-git-decoration-deleted-resource-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-input-placeholder-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-text-link-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-text-secondary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-text-tertiary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-xs",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "thread-diff-virtualized",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "thread-scroll-container",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "top-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "tracking-tight",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "transition-colors",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "transition-opacity",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "translate-x-1/2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "truncate",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "turn-diff-default-subtitle",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "turn-diff-hover-subtitle",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "underline",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "underline-offset-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "vertical-scroll-fade-mask",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "via-token-main-surface-primary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-4",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-52",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-8",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-[52px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-full",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-px",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "whitespace-normal",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "whitespace-nowrap",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "whitespace-pre-wrap",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "z-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "z-10",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "z-30",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "z-50",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "z-[60]",
+      "source": "reference-or-official-css"
+    }
+  ],
+  "dataAttrs": [
+    {
+      "name": "data-above-composer-portal",
+      "source": "reference"
+    },
+    {
+      "name": "data-above-composer-queue-portal",
+      "source": "reference"
+    },
+    {
+      "name": "data-action",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-align",
+      "source": "reference"
+    },
+    {
+      "name": "data-app-action-timeline-scroll",
+      "source": "reference"
+    },
+    {
+      "name": "data-codex-archive-button",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-codex-composer",
+      "source": "reference"
+    },
+    {
+      "name": "data-codex-intelligence-trigger",
+      "source": "reference"
+    },
+    {
+      "name": "data-codex-panel-root",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-codex-session-id",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-codex-view",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-codex-window-type",
+      "source": "reference"
+    },
+    {
+      "name": "data-composer-overlay-floating-ui",
+      "source": "reference"
+    },
+    {
+      "name": "data-content-search-unit-key",
+      "source": "reference"
+    },
+    {
+      "name": "data-hover-card-open-immediately",
+      "source": "reference"
+    },
+    {
+      "name": "data-list-navigation-item",
+      "source": "reference"
+    },
+    {
+      "name": "data-local-conversation-final-assistant",
+      "source": "reference"
+    },
+    {
+      "name": "data-markdown-copy",
+      "source": "reference"
+    },
+    {
+      "name": "data-mcp-app-portal-target",
+      "source": "reference"
+    },
+    {
+      "name": "data-orientation",
+      "source": "reference"
+    },
+    {
+      "name": "data-pip-obstacle",
+      "source": "reference"
+    },
+    {
+      "name": "data-placeholder",
+      "source": "reference"
+    },
+    {
+      "name": "data-popover",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-radix-collection-item",
+      "source": "reference"
+    },
+    {
+      "name": "data-radix-menu-content",
+      "source": "reference"
+    },
+    {
+      "name": "data-radix-popper-content-wrapper",
+      "source": "reference"
+    },
+    {
+      "name": "data-selected-reasoning-effort",
+      "source": "reference"
+    },
+    {
+      "name": "data-selected-text-overlay-target",
+      "source": "reference"
+    },
+    {
+      "name": "data-side",
+      "source": "reference"
+    },
+    {
+      "name": "data-state",
+      "source": "reference"
+    },
+    {
+      "name": "data-thread-content-shell",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-thread-find-composer",
+      "source": "reference"
+    },
+    {
+      "name": "data-thread-find-skip",
+      "source": "reference"
+    },
+    {
+      "name": "data-thread-find-target",
+      "source": "reference"
+    },
+    {
+      "name": "data-thread-scroll",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-thread-scroll-footer",
+      "source": "reference"
+    },
+    {
+      "name": "data-thread-title",
+      "source": "reference"
+    },
+    {
+      "name": "data-thread-title-trigger",
+      "source": "reference"
+    },
+    {
+      "name": "data-tooltip-overflow-target",
+      "source": "reference"
+    },
+    {
+      "name": "data-turn-key",
+      "source": "reference"
+    },
+    {
+      "name": "data-user-message-bubble",
+      "source": "reference"
+    },
+    {
+      "name": "data-virtualkeyboard",
+      "source": "reference"
+    },
+    {
+      "name": "data-vscode-context",
+      "source": "reference"
+    }
+  ],
+  "selectors": [
+    {
+      "selector": ":host",
+      "line": 2,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ":host",
+      "line": 17,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "#root[data-codex-window-type=\"extension\"]",
+      "line": 17,
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "selector": "#root",
+      "line": 37,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codicon",
+      "line": 64,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codicon::before",
+      "line": 77,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-home-watermark",
+      "line": 81,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-send-ready",
+      "line": 92,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "#root > span.pointer-events-none.fixed.inset-0",
+      "line": 96,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-error-message",
+      "line": 100,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-chevron-right",
+      "line": 104,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "[data-composer-overlay-floating-ui]",
+      "line": 108,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-floating-menu",
+      "line": 112,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-floating-menu-approval",
+      "line": 120,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-floating-menu-model",
+      "line": 124,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "._content_1hiti_1",
+      "line": 128,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-sidebar-content",
+      "line": 135,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "#codexPanel",
+      "line": 139,
+      "source": "local-adapter-allowlist"
+    }
+  ],
+  "unexplained": {
+    "classTokens": [],
+    "dataAttrs": [],
+    "selectors": [],
+    "assets": []
+  },
+  "allowlist": {
+    "classes": [
+      "codex-error-message",
+      "codex-floating-menu",
+      "codex-floating-menu-approval",
+      "codex-floating-menu-model",
+      "codex-home-watermark",
+      "codex-send-ready",
+      "codex-sidebar-content",
+      "codex-webview",
+      "codex-webview-frame",
+      "light",
+      "vscode-light"
+    ],
+    "dataAttrs": [
+      "data-action",
+      "data-codex-archive-button",
+      "data-codex-composer",
+      "data-codex-intelligence-trigger",
+      "data-codex-os",
+      "data-codex-panel-root",
+      "data-codex-session-id",
+      "data-codex-view",
+      "data-codex-window-chrome",
+      "data-codex-window-type",
+      "data-popover",
+      "data-thread-content-shell",
+      "data-thread-scroll"
+    ],
+    "selectors": [
+      "#codexPanel",
+      "#root",
+      ".ProseMirror p",
+      ".ProseMirror p.placeholder br",
+      ".ProseMirror p.placeholder::before",
+      "._content_1hiti_1",
+      ".codex-chevron-right",
+      ".codex-error-message",
+      ".codex-floating-menu",
+      ".codex-floating-menu-approval",
+      ".codex-floating-menu-model",
+      ".codex-home-watermark",
+      ".codex-send-ready",
+      ".codex-sidebar-content",
+      ".codicon",
+      ".codicon::before",
+      ".thread-scroll-container",
+      ":host",
+      "[data-composer-overlay-floating-ui]",
+      "[data-thread-find-target=\"conversation\"]",
+      "[data-thread-scroll-footer=\"true\"]"
+    ]
+  }
+}
