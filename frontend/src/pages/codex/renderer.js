@@ -242,6 +242,10 @@ function renderHeaderActions() {
 }
 
 function renderSessionRow(session) {
+  const running = session.status === "running";
+  const trailing = running
+    ? `<div class="codex-session-status-running"><span class="codex-session-status-dot"></span><span>&#27491;&#22312;&#22788;&#29702;</span></div>`
+    : escapeHTML(session.timeLabel || "");
   return `
     <div class="group relative h-[var(--height-token-row)] cursor-interaction rounded-[var(--radius-token-row)] py-row-y text-sm hover:bg-token-list-hover-background focus-visible:outline-offset-[-2px] px-[var(--padding-row-cell-x,var(--padding-row-x))]" role="button" tabindex="0" data-codex-session-id="${escapeAttr(session.id)}">
       <div class="contents" data-hover-card-open-immediately="true">
@@ -256,7 +260,7 @@ function renderSessionRow(session) {
           </div>
         </div>
         <div class="ml-[3px] flex items-center justify-end gap-1 relative mr-[var(--task-row-trailing-inset)] min-w-[26px]">
-          <div><div class="text-token-description-foreground text-sm leading-4 empty:hidden tabular-nums overflow-visible truncate text-right group-focus-within:hidden group-hover:hidden shrink-0">${escapeHTML(session.timeLabel || "")}</div></div>
+          <div><div class="text-token-description-foreground text-sm leading-4 empty:hidden tabular-nums overflow-visible truncate text-right group-focus-within:hidden group-hover:hidden shrink-0">${trailing}</div></div>
         </div>
       </div>
     </div>`;

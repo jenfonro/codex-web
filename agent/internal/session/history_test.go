@@ -4,6 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"codex-web/agent/internal/model"
 )
 
 const testSessionID = "019f2402-138c-7092-8098-7fcb30ade7f1"
@@ -99,6 +102,35 @@ func TestItemTextTreatsCLIConfigWarningAsNonFatal(t *testing.T) {
 	text, kind = itemText(map[string]any{"type": "error", "message": "real stderr"})
 	if text != "real stderr" || kind != "stderr" {
 		t.Fatalf("itemText() = %q/%q, want stderr", text, kind)
+	}
+}
+
+func TestHandleCLIEventBroadcastsTurnCompleted(t *testing.T) {
+	manager := New(Config{CodexHome: t.TempDir(), RootDir: "/workspace", CodexBin: "codex"})
+	manager.sessions["session-1"] = &managedSession{
+		record: model.SessionRecord{ID: "session-1", Status: statusRunning, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+	}
+	events, unsubscribe := manager.Subscribe()
+	defer unsubscribe()
+
+	manager.handleCLIEvent("session-1", map[string]any{
+		"type":      "event_msg",
+		"timestamp": "2026-07-04T01:00:06Z",
+		"payload": map[string]any{
+			"type": "task_complete",
+		},
+	})
+
+	select {
+	case event := <-events:
+		if event.Kind != "turn_completed" {
+			t.Fatalf("event.Kind = %q, want turn_completed", event.Kind)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("timed out waiting for turn_completed")
+	}
+	if got := manager.sessions["session-1"].record.Status; got != statusIdle {
+		t.Fatalf("status = %q, want %q", got, statusIdle)
 	}
 }
 

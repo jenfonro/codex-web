@@ -151,23 +151,22 @@ func (a *App) handleSessionEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sessionID := strings.TrimSpace(r.URL.Query().Get("sessionId"))
-	if sessionID == "" {
-		writeError(w, http.StatusBadRequest, "sessionId is required")
-		return
-	}
 	lastSeq, _ := strconv.ParseInt(r.URL.Query().Get("lastSeq"), 10, 64)
 	client, err := a.nodeClientFromRequest(r, nil)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	backlog, err := client.Request(r.Context(), "session.events", map[string]any{
-		"sessionId": sessionID,
-		"lastSeq":   lastSeq,
-	})
-	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
-		return
+	var backlog any
+	if sessionID != "" {
+		backlog, err = client.Request(r.Context(), "session.events", map[string]any{
+			"sessionId": sessionID,
+			"lastSeq":   lastSeq,
+		})
+		if err != nil {
+			writeError(w, http.StatusBadGateway, err.Error())
+			return
+		}
 	}
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -177,8 +176,10 @@ func (a *App) handleSessionEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	for _, event := range sessionEventsFromResult(backlog) {
-		writeSSE(w, event)
+	if sessionID != "" {
+		for _, event := range sessionEventsFromResult(backlog) {
+			writeSSE(w, event)
+		}
 	}
 	flusher.Flush()
 	events, unsubscribe := client.Subscribe()
@@ -195,7 +196,10 @@ func (a *App) handleSessionEvents(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			sessionEvent, ok := event.Params["sessionId"].(string)
-			if !ok || sessionEvent != sessionID {
+			if !ok {
+				continue
+			}
+			if sessionID != "" && sessionEvent != sessionID {
 				continue
 			}
 			writeSSE(w, event.Params)

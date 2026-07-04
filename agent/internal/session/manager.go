@@ -328,7 +328,6 @@ func (m *Manager) handleCLIEvent(sessionID string, raw map[string]any) {
 		}
 		if event.Kind == "turn_completed" {
 			m.setStatus(sessionID, statusIdle)
-			return
 		}
 		m.appendParsedEvent(sessionID, event)
 	case "thread.started":

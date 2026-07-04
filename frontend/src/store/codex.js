@@ -13,6 +13,7 @@
       activeSessionId: "",
       eventsBySession: new Map(),
       eventSource: null,
+      nodeEventSource: null,
     };
   }
 

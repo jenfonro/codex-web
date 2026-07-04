@@ -27,6 +27,7 @@
   };
   const renderer = rendererFactory.create(runtime);
   let initialized = false;
+  let sessionReloadTimer = 0;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });
@@ -57,6 +58,7 @@
     }
     await loadNodes();
     await loadSessions();
+    subscribeNodeSessions();
     renderer.render();
   }
 
@@ -75,7 +77,7 @@
     }
   }
 
-  async function loadSessions() {
+  async function loadSessions(preserveEvents = false) {
     if (!state.nodeId) {
       useSampleSessions(false);
       return;
@@ -84,7 +86,7 @@
       const payload = await api.fetchJSON(`/api/sessions?nodeId=${encodeURIComponent(state.nodeId)}`);
       const sessions = api.normalizeSessions(payload.sessions);
       state.sessions = sessions;
-      state.eventsBySession = new Map();
+      if (!preserveEvents) state.eventsBySession = new Map();
       state.apiAvailable = true;
     } catch {
       useSampleSessions(false);
@@ -119,6 +121,24 @@
     }
   }
 
+  function subscribeNodeSessions() {
+    if (state.nodeEventSource) {
+      state.nodeEventSource.close();
+      state.nodeEventSource = null;
+    }
+    if (!state.apiAvailable || !state.nodeId) return;
+    const qs = new URLSearchParams({ nodeId: state.nodeId });
+    const source = new EventSource(`/api/sessions/events?${qs.toString()}`);
+    source.onmessage = (event) => {
+      try {
+        applyIncomingSessionEvent(api.normalizeEvent(JSON.parse(event.data)));
+      } catch {
+        // Keep the stream alive if one row is malformed.
+      }
+    };
+    state.nodeEventSource = source;
+  }
+
   function subscribeSession(sessionID) {
     if (state.eventSource) {
       state.eventSource.close();
@@ -129,13 +149,7 @@
     const source = new EventSource(`/api/sessions/events?${qs.toString()}`);
     source.onmessage = (event) => {
       try {
-        const incoming = api.normalizeEvent(JSON.parse(event.data));
-        const events = state.eventsBySession.get(sessionID) || [];
-        if (!events.some((item) => item.seq === incoming.seq && incoming.seq != null)) {
-          events.push(incoming);
-          state.eventsBySession.set(sessionID, events);
-          if (state.view === "thread" && state.activeSessionId === sessionID) renderer.render();
-        }
+        applyIncomingSessionEvent(api.normalizeEvent(JSON.parse(event.data)));
       } catch {
         // Keep the stream alive if one row is malformed.
       }
@@ -146,6 +160,51 @@
     };
     state.eventSource = source;
   }
+
+function applyIncomingSessionEvent(incoming) {
+  if (!incoming?.sessionId) return;
+  const events = state.eventsBySession.get(incoming.sessionId) || [];
+  if (!events.some((item) => item.seq === incoming.seq && incoming.seq != null)) {
+    events.push(incoming);
+    state.eventsBySession.set(incoming.sessionId, events);
+  }
+  if (!updateSessionFromEvent(incoming)) scheduleSessionReload();
+  if (state.view === "list" || state.activeSessionId === incoming.sessionId) renderer.render();
+}
+
+function updateSessionFromEvent(event) {
+  const index = state.sessions.findIndex((session) => session.id === event.sessionId);
+  if (index < 0) return false;
+  const session = state.sessions[index];
+  const status = statusFromEvent(event, session.status);
+  const updatedAt = event.time || session.updatedAt || new Date().toISOString();
+  state.sessions[index] = {
+    ...session,
+    status,
+    updatedAt,
+    timeLabel: utils.relativeTime(updatedAt),
+  };
+  state.sessions.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  return true;
+}
+
+function statusFromEvent(event, fallback) {
+  const kind = event.kind || "";
+  if (kind === "error") return "error";
+  if (kind === "turn_completed") return "idle";
+  if (kind === "assistant_message" && event.data?.phase === "final_answer") return "idle";
+  if (["user_message", "turn_started", "reasoning", "tool_call", "stdout", "stderr"].includes(kind)) return "running";
+  return fallback || "idle";
+}
+
+function scheduleSessionReload() {
+  if (sessionReloadTimer) return;
+  sessionReloadTimer = global.setTimeout(async () => {
+    sessionReloadTimer = 0;
+    await loadSessions(true);
+    renderer.render();
+  }, 500);
+}
 
 function handleClick(event) {
   const popoverButton = event.target.closest("[data-popover]");
@@ -215,16 +274,19 @@ async function submitComposer() {
 
   if (state.view === "thread" && state.activeSessionId) {
     appendLocalEvent(state.activeSessionId, { kind: "user_message", text: prompt });
+    markSessionStatus(state.activeSessionId, "running");
     renderer.render();
     if (state.apiAvailable) {
       try {
-        await api.fetchJSON(`/api/sessions/${encodeURIComponent(state.activeSessionId)}/send`, {
+        const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(state.activeSessionId)}/send`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ nodeId: state.nodeId, prompt }),
         });
+        upsertSession(api.normalizeSession(payload.session));
       } catch (error) {
         appendLocalEvent(state.activeSessionId, { kind: "error", text: error.message });
+        markSessionStatus(state.activeSessionId, "error");
         renderer.render();
       }
     } else {
@@ -244,7 +306,7 @@ async function submitComposer() {
       });
       const session = api.normalizeSession(payload.session);
       if (session?.id) {
-        state.sessions.unshift(session);
+        upsertSession(session);
         state.eventsBySession.set(session.id, [{ kind: "user_message", text: prompt, time: new Date().toISOString() }]);
         await openSession(session.id);
       }
@@ -271,6 +333,29 @@ function createLocalSession(prompt, errorText = "") {
     errorText ? { kind: "error", text: errorText, time: new Date().toISOString(), seq: 2 } : { kind: "assistant_message", text: "本地样式预览会话已创建。", time: new Date().toISOString(), seq: 2 },
   ]);
   void openSession(id);
+}
+
+function upsertSession(session) {
+  if (!session?.id) return;
+  const index = state.sessions.findIndex((item) => item.id === session.id);
+  if (index >= 0) {
+    state.sessions[index] = { ...state.sessions[index], ...session };
+  } else {
+    state.sessions.unshift(session);
+  }
+  state.sessions.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+}
+
+function markSessionStatus(sessionID, status) {
+  const index = state.sessions.findIndex((session) => session.id === sessionID);
+  if (index < 0) return;
+  const updatedAt = new Date().toISOString();
+  state.sessions[index] = {
+    ...state.sessions[index],
+    status,
+    updatedAt,
+    timeLabel: utils.relativeTime(updatedAt),
+  };
 }
 
 function appendLocalEvent(sessionID, partial) {

@@ -84,6 +84,26 @@ func TestHandleSessionSendRoutesToNode(t *testing.T) {
 	}
 }
 
+func TestHandleSessionEventsAllowsNodeLevelStream(t *testing.T) {
+	app := &App{nodes: node.NewRegistry(t.TempDir() + "/nodes.json")}
+	client := &serverFakeClient{info: model.NodeInfo{ID: "server-a", Name: "Server A", Online: true}}
+	if err := app.nodes.UpsertRemote(client); err != nil {
+		t.Fatalf("UpsertRemote() error = %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/sessions/events?nodeId=server-a", nil)
+	w := httptest.NewRecorder()
+	app.handleSessionEvents(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	if got := w.Header().Get("Content-Type"); got != "text/event-stream; charset=utf-8" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if client.op != "" {
+		t.Fatalf("op = %q, want no backlog request", client.op)
+	}
+}
+
 type serverFakeClient struct {
 	info   model.NodeInfo
 	op     string
