@@ -19,6 +19,11 @@ type parsedSession struct {
 	modTime time.Time
 }
 
+type historyFile struct {
+	path    string
+	modTime time.Time
+}
+
 type historyEntry struct {
 	Type      string         `json:"type"`
 	Timestamp string         `json:"timestamp"`
@@ -26,6 +31,22 @@ type historyEntry struct {
 }
 
 func loadHistorySessions(codexHome string) ([]parsedSession, error) {
+	files, err := listHistoryFiles(codexHome)
+	if err != nil {
+		return nil, err
+	}
+	sessions := make([]parsedSession, 0, len(files))
+	for _, file := range files {
+		parsed, err := parseHistoryFile(file.path)
+		if err != nil || parsed.record.ID == "" {
+			continue
+		}
+		sessions = append(sessions, parsed)
+	}
+	return sessions, nil
+}
+
+func listHistoryFiles(codexHome string) ([]historyFile, error) {
 	root := filepath.Join(codexHome, "sessions")
 	entries, err := os.ReadDir(root)
 	if err != nil {
@@ -35,7 +56,7 @@ func loadHistorySessions(codexHome string) ([]parsedSession, error) {
 		return nil, err
 	}
 
-	var files []string
+	var files []historyFile
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -48,23 +69,18 @@ func loadHistorySessions(codexHome string) ([]parsedSession, error) {
 			if d.IsDir() || !strings.HasSuffix(d.Name(), ".jsonl") {
 				return nil
 			}
-			files = append(files, path)
+			info, err := d.Info()
+			if err != nil {
+				return nil
+			}
+			files = append(files, historyFile{path: path, modTime: info.ModTime().UTC()})
 			return nil
 		}); err != nil {
 			return nil, err
 		}
 	}
-	sort.Strings(files)
-
-	sessions := make([]parsedSession, 0, len(files))
-	for _, path := range files {
-		parsed, err := parseHistoryFile(path)
-		if err != nil || parsed.record.ID == "" {
-			continue
-		}
-		sessions = append(sessions, parsed)
-	}
-	return sessions, nil
+	sort.Slice(files, func(i, j int) bool { return files[i].path < files[j].path })
+	return files, nil
 }
 
 func parseHistoryFile(path string) (parsedSession, error) {

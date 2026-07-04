@@ -437,39 +437,73 @@ func (m *Manager) appendParsedEvent(sessionID string, event model.SessionEvent) 
 }
 
 func (m *Manager) refreshFromDisk() {
-	parsed, err := loadHistorySessions(m.cfg.CodexHome)
+	files, err := listHistoryFiles(m.cfg.CodexHome)
 	if err != nil {
 		return
 	}
 	m.mu.Lock()
+	pending := make([]historyFile, 0, len(files))
+	for _, file := range files {
+		if id := m.sessionIDForPathLocked(file.path); id != "" {
+			existing := m.sessions[id]
+			if existing != nil && existing.cancel != nil {
+				continue
+			}
+			if existing != nil && !existing.historyModTime.IsZero() && !file.modTime.After(existing.historyModTime) {
+				continue
+			}
+		}
+		pending = append(pending, file)
+	}
+	m.mu.Unlock()
+
+	for _, file := range pending {
+		history, err := parseHistoryFile(file.path)
+		if err != nil || history.record.ID == "" {
+			continue
+		}
+		m.applyHistorySession(history)
+	}
+}
+
+func (m *Manager) applyHistorySession(history parsedSession) {
+	m.mu.Lock()
 	defer m.mu.Unlock()
-	for _, history := range parsed {
-		targetID := history.record.ID
-		if existingID := m.sessionIDForThreadLocked(history.record.CodexThreadID); existingID != "" {
-			targetID = existingID
+	targetID := history.record.ID
+	if existingID := m.sessionIDForThreadLocked(history.record.CodexThreadID); existingID != "" {
+		targetID = existingID
+	}
+	existing := m.sessions[targetID]
+	if existing != nil {
+		if existing.cancel != nil {
+			return
 		}
-		existing := m.sessions[targetID]
-		if existing != nil {
-			if existing.cancel != nil {
-				continue
-			}
-			if !existing.historyModTime.IsZero() && !history.modTime.After(existing.historyModTime) {
-				continue
-			}
-		}
-		if targetID != history.record.ID {
-			history.record.ID = targetID
-			for index := range history.events {
-				history.events[index].SessionID = targetID
-			}
-		}
-		m.sessions[targetID] = &managedSession{
-			record:         history.record,
-			events:         history.events,
-			historyPath:    history.path,
-			historyModTime: history.modTime,
+		if !existing.historyModTime.IsZero() && !history.modTime.After(existing.historyModTime) {
+			return
 		}
 	}
+	if targetID != history.record.ID {
+		history.record.ID = targetID
+		for index := range history.events {
+			history.events[index].SessionID = targetID
+		}
+	}
+	m.sessions[targetID] = &managedSession{
+		record:         history.record,
+		events:         history.events,
+		historyPath:    history.path,
+		historyModTime: history.modTime,
+	}
+}
+
+func (m *Manager) sessionIDForPathLocked(path string) string {
+	clean := filepath.Clean(path)
+	for id, session := range m.sessions {
+		if session.historyPath != "" && filepath.Clean(session.historyPath) == clean {
+			return id
+		}
+	}
+	return ""
 }
 
 func (m *Manager) sessionIDForThreadLocked(threadID string) string {

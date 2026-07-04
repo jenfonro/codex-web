@@ -144,6 +144,47 @@ func TestManagerEventsPaginatesFromTailAndBeforeSeq(t *testing.T) {
 	}
 }
 
+func TestManagerRefreshSkipsUnchangedHistoryFiles(t *testing.T) {
+	codexHome := t.TempDir()
+	sessionID := "319f2402-138c-7092-8098-7fcb30ade7f1"
+	path := writeHistoryFile(t, codexHome, sessionID, []string{
+		`{"timestamp":"2026-07-04T01:00:00Z","type":"session_meta","payload":{"session_id":"` + sessionID + `","cwd":"/workspace"}}`,
+		`{"timestamp":"2026-07-04T01:00:01Z","type":"event_msg","payload":{"type":"user_message","message":"cached prompt"}}`,
+	})
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat() error = %v", err)
+	}
+
+	manager := New(Config{CodexHome: codexHome, RootDir: "/workspace", CodexBin: "codex"})
+	page, err := manager.Events(model.SessionEventsRequest{SessionID: sessionID})
+	if err != nil {
+		t.Fatalf("Events(initial) error = %v", err)
+	}
+	if len(page.Events) != 1 || page.Events[0].Text != "cached prompt" {
+		t.Fatalf("initial events = %#v", page.Events)
+	}
+
+	replacement := strings.Join([]string{
+		`{"timestamp":"2026-07-04T01:00:00Z","type":"session_meta","payload":{"session_id":"` + sessionID + `","cwd":"/workspace"}}`,
+		`{"timestamp":"2026-07-04T01:00:01Z","type":"event_msg","payload":{"type":"user_message","message":"reparsed prompt"}}`,
+	}, "\n") + "\n"
+	if err := os.WriteFile(path, []byte(replacement), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	if err := os.Chtimes(path, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatalf("Chtimes() error = %v", err)
+	}
+
+	page, err = manager.Events(model.SessionEventsRequest{SessionID: sessionID})
+	if err != nil {
+		t.Fatalf("Events(cached) error = %v", err)
+	}
+	if len(page.Events) != 1 || page.Events[0].Text != "cached prompt" {
+		t.Fatalf("cached events were reparsed: %#v", page.Events)
+	}
+}
+
 func TestItemTextTreatsCLIConfigWarningAsNonFatal(t *testing.T) {
 	text, kind := itemText(map[string]any{
 		"type":    "error",
