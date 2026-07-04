@@ -2,6 +2,7 @@
 
 (function defineCodexPanelConfig(global) {
   const USER_ATTACHMENT_PLACEHOLDER = "assets/reference-user-attachment.png";
+  const ASSET_VERSION = String(global.CODEX_WEB_ASSET_VERSION || "");
   const SHADOW_STYLE_HREFS = [
     "assets/workbench/codicon.css",
     "assets/codex-panel/app-main-DH0Qggoi.css",
@@ -26,8 +27,15 @@
     "assets/codex-panel/thread-side-panel-tabs-CYswclfQ.css",
     "assets/codex-panel/worktree-init-tool-activities-CxuoHau6.css",
     "assets/codex-panel/codex-panel-vars.css",
-    "pages/codex/panel-shadow.css?v=20260704-composer-input",
+    "pages/codex/panel-shadow.css",
   ];
+
+  function withAssetVersion(href) {
+    if (!ASSET_VERSION || href.startsWith("data:") || /[?&]v=/.test(href)) {
+      return href;
+    }
+    return `${href}${href.includes("?") ? "&" : "?"}v=${encodeURIComponent(ASSET_VERSION)}`;
+  }
 
   function createPanelMount(host) {
     const shadow = host.shadowRoot || host.attachShadow({ mode: "open" });
@@ -36,7 +44,7 @@
     for (const href of SHADOW_STYLE_HREFS) {
       const link = document.createElement("link");
       link.rel = "stylesheet";
-      link.href = href;
+      link.href = withAssetVersion(href);
       shadow.appendChild(link);
     }
 
@@ -71,6 +79,7 @@
   global.CodexPanelConfig = {
     USER_ATTACHMENT_PLACEHOLDER,
     SHADOW_STYLE_HREFS,
+    withAssetVersion,
     createPanelMount,
     loadReferenceAttachmentDataURL,
   };
