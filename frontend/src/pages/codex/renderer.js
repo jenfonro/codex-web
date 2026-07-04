@@ -77,9 +77,9 @@ function syncThreadScrollPosition() {
 
 function renderListView() {
   return `
-    <div class="flex h-full flex-col" data-vscode-context="{&quot;chatgpt.supportsNewChatMenu&quot;: true}" tabindex="0" data-codex-panel-root data-codex-view="list">
+    <div class="codex-panel-view codex-panel-view-list flex h-full flex-col" data-vscode-context="{&quot;chatgpt.supportsNewChatMenu&quot;: true}" tabindex="0" data-codex-panel-root data-codex-view="list">
       ${renderListHeaderAndSessions()}
-      <div class="relative flex h-full flex-col">
+      <div class="codex-list-body relative flex min-h-0 flex-1 flex-col overflow-hidden">
         <div class="[container-type:size] relative flex w-full flex-1 flex-col items-center justify-center overflow-hidden [container-name:home-main-content]" role="main">
           <div class="mx-auto flex w-full max-w-3xl flex-col gap-3 px-panel">
             ${icons.svg("blossom", "pointer-events-none fixed top-[calc(50%_-_55px)] left-1/2 -z-1 h-12 w-12 -translate-x-1/2 -translate-y-1/2 text-token-foreground/20 electron:hidden codex-home-watermark")}
@@ -113,25 +113,25 @@ function renderThreadView() {
   const fallbackEvents = runtime.samples?.eventsBySession?.get("thread-reference") || [];
   const events = state.eventsBySession.get(sessionID) || fallbackEvents;
   return `
-    <div class="relative flex h-full flex-col min-h-0" data-vscode-context="{&quot;chatgpt.supportsNewChatMenu&quot;: true}" data-codex-panel-root data-codex-view="thread">
+    <div class="codex-panel-view codex-panel-view-thread relative flex h-full flex-col min-h-0" data-vscode-context="{&quot;chatgpt.supportsNewChatMenu&quot;: true}" data-codex-panel-root data-codex-view="thread">
       <div class="sticky top-0 z-10">${renderHeader(session?.title || "任务", "thread")}</div>
-      <div class="flex min-h-0 flex-1 flex-col [&_[data-thread-find-target=conversation]]:scroll-mt-24">
-        <div class="relative mx-auto flex min-h-0 w-full flex-1 flex-col">
+      <div class="codex-thread-body flex min-h-0 flex-1 flex-col [&_[data-thread-find-target=conversation]]:scroll-mt-24">
+        <div class="codex-thread-scroll-region relative mx-auto flex min-h-0 w-full flex-1 flex-col">
           <div class="min-h-0 flex-1">
             <div class="relative h-full flex-1 [content-visibility:auto]">
-              <div data-app-action-timeline-scroll="" tabindex="0" class="thread-scroll-container relative h-full overflow-x-hidden overflow-y-auto [overflow-anchor:none] [scroll-padding-bottom:var(--thread-scroll-padding-bottom,0px)] electron:[scrollbar-gutter:stable_both-edges] pt-(--thread-content-top-inset) [container-name:thread-content] [container-type:inline-size] focus:outline-none [&:has([data-thread-scroll-footer='true']:focus-within)]:[scroll-padding-bottom:0px] flex flex-col-reverse" style="--thread-scroll-padding-bottom: 160px;" data-thread-scroll>
-                  <div class="flex min-h-full shrink-0 flex-col justify-start" data-thread-content-shell>
-                    <div data-mcp-app-portal-target="true" class="mx-auto w-full max-w-(--thread-content-max-width) px-toolbar relative flex flex-1 shrink-0 flex-col pb-8">
+              <div data-app-action-timeline-scroll="" tabindex="0" class="codex-thread-scroll thread-scroll-container relative h-full overflow-x-hidden overflow-y-auto [overflow-anchor:none] [scroll-padding-bottom:var(--thread-scroll-padding-bottom,0px)] electron:[scrollbar-gutter:stable_both-edges] pt-(--thread-content-top-inset) [container-name:thread-content] [container-type:inline-size] focus:outline-none [&:has([data-thread-scroll-footer='true']:focus-within)]:[scroll-padding-bottom:0px] flex flex-col-reverse" style="--thread-scroll-padding-bottom: 160px;" data-thread-scroll>
+                  <div class="codex-thread-content-shell flex min-h-full shrink-0 flex-col justify-start" data-thread-content-shell>
+                    <div data-mcp-app-portal-target="true" class="codex-thread-content mx-auto w-full max-w-(--thread-content-max-width) px-toolbar relative flex flex-1 shrink-0 flex-col pb-8">
                       <div data-thread-find-target="conversation" class="relative flex flex-col gap-3 electron:[--color-token-description-foreground:color-mix(in_srgb,var(--color-token-foreground)_70%,transparent)]">
                         ${renderConversationEvents(events)}
                       </div>
                     </div>
-                    ${renderThreadComposer()}
                   </div>
               </div>
             </div>
           </div>
         </div>
+        ${renderThreadComposer()}
       </div>
     </div>`;
 }
@@ -724,7 +724,7 @@ function renderToolSummaryContent(event, index) {
 
 function renderHomeComposer() {
   return `
-    <div class="mx-auto w-full max-w-(--thread-content-max-width) px-toolbar relative z-10 -mt-[var(--thread-footer-overlap)] flex flex-col gap-2 pb-2">
+    <div class="codex-home-composer mx-auto w-full max-w-(--thread-content-max-width) px-toolbar relative z-10 flex shrink-0 flex-col gap-2 pb-2">
       <div class="home-banners mt-2 flex flex-col gap-2 empty:hidden"></div>
       <div class="min-w-0 electron:hidden">${renderComposerSurface("随心输入", false)}</div>
     </div>`;
@@ -732,16 +732,16 @@ function renderHomeComposer() {
 
 function renderThreadComposer() {
   return `
-    <div data-thread-scroll-footer="true" class="sticky bottom-0 z-10 mt-auto w-full pb-4">
-      <div class="pointer-events-none absolute inset-x-0 bottom-0 z-0 flex h-full w-full justify-center pt-4">
+    <div data-thread-scroll-footer="true" class="codex-thread-footer w-full">
+      <div class="codex-thread-footer-fade pointer-events-none absolute inset-x-0 bottom-0 z-0 flex h-full w-full justify-center pt-4">
         <div class="z-0 h-full w-full bg-gradient-to-t from-token-main-surface-primary via-token-main-surface-primary extension:from-token-bg-primary extension:via-token-bg-primary"></div>
       </div>
-      <div data-pip-obstacle="thread-footer" class="relative z-10 flex flex-col mx-auto w-full max-w-(--thread-content-max-width) px-toolbar">
+      <div data-pip-obstacle="thread-footer" class="codex-thread-footer-content relative z-10 flex flex-col mx-auto w-full max-w-(--thread-content-max-width) px-toolbar">
         <div class="flex flex-col" data-thread-find-composer="true">
           <div class="relative h-0">
-            <button class="cursor-interaction absolute z-30 flex h-8 w-8 translate-x-1/2 items-center justify-center rounded-full border border-token-border-default bg-token-main-surface-primary bg-clip-padding text-token-text-secondary transition-opacity duration-150 ease-in-out end-1/2 print:hidden pointer-events-none opacity-0 bottom-[calc(100%+6*var(--spacing))]" aria-hidden="true" aria-label="滚动到底部" type="button" tabindex="-1">${icons.svg("send", "icon rotate-180 text-token-text-primary")}</button>
+            <button class="cursor-interaction absolute z-30 flex h-8 w-8 translate-x-1/2 items-center justify-center rounded-full border border-token-border-default bg-token-main-surface-primary bg-clip-padding text-token-text-secondary transition-opacity duration-150 ease-in-out end-1/2 print:hidden pointer-events-none opacity-0 bottom-[calc(100%+6*var(--spacing))]" aria-hidden="true" aria-label="Scroll to bottom" type="button" tabindex="-1">${icons.svg("send", "icon rotate-180 text-token-text-primary")}</button>
           </div>
-          <div class="flex flex-col gap-2"><div class="min-w-0">${renderComposerSurface("要求后续变更", true)}</div></div>
+          <div class="flex flex-col gap-2"><div class="codex-composer-shell min-w-0">${renderComposerSurface("要求后续变更", true)}</div></div>
         </div>
       </div>
     </div>`;
@@ -753,28 +753,26 @@ function renderComposerSurface(placeholder, includeExternalFooter) {
       ? "ProseMirror ProseMirror-focused"
       : "ProseMirror";
   return `
-    <div id="above-composer-portal" data-above-composer-portal="true" class="relative px-5 empty:hidden"></div>
-    <div id="above-composer-queue-portal" data-above-composer-queue-portal="true" class="relative px-5 empty:hidden"></div>
-    <div class="relative flex w-full flex-col gap-2">
-      <div class="relative">
+    <div class="codex-composer-surface relative flex w-full min-w-0 flex-col gap-2" data-codex-composer-surface>
+      <div id="above-composer-portal" data-above-composer-portal="true" class="relative px-5 empty:hidden"></div>
+      <div id="above-composer-queue-portal" data-above-composer-queue-portal="true" class="relative px-5 empty:hidden"></div>
+      <div class="codex-composer-card-wrap relative">
         ${state.popover === "plus" ? renderPlusOverlay() : '<div class="@container pointer-events-none absolute inset-x-0 bottom-full z-20 mb-2 flex justify-center"></div>'}
-        <div class="composer-surface-chrome relative flex flex-col bg-token-input-background/90 backdrop-blur-lg electron:dark:bg-token-dropdown-background _multilineSurface_1u8sk_2">
-          <div class="relative z-10 flex min-h-0 flex-1 flex-col">
-            <div class="_attachmentsDefault_1u8sk_2"></div>
-            <div class="contents">
-              <div class="mb-1 flex-grow overflow-y-auto px-3">
-                <div class="text-size-chat [&_.ProseMirror]:focus-visible:outline-none text-token-foreground h-auto max-h-[25dvh] overflow-y-auto [&_.ProseMirror]:h-auto [&_.ProseMirror]:min-h-[2rem] [&_.ProseMirror]:resize-none [&_.ProseMirror_p]:m-0 text-base [&_.ProseMirror]:leading-5">
-                  <div contenteditable="true" spellcheck="true" translate="no" class="${proseMirrorClass}" data-virtualkeyboard="true" data-placeholder="${escapeAttr(placeholder)}" data-codex-empty="true" style="font-size: var(--codex-chat-font-size); height: auto; resize: none; min-height: 2.75rem;" data-codex-composer="true"><p><br class="ProseMirror-trailingBreak"></p></div>
-                </div>
+        <div class="codex-composer-card composer-surface-chrome relative flex flex-col bg-token-input-background/90 backdrop-blur-lg electron:dark:bg-token-dropdown-background _multilineSurface_1u8sk_2">
+          <div class="codex-composer-card-inner relative z-10 flex min-h-0 flex-1 flex-col">
+            <div class="codex-composer-attachments _attachmentsDefault_1u8sk_2"></div>
+            <div class="codex-composer-editor-viewport mb-1 flex-grow overflow-y-auto px-3">
+              <div class="codex-composer-editor text-size-chat [&_.ProseMirror]:focus-visible:outline-none text-token-foreground h-auto max-h-[25dvh] overflow-y-auto [&_.ProseMirror]:h-auto [&_.ProseMirror]:min-h-[2rem] [&_.ProseMirror]:resize-none [&_.ProseMirror_p]:m-0 text-base [&_.ProseMirror]:leading-5">
+                <div contenteditable="true" spellcheck="true" translate="no" class="${proseMirrorClass}" data-virtualkeyboard="true" data-placeholder="${escapeAttr(placeholder)}" data-codex-empty="true" style="font-size: var(--codex-chat-font-size); height: auto; resize: none; min-height: 2.75rem;" data-codex-composer="true"><p><br class="ProseMirror-trailingBreak"></p></div>
               </div>
-              ${renderComposerFooter()}
             </div>
+            ${renderComposerFooter()}
           </div>
         </div>
       </div>
-      ${includeExternalFooter ? renderExternalFooter() : '<div class="select-none _footer_z984f_2 flex flex-nowrap items-center gap-1 overflow-hidden pr-2 flex-wrap gap-2 overflow-visible pl-2"><div class="flex min-w-0 flex-1 flex-nowrap items-center gap-1"></div><div class="flex min-w-0 shrink-0 items-center gap-3"></div></div>'}
-    </div>
-    ${renderFloatingPopover()}`;
+      ${includeExternalFooter ? renderExternalFooter() : ""}
+      ${renderFloatingPopover()}
+    </div>`;
 }
 
 function renderComposerFooter() {
@@ -783,7 +781,7 @@ function renderComposerFooter() {
   const modelState = state.popover === "model" ? "open" : "closed";
   const plusWrapperState = plusState === "open" ? "delayed-open" : "closed";
   return `
-    <div class="_footer_1u8sk_2 grid grid-cols-[minmax(0,auto)_auto_minmax(0,1fr)] items-center gap-[5px] select-none mb-2 px-2">
+    <div class="codex-composer-footer _footer_1u8sk_2 grid grid-cols-[minmax(0,auto)_auto_minmax(0,1fr)] items-center gap-[5px] select-none mb-2 px-2">
       <div class="flex min-w-0 items-center gap-[5px]">
         <span data-state="${plusWrapperState}" class="contents">
           <button type="button" class="border-token-border no-drag cursor-interaction flex items-center gap-1 border whitespace-nowrap select-none focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 rounded-full ${plusState === "open" ? "text-token-foreground" : "text-token-text-tertiary"} enabled:hover:bg-token-list-hover-background data-[state=open]:bg-token-list-hover-background border-transparent h-token-button-composer px-2 py-0 text-sm leading-[18px] aspect-square items-center justify-center !px-0" aria-label="添加文件等内容" aria-expanded="${plusState === "open"}" data-state="${plusState}" data-popover="plus">${icons.svg("plus", "icon-sm")}</button>
@@ -942,7 +940,7 @@ function menuItem(label, selected = false, nested = false, selectedKind = "reaso
 
 function renderExternalFooter() {
   return `
-    <div class="select-none _footer_z984f_2 flex flex-nowrap items-center gap-1 overflow-hidden pr-2 flex-wrap gap-2 overflow-visible pl-2">
+    <div class="codex-composer-external-footer select-none _footer_z984f_2 flex flex-nowrap items-center gap-1 overflow-hidden pr-2 flex-wrap gap-2 overflow-visible pl-2">
       <div class="flex min-w-0 flex-1 flex-nowrap items-center gap-1">
         <span type="button" aria-haspopup="menu" aria-expanded="false" data-state="closed" class="contents outline-hidden cursor-interaction">
           <button type="button" class="border-token-border no-drag cursor-interaction flex items-center gap-1 border whitespace-nowrap select-none focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 rounded-full text-token-text-tertiary enabled:hover:bg-token-list-hover-background data-[state=open]:bg-token-list-hover-background border-transparent h-token-button-composer-sm px-1.5 py-0 text-sm leading-[18px] _externalFooterItem_z984f_2 min-w-0">

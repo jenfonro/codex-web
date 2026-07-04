@@ -36,6 +36,126 @@
 #root {
   height: 100%;
   min-height: 0;
+  overflow: hidden;
+}
+
+[data-codex-panel-root] {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.codex-panel-view {
+  box-sizing: border-box;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.codex-list-body,
+.codex-thread-body,
+.codex-thread-scroll-region {
+  min-width: 0;
+  min-height: 0;
+}
+
+.codex-thread-body {
+  overflow: hidden;
+}
+
+.codex-thread-scroll-region {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.codex-thread-scroll {
+  min-height: 0;
+}
+
+.codex-thread-content-shell,
+.codex-thread-content {
+  min-width: 0;
+  max-width: 100%;
+}
+
+[data-thread-scroll] {
+  min-height: 0;
+  max-height: 100%;
+}
+
+[data-thread-content-shell] {
+  max-width: 100%;
+}
+
+[data-thread-scroll-footer="true"] {
+  position: relative;
+  z-index: 10;
+  flex: 0 0 auto;
+  padding-bottom: 16px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+[data-thread-scroll-footer="true"] [data-pip-obstacle="thread-footer"],
+[data-thread-scroll-footer="true"] [data-composer-overlay-floating-ui],
+[data-thread-scroll-footer="true"] [data-radix-popper-content-wrapper] {
+  pointer-events: auto;
+}
+
+.codex-thread-footer-fade {
+  height: 100%;
+}
+
+.codex-thread-footer-content,
+.codex-home-composer,
+.codex-composer-shell,
+.codex-composer-surface,
+.codex-composer-card-wrap,
+.codex-composer-card,
+.codex-composer-card-inner {
+  min-width: 0;
+}
+
+.codex-home-composer {
+  flex: 0 0 auto;
+}
+
+.codex-composer-surface {
+  isolation: isolate;
+}
+
+.codex-composer-card {
+  min-height: 100px;
+  max-height: min(240px, calc(100dvh - 180px));
+  overflow: hidden;
+}
+
+.codex-composer-card-inner {
+  height: 100%;
+}
+
+.codex-composer-editor-viewport {
+  flex: 1 1 auto;
+  min-height: 44px;
+  max-height: min(25dvh, 160px);
+  overflow-y: auto;
+}
+
+.codex-composer-editor {
+  overflow: visible;
+}
+
+.codex-composer-footer {
+  flex: 0 0 auto;
+  min-height: 28px;
+}
+
+.codex-composer-external-footer {
+  flex: 0 0 auto;
+  min-height: 20px;
+  max-height: 40px;
+  overflow: hidden;
 }
 
 @layer properties {
