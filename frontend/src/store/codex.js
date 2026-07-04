@@ -12,6 +12,7 @@
       sessions: [],
       activeSessionId: "",
       eventsBySession: new Map(),
+      threadWindows: new Map(),
       eventSource: null,
       nodeEventSource: null,
     };

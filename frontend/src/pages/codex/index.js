@@ -104,6 +104,7 @@
     state.activeSessionId = sessionID;
     state.view = "thread";
     state.popover = "";
+    state.threadWindows.delete(sessionID);
     await loadEvents(sessionID);
     subscribeSession(sessionID);
     renderer.render();

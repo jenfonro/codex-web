@@ -18,15 +18,19 @@
     isActivityPending,
     visibleConversationEvents,
   } = global.CodexPanelLifecycle;
+  const virtualizerFactory = global.CodexPanelVirtualizer;
 
   function createCodexPanelRenderer(runtime) {
     const { state, mount, icons, config } = runtime;
+    const virtualizer = virtualizerFactory.create(state, activeSession);
     let shimmerCleanups = [];
+    let threadScrollFrame = 0;
 
 function render() {
   clearShimmerTimers();
   mount.root.innerHTML = `${state.view === "thread" ? renderThreadView() : renderListView()}${renderToastViewport()}`;
   syncComposerState();
+  bindThreadScrollHandler();
   syncThreadScrollPosition();
   syncCadencedShimmers();
 }
@@ -75,8 +79,29 @@ function syncThreadScrollPosition() {
   requestAnimationFrame(() => {
     const scroll = mount.root.querySelector("[data-thread-scroll]");
     if (!scroll) return;
-    scroll.scrollTop = 0;
+    const windowState = virtualizer.activeWindow();
+    if (windowState?.pendingScrollTop != null) {
+      scroll.scrollTop = Math.max(0, windowState.pendingScrollTop);
+      windowState.pendingScrollTop = null;
+      return;
+    }
+    if (!windowState || windowState.stickToBottom) {
+      scroll.scrollTop = scroll.scrollHeight;
+    }
   });
+}
+
+function bindThreadScrollHandler() {
+  if (state.view !== "thread") return;
+  const scroll = mount.root.querySelector("[data-thread-scroll]");
+  if (!scroll) return;
+  scroll.addEventListener("scroll", () => {
+    if (threadScrollFrame) return;
+    threadScrollFrame = window.requestAnimationFrame(() => {
+      threadScrollFrame = 0;
+      if (virtualizer.handleScroll(scroll)) render();
+    });
+  }, { passive: true });
 }
 
 function renderListView() {
@@ -123,7 +148,7 @@ function renderThreadView() {
         <div class="codex-thread-scroll-region relative mx-auto flex min-h-0 w-full flex-1 flex-col">
           <div class="min-h-0 flex-1">
             <div class="relative h-full flex-1 [content-visibility:auto]">
-              <div data-app-action-timeline-scroll="" tabindex="0" class="codex-thread-scroll thread-scroll-container relative h-full overflow-x-hidden overflow-y-auto [overflow-anchor:none] [scroll-padding-bottom:var(--thread-scroll-padding-bottom,0px)] electron:[scrollbar-gutter:stable_both-edges] pt-(--thread-content-top-inset) [container-name:thread-content] [container-type:inline-size] focus:outline-none [&:has([data-thread-scroll-footer='true']:focus-within)]:[scroll-padding-bottom:0px] flex flex-col-reverse" style="--thread-scroll-padding-bottom: 160px;" data-thread-scroll>
+              <div data-app-action-timeline-scroll="" tabindex="0" class="codex-thread-scroll thread-scroll-container relative h-full overflow-x-hidden overflow-y-auto [overflow-anchor:none] [scroll-padding-bottom:var(--thread-scroll-padding-bottom,0px)] electron:[scrollbar-gutter:stable_both-edges] pt-(--thread-content-top-inset) [container-name:thread-content] [container-type:inline-size] focus:outline-none [&:has([data-thread-scroll-footer='true']:focus-within)]:[scroll-padding-bottom:0px] flex flex-col" style="--thread-scroll-padding-bottom: 160px;" data-thread-scroll>
                   <div class="codex-thread-content-shell flex min-h-full shrink-0 flex-col justify-start" data-thread-content-shell>
                     <div data-mcp-app-portal-target="true" class="codex-thread-content mx-auto w-full max-w-(--thread-content-max-width) px-toolbar relative flex flex-1 shrink-0 flex-col pb-8">
                       <div data-thread-find-target="conversation" class="relative flex flex-col gap-3 electron:[--color-token-description-foreground:color-mix(in_srgb,var(--color-token-foreground)_70%,transparent)]">
@@ -176,23 +201,27 @@ function renderHeader(title, mode) {
 function renderConversationEvents(events) {
   const visibleEvents = visibleConversationEvents(events);
   const items = groupConversationEvents(visibleEvents);
-  const virtualList = conversationVirtualList(events);
+  const virtualList = conversationVirtualList(events, items);
   const outerStyle = virtualList.height ? ` style="height: ${escapeAttr(virtualList.height)}"` : "";
-  const innerStyle = `gap: 12px; margin-top: ${virtualList.marginTop || "0px"};`;
+  const innerStyle = `gap: ${virtualList.gap}px; margin-top: ${virtualList.marginTop || "0px"};`;
   return `
     <div class="relative shrink-0"${outerStyle}>
+      ${virtualList.topPadding ? `<div aria-hidden="true" data-codex-virtual-spacer="top" style="height:${escapeAttr(virtualList.topPadding)}px"></div>` : ""}
       <div class="flex flex-col" style="${innerStyle}">
-        ${items.map((item, index) => `<div style="">${renderConversationItem(item, index)}</div>`).join("")}
+        ${virtualList.items.map((item, offset) => `<div style="" data-codex-virtual-turn="${virtualList.start + offset}">${renderConversationItem(item, virtualList.start + offset)}</div>`).join("")}
       </div>
+      ${virtualList.bottomPadding ? `<div aria-hidden="true" data-codex-virtual-spacer="bottom" style="height:${escapeAttr(virtualList.bottomPadding)}px"></div>` : ""}
     </div>`;
 }
 
-function conversationVirtualList(events) {
+function conversationVirtualList(events, items) {
   const configEvent = events.find((event) => event.virtualList || event.data?.virtualList);
   const config = configEvent?.virtualList || configEvent?.data?.virtualList || {};
+  const windowed = virtualizer.windowFor(items);
   return {
     height: config.height || "",
     marginTop: config.marginTop || "",
+    ...windowed,
   };
 }
 
