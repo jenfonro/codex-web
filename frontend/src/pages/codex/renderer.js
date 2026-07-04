@@ -244,7 +244,7 @@ function renderHeaderActions() {
 function renderSessionRow(session) {
   const running = session.status === "running";
   const trailing = running
-    ? `<div class="codex-session-status-running"><span class="codex-session-status-dot"></span><span>&#27491;&#22312;&#22788;&#29702;</span></div>`
+    ? `<span class="codex-session-status-spinner codicon codicon-loading" aria-label="Running"></span>`
     : escapeHTML(session.timeLabel || "");
   return `
     <div class="group relative h-[var(--height-token-row)] cursor-interaction rounded-[var(--radius-token-row)] py-row-y text-sm hover:bg-token-list-hover-background focus-visible:outline-offset-[-2px] px-[var(--padding-row-cell-x,var(--padding-row-x))]" role="button" tabindex="0" data-codex-session-id="${escapeAttr(session.id)}">

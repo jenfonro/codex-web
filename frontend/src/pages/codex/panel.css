@@ -13,32 +13,20 @@
   transform: translateZ(0);
 }
 
-.codex-session-status-running {
+.codex-session-status-spinner {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  color: var(--vscode-charts-blue, #3794ff);
-  font-size: 12px;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--vscode-descriptionForeground);
+  font-size: var(--vscode-codiconFontSize, 16px);
   line-height: 16px;
+  animation: codex-session-status-spin 1s linear infinite;
 }
 
-.codex-session-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: currentColor;
-  animation: codex-session-status-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes codex-session-status-pulse {
-  0%,
-  100% {
-    opacity: 0.35;
-    transform: scale(0.85);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1);
+@keyframes codex-session-status-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
