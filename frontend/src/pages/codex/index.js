@@ -40,6 +40,7 @@
     mount.root.addEventListener("click", handleClick);
     mount.root.addEventListener("beforeinput", handleBeforeInput);
     mount.root.addEventListener("input", handleInput);
+    mount.root.addEventListener("keydown", handleKeyDown);
     const referenceAttachmentSrc = await config.loadReferenceAttachmentDataURL();
     runtime.samples = fixtures.createSampleData({ icons, useDynamicFixture, referenceAttachmentSrc });
     if (useDynamicFixture) {
@@ -186,6 +187,14 @@ function handleClick(event) {
 
 function handleInput(event) {
   if (event.target.matches("[data-codex-composer]")) renderer.syncComposerState();
+}
+
+function handleKeyDown(event) {
+  const input = event.target.closest?.("[data-codex-composer]");
+  if (!input || event.key !== "Enter") return;
+  if (event.shiftKey || event.isComposing || event.keyCode === 229) return;
+  event.preventDefault();
+  void submitComposer();
 }
 
 function handleBeforeInput(event) {
