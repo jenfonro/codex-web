@@ -22,12 +22,6 @@ function activityIcon(event) {
   return "";
 }
 
-function isActivityPending(event) {
-  const status = String(event.status || event.data?.status || "").toLowerCase();
-  if (["pending", "running", "active", "starting"].includes(status)) return true;
-  return event.kind === "turn_started" || event.kind === "reasoning";
-}
-
 function summarizeToolActivity(text) {
   const value = String(text || "");
   if (/创建/.test(value)) return "已创建 1 个文件";
@@ -144,7 +138,6 @@ function escapeAttr(value) {
   global.CodexPanelUtils = {
     activityLabel,
     activityIcon,
-    isActivityPending,
     summarizeToolActivity,
     assistantTextFromData,
     formatText,

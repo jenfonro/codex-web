@@ -4,7 +4,6 @@
   const {
     activityLabel,
     activityIcon,
-    isActivityPending,
     assistantTextFromData,
     formatText,
     formatInlineText,
@@ -14,6 +13,11 @@
     escapeHTML,
     escapeAttr,
   } = global.CodexPanelUtils;
+  const {
+    isActivityEvent,
+    isActivityPending,
+    visibleConversationEvents,
+  } = global.CodexPanelLifecycle;
 
   function createCodexPanelRenderer(runtime) {
     const { state, mount, icons, config } = runtime;
@@ -183,49 +187,6 @@ function renderConversationEvents(events) {
     </div>`;
 }
 
-function visibleConversationEvents(events) {
-  const visible = [];
-  let turnFollowups = [];
-
-  const flushTurnFollowups = () => {
-    if (!turnFollowups.length) return;
-    const settled = turnFollowups.some(isTurnSettlingEvent);
-    for (const event of turnFollowups) {
-      if (isControlEvent(event)) continue;
-      if (settled && isPendingPlaceholderEvent(event)) continue;
-      visible.push(event);
-    }
-    turnFollowups = [];
-  };
-
-  for (const event of events) {
-    if ((event.kind || "assistant_message") === "user_message") {
-      flushTurnFollowups();
-      visible.push(event);
-      continue;
-    }
-    turnFollowups.push(event);
-  }
-  flushTurnFollowups();
-
-  return visible;
-}
-
-function isControlEvent(event) {
-  return ["turn_completed", "thread_started", "cli_event"].includes(event.kind || "");
-}
-
-function isTurnSettlingEvent(event) {
-  const kind = event.kind || "";
-  if (kind === "turn_completed" || kind === "error") return true;
-  if (kind !== "assistant_message") return false;
-  return Boolean(String(event.text || assistantTextFromData(event.data)).trim());
-}
-
-function isPendingPlaceholderEvent(event) {
-  return ["turn_started", "reasoning"].includes(event.kind || "") && isActivityPending(event);
-}
-
 function conversationVirtualList(events) {
   const configEvent = events.find((event) => event.virtualList || event.data?.virtualList);
   const config = configEvent?.virtualList || configEvent?.data?.virtualList || {};
@@ -315,7 +276,7 @@ function renderEvent(event, index) {
   if (kind === "user_message") return renderUserMessage(event, index);
   if (kind === "summary") return renderSummary(event, index);
   if (kind === "tool_summary") return renderToolSummaryTurn(event, index);
-  if (["turn_started", "reasoning", "tool_call", "stdout", "stderr"].includes(kind)) {
+  if (isActivityEvent(event)) {
     return renderActivity(event, index);
   }
   if (kind === "error") return renderAssistantMessage({ ...event, text: event.text || "糟糕，出错了" }, index, true);
@@ -431,8 +392,7 @@ function renderInlineTurnFollowup(event, baseEvent, turnIndex, offset) {
 }
 
 function isInlineActivity(event) {
-  const kind = event.kind || "assistant_message";
-  return ["turn_started", "reasoning", "tool_call", "stdout", "stderr"].includes(kind);
+  return isActivityEvent(event);
 }
 
 function renderInlineFollowupContent(event, turnIndex, offset) {

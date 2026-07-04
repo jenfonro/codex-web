@@ -47,6 +47,7 @@ script_sources=(
   "components/icons/codex-icons.js"
   "pages/codex/config.js"
   "pages/codex/utils.js"
+  "pages/codex/lifecycle.js"
   "pages/codex/api.js"
   "pages/codex/fixtures.js"
   "pages/codex/renderer.js"

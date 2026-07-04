@@ -6,10 +6,11 @@
   const api = global.CodexPanelAPI;
   const fixtures = global.CodexPanelFixtures;
   const utils = global.CodexPanelUtils;
+  const lifecycle = global.CodexPanelLifecycle;
   const store = global.CodexPanelStore;
   const rendererFactory = global.CodexPanelRenderer;
   const panel = document.getElementById("codexPanel");
-  if (!panel || !icons || !config || !api || !fixtures || !utils || !store || !rendererFactory) return;
+  if (!panel || !icons || !config || !api || !fixtures || !utils || !lifecycle || !store || !rendererFactory) return;
 
   const mount = config.createPanelMount(panel);
   const fixtureMode = new URLSearchParams(global.location.search).get("codexFixture") || "";
@@ -168,7 +169,6 @@ function applyIncomingSessionEvent(incoming) {
     events.push(incoming);
     state.eventsBySession.set(incoming.sessionId, events);
   }
-  if (isTurnSettlingEvent(incoming)) prunePendingTurnPlaceholders(incoming.sessionId);
   if (!updateSessionFromEvent(incoming)) scheduleSessionReload();
   if (state.view === "list" || state.activeSessionId === incoming.sessionId) renderer.render();
 }
@@ -177,7 +177,7 @@ function updateSessionFromEvent(event) {
   const index = state.sessions.findIndex((session) => session.id === event.sessionId);
   if (index < 0) return false;
   const session = state.sessions[index];
-  const status = statusFromEvent(event, session.status);
+  const status = lifecycle.sessionStatusFromEvent(event, session.status);
   const updatedAt = event.time || session.updatedAt || new Date().toISOString();
   state.sessions[index] = {
     ...session,
@@ -187,57 +187,6 @@ function updateSessionFromEvent(event) {
   };
   state.sessions.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
   return true;
-}
-
-function statusFromEvent(event, fallback) {
-  const kind = event.kind || "";
-  if (kind === "error") return "error";
-  if (kind === "turn_completed") return "idle";
-  if (kind === "assistant_message" && event.data?.phase === "final_answer") return "idle";
-  if (kind === "assistant_message" && assistantEventHasContent(event)) return "idle";
-  if (["user_message", "turn_started", "reasoning", "tool_call", "stdout", "stderr"].includes(kind)) return "running";
-  return fallback || "idle";
-}
-
-function prunePendingTurnPlaceholders(sessionID) {
-  const events = state.eventsBySession.get(sessionID);
-  if (!events?.length) return;
-  let settledIndex = -1;
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    if (isTurnSettlingEvent(events[index])) {
-      settledIndex = index;
-      break;
-    }
-  }
-  if (settledIndex < 0) return;
-
-  let turnStartIndex = -1;
-  for (let index = settledIndex; index >= 0; index -= 1) {
-    if ((events[index].kind || "") === "user_message") {
-      turnStartIndex = index;
-      break;
-    }
-  }
-
-  const pruned = events.filter((event, index) => {
-    if (index <= turnStartIndex || index >= settledIndex) return true;
-    return !isPendingPlaceholderEvent(event);
-  });
-  if (pruned.length !== events.length) state.eventsBySession.set(sessionID, pruned);
-}
-
-function isTurnSettlingEvent(event) {
-  const kind = event.kind || "";
-  if (kind === "turn_completed" || kind === "error") return true;
-  return kind === "assistant_message" && assistantEventHasContent(event);
-}
-
-function assistantEventHasContent(event) {
-  return Boolean(String(event.text || utils.assistantTextFromData(event.data)).trim());
-}
-
-function isPendingPlaceholderEvent(event) {
-  return ["turn_started", "reasoning"].includes(event.kind || "");
 }
 
 function scheduleSessionReload() {
@@ -317,7 +266,6 @@ async function submitComposer() {
 
   if (state.view === "thread" && state.activeSessionId) {
     appendLocalEvent(state.activeSessionId, { kind: "user_message", text: prompt });
-    markSessionStatus(state.activeSessionId, "running");
     renderer.render();
     if (state.apiAvailable) {
       try {
@@ -329,7 +277,6 @@ async function submitComposer() {
         upsertSession(api.normalizeSession(payload.session));
       } catch (error) {
         appendLocalEvent(state.activeSessionId, { kind: "error", text: error.message });
-        markSessionStatus(state.activeSessionId, "error");
         renderer.render();
       }
     } else {
@@ -350,7 +297,7 @@ async function submitComposer() {
       const session = api.normalizeSession(payload.session);
       if (session?.id) {
         upsertSession(session);
-        state.eventsBySession.set(session.id, [{ kind: "user_message", text: prompt, time: new Date().toISOString() }]);
+        state.eventsBySession.set(session.id, [{ sessionId: session.id, kind: "user_message", text: prompt, time: new Date().toISOString() }]);
         await openSession(session.id);
       }
     } catch (error) {
@@ -389,22 +336,12 @@ function upsertSession(session) {
   state.sessions.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
 }
 
-function markSessionStatus(sessionID, status) {
-  const index = state.sessions.findIndex((session) => session.id === sessionID);
-  if (index < 0) return;
-  const updatedAt = new Date().toISOString();
-  state.sessions[index] = {
-    ...state.sessions[index],
-    status,
-    updatedAt,
-    timeLabel: utils.relativeTime(updatedAt),
-  };
-}
-
 function appendLocalEvent(sessionID, partial) {
   const events = state.eventsBySession.get(sessionID) || [];
-  events.push({ ...partial, seq: events.length + 1, time: new Date().toISOString() });
+  const event = { ...partial, sessionId: sessionID, seq: events.length + 1, time: partial.time || new Date().toISOString() };
+  events.push(event);
   state.eventsBySession.set(sessionID, events);
+  updateSessionFromEvent(event);
 }
 
 })(window);
