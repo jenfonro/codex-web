@@ -12,21 +12,3 @@
   background: transparent;
   transform: translateZ(0);
 }
-
-.codex-session-status-spinner {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  color: var(--vscode-descriptionForeground);
-  font-size: var(--vscode-codiconFontSize, 16px);
-  line-height: 16px;
-  animation: codex-session-status-spin 1s linear infinite;
-}
-
-@keyframes codex-session-status-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}

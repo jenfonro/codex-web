@@ -158,6 +158,41 @@
   overflow: hidden;
 }
 
+.codex-session-status-spinner {
+  position: relative;
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  color: var(--vscode-descriptionForeground);
+  animation: codex-session-status-spin 0.9s linear infinite;
+}
+
+.codex-session-status-spinner::before,
+.codex-session-status-spinner::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  box-sizing: border-box;
+  border-radius: 999px;
+}
+
+.codex-session-status-spinner::before {
+  border: 1.5px solid color-mix(in srgb, currentColor 26%, transparent);
+}
+
+.codex-session-status-spinner::after {
+  border: 1.5px solid transparent;
+  border-top-color: currentColor;
+  border-right-color: currentColor;
+}
+
+@keyframes codex-session-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @layer properties {
   :where(
     #root,
