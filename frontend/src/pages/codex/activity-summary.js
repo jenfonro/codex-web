@@ -47,7 +47,7 @@
     return {
       summaryEvents,
       processEvents,
-      detailEvents: compactDetailEvents(processEvents.filter(isInspectableProcessEvent)),
+      detailEvents: buildDetailEvents(processEvents.filter(isInspectableProcessEvent)),
       finalFollowup: finalEntry.event,
       streamFollowups,
       hasProcessSummary: summaryEvents.length > 0 || processEvents.length > 0,
@@ -80,11 +80,13 @@
   function detailLabel(item) {
     const event = item.event || item;
     const data = event?.data && typeof event.data === "object" ? event.data : {};
+    if (eventKind(event) === "tool_output") return "tool_output";
     return String(event?.text || data.name || data.type || eventKind(event) || "activity");
   }
 
   function detailStatus(item) {
     const event = item.event || item;
+    if (item.outputEvent) return "completed";
     return String(event?.status || event?.data?.status || "").trim();
   }
 
@@ -98,27 +100,50 @@
     return eventKind(item.event || item);
   }
 
-  function compactDetailEvents(events) {
+  function detailArgs(item) {
+    const data = item?.event?.data || {};
+    return data.args && typeof data.args === "object" ? data.args : parseJSONMap(data.arguments);
+  }
+
+  function detailOutput(item) {
+    const event = item?.outputEvent || (eventKind(item?.event) === "tool_output" ? item.event : null);
+    return String(event?.data?.output || event?.text || "");
+  }
+
+  function buildDetailEvents(events) {
     const items = [];
+    const callsByID = new Map();
     for (const event of events) {
-      const label = detailLabel(event);
-      const status = detailStatus(event);
       const kind = eventKind(event);
-      const previous = items[items.length - 1];
-      if (previous && previous.kind === kind && previous.label === label && previous.status === status) {
-        previous.count += 1;
-        previous.endTime = event?.time || previous.endTime;
+      if (kind === "tool_output") {
+        const callID = callIDFor(event);
+        const target = callID ? callsByID.get(callID) : null;
+        if (target) {
+          target.outputEvent = event;
+          target.endTime = event?.time || target.endTime;
+          continue;
+        }
+        items.push({
+          event,
+          kind,
+          label: detailLabel(event),
+          status: detailStatus(event),
+          startTime: event?.time || "",
+          endTime: event?.time || "",
+        });
         continue;
       }
-      items.push({
+      const item = {
         event,
         kind,
-        label,
-        status,
-        count: 1,
+        label: detailLabel(event),
+        status: detailStatus(event),
         startTime: event?.time || "",
         endTime: event?.time || "",
-      });
+      };
+      items.push(item);
+      const callID = callIDFor(event);
+      if (callID) callsByID.set(callID, item);
     }
     return items;
   }
@@ -139,6 +164,7 @@
   function isProcessSignal(event) {
     const kind = eventKind(event);
     if (lifecycle.isActivityEvent(event)) return true;
+    if (kind === "tool_output") return true;
     if (kind === "tool_summary") return true;
     if (isAssistantMessage(event) && event?.data?.phase === "commentary") return true;
     return false;
@@ -148,6 +174,7 @@
     const kind = eventKind(event);
     return (
       kind === "tool_call" ||
+      kind === "tool_output" ||
       kind === "stdout" ||
       kind === "stderr" ||
       kind === "tool_summary" ||
@@ -163,6 +190,20 @@
     if (!event?.time) return 0;
     const time = new Date(event.time).getTime();
     return Number.isFinite(time) ? time : 0;
+  }
+
+  function callIDFor(event) {
+    return String(event?.data?.call_id || event?.data?.callId || event?.call_id || event?.callId || "");
+  }
+
+  function parseJSONMap(value) {
+    if (!value || typeof value !== "string") return null;
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
   }
 
   function formatDuration(start, end) {
@@ -181,6 +222,8 @@
     detailIcon,
     detailKind,
     detailLabel,
+    detailArgs,
+    detailOutput,
     detailStatus,
     splitTurnFollowups,
     summaryLabel,

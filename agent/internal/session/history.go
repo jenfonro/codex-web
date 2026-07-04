@@ -193,6 +193,9 @@ func eventFromHistoryEntry(entry historyEntry, eventTime time.Time, includeTrans
 		case "function_call":
 			data["status"] = "completed"
 			return newParsedEvent("tool_call", toolCallText(payload), eventTime, data), true
+		case "function_call_output":
+			data["status"] = "completed"
+			return newParsedEvent("tool_output", toolOutputText(payload), eventTime, data), true
 		}
 	}
 	return model.SessionEvent{}, false
@@ -220,9 +223,15 @@ func newParsedEvent(kind, text string, eventTime time.Time, data map[string]any)
 
 func compactEventData(payload map[string]any) map[string]any {
 	data := map[string]any{}
-	for _, key := range []string{"type", "phase", "name", "call_id", "id"} {
+	for _, key := range []string{"type", "phase", "name", "call_id", "id", "arguments", "output"} {
 		if value, ok := payload[key]; ok && value != nil {
 			data[key] = value
+		}
+	}
+	if arguments := firstString(payload, "arguments"); arguments != "" {
+		var args map[string]any
+		if err := json.Unmarshal([]byte(arguments), &args); err == nil {
+			data["args"] = args
 		}
 	}
 	return data
@@ -312,6 +321,10 @@ func toolCallText(payload map[string]any) string {
 		return "Running tool"
 	}
 	return name
+}
+
+func toolOutputText(payload map[string]any) string {
+	return firstString(payload, "output")
 }
 
 func firstString(values map[string]any, keys ...string) string {

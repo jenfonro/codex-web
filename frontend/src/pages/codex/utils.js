@@ -68,32 +68,81 @@ function formatTextBlock(text) {
 }
 
 function formatInlineText(text) {
-  return String(text || "").split(/(`[^`]+`)/g).map((part) => {
-    if (part.startsWith("`") && part.endsWith("`") && part.length > 1) {
-      return `<span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">${escapeHTML(part.slice(1, -1))}</span>`;
-    }
-    return escapeHTML(part);
-  }).join("");
-}
-
-function formatUserText(text) {
-  return `<span>${escapeHTML(String(text || ""))}</span>`;
+  return renderInlineText(text, { highlightCommands: false });
 }
 
 function formatInlineCodeText(text) {
+  return renderInlineText(text, { highlightCommands: true });
+}
+
+function renderInlineText(text, options = {}) {
+  const value = String(text || "");
+  const parts = [];
+  const pattern = /(`[^`]+`|\[([^\]\n]+)\]\(([^)\n]+)\))/g;
+  let cursor = 0;
+  let match;
+  while ((match = pattern.exec(value))) {
+    if (match.index > cursor) parts.push(renderPlainInlineText(value.slice(cursor, match.index), options));
+    const token = match[0];
+    if (token.startsWith("`") && token.endsWith("`") && token.length > 1) {
+      parts.push(renderInlineCode(token.slice(1, -1)));
+    } else if (match[2]) {
+      parts.push(renderMarkdownLink(match[2], match[3]));
+    }
+    cursor = match.index + token.length;
+  }
+  if (cursor < value.length) parts.push(renderPlainInlineText(value.slice(cursor), options));
+  return parts.join("");
+}
+
+function renderPlainInlineText(text, options = {}) {
+  if (!options.highlightCommands) return escapeHTML(text);
+  return renderCommandHighlights(text);
+}
+
+function renderCommandHighlights(text) {
   const value = String(text || "");
   if (!value) return "";
-  const commandPattern = /((?:node|go|git|systemctl|\.\/build-all\.sh|GET)\s[^,\n。]*)/g;
+  const commandPattern = /((?:node|go|git|systemctl|ssh|docker|curl|chmod|find|grep|rg|sed|awk|npm|pnpm|yarn|\.\/build-all\.sh|GET|POST|PUT|PATCH|DELETE)\s[^,\n。]*)/g;
   let cursor = 0;
   const pieces = [];
   let match;
   while ((match = commandPattern.exec(value))) {
     if (match.index > cursor) pieces.push(escapeHTML(value.slice(cursor, match.index)));
-    pieces.push(`<span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">${escapeHTML(match[1].trim())}</span>`);
+    pieces.push(renderInlineCode(match[1].trim()));
     cursor = match.index + match[1].length;
   }
   if (cursor < value.length) pieces.push(escapeHTML(value.slice(cursor)));
   return pieces.join("");
+}
+
+function renderInlineCode(text) {
+  return `<span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">${escapeHTML(text)}</span>`;
+}
+
+function renderMarkdownLink(label, target) {
+  const href = String(target || "").trim();
+  const cleanLabel = String(label || "").trim() || fileNameFromPath(href);
+  if (isFileReference(href)) return renderFileReference(cleanLabel, href);
+  return `<a class="codex-markdown-link" href="${escapeAttr(href)}" target="_blank" rel="noreferrer">${escapeHTML(cleanLabel)}</a>`;
+}
+
+function renderFileReference(label, path) {
+  return `<span class="codex-file-reference" role="link" tabindex="0" title="${escapeAttr(path)}" data-file-reference="${escapeAttr(path)}"><span class="codicon codicon-file-code codex-file-reference-icon" aria-hidden="true"></span><span class="codex-file-reference-label">${escapeHTML(label || fileNameFromPath(path))}</span></span>`;
+}
+
+function isFileReference(target) {
+  const value = String(target || "");
+  return /^([a-zA-Z]:[\\/]|[./~]?[/\\]|[\w.-]+[/\\]).+\.[\w-]+(?:[:#]\d+)?$/.test(value);
+}
+
+function fileNameFromPath(path) {
+  const value = String(path || "").split(/[?#]/)[0].replace(/\\/g, "/");
+  return value.split("/").filter(Boolean).pop() || value || "file";
+}
+
+function formatUserText(text) {
+  return `<span>${escapeHTML(String(text || ""))}</span>`;
 }
 
 function timeFromEvent(event) {

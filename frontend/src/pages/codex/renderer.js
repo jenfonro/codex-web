@@ -667,18 +667,72 @@ function renderTurnActivityDetail(item) {
   const kind = activitySummary.detailKind(item);
   const label = activitySummary.detailLabel(item);
   const status = activitySummary.detailStatus(item);
+  if (kind === "tool_call") {
+    return renderToolCallActivityDetail(item, iconName, label, status);
+  }
   const labelClass = kind === "assistant_message"
     ? "codex-turn-activity-row-label codex-turn-activity-row-label-wrap"
     : "codex-turn-activity-row-label";
   const statusText = status && status !== "completed" ? `<span class="codex-turn-activity-status">${escapeHTML(status)}</span>` : "";
-  const countText = item.count > 1 ? `<span class="codex-turn-activity-count">×${escapeHTML(item.count)}</span>` : "";
   return `
                   <div class="codex-turn-activity-row">
                     ${iconName ? icons.svg(iconName, "icon-xs shrink-0 text-token-input-placeholder-foreground") : '<span class="codex-turn-activity-icon-spacer" aria-hidden="true"></span>'}
                     <span class="${labelClass}">${formatInlineCodeText(label)}</span>
-                    ${countText}
                     ${statusText}
                   </div>`;
+}
+
+function renderToolCallActivityDetail(item, iconName, label, status) {
+  const args = activitySummary.detailArgs(item) || {};
+  const output = activitySummary.detailOutput(item);
+  const command = String(args.cmd || args.command || "");
+  const workdir = String(args.workdir || args.cwd || "");
+  const preview = command || toolArgumentsPreview(args);
+  const statusText = status && status !== "completed" ? `<span class="codex-turn-activity-status">${escapeHTML(status)}</span>` : "";
+  return `
+                  <details class="codex-tool-call-details">
+                    <summary class="codex-turn-activity-row codex-tool-call-summary">
+                      ${iconName ? icons.svg(iconName, "icon-xs shrink-0 text-token-input-placeholder-foreground") : '<span class="codex-turn-activity-icon-spacer" aria-hidden="true"></span>'}
+                      <span class="codex-turn-activity-row-label codex-tool-call-name">${escapeHTML(label)}</span>
+                      ${preview ? `<span class="codex-tool-call-preview">${formatInlineCodeText(preview)}</span>` : ""}
+                      ${statusText}
+                      ${icons.svg("chevronRight", "codex-tool-call-chevron icon-2xs text-token-foreground/35 transition-transform duration-200")}
+                    </summary>
+                    <div class="codex-tool-call-body">
+                      ${command ? renderToolCallField("命令", command, true) : ""}
+                      ${workdir ? renderToolCallField("目录", workdir, true) : ""}
+                      ${renderToolCallExtraArgs(args)}
+                      ${output ? renderToolCallOutput(output) : '<div class="codex-tool-call-empty">暂无输出</div>'}
+                    </div>
+                  </details>`;
+}
+
+function renderToolCallField(label, value, inlineCode) {
+  return `
+                      <div class="codex-tool-call-field">
+                        <div class="codex-tool-call-field-label">${escapeHTML(label)}</div>
+                        <div class="codex-tool-call-field-value">${inlineCode ? formatInlineCodeText(value) : escapeHTML(value)}</div>
+                      </div>`;
+}
+
+function renderToolCallExtraArgs(args) {
+  const extra = Object.entries(args || {}).filter(([key]) => !["cmd", "command", "workdir", "cwd"].includes(key));
+  if (!extra.length) return "";
+  return renderToolCallField("参数", JSON.stringify(Object.fromEntries(extra), null, 2), false);
+}
+
+function renderToolCallOutput(output) {
+  return `
+                      <div class="codex-tool-call-field">
+                        <div class="codex-tool-call-field-label">输出</div>
+                        <pre class="codex-tool-call-output">${escapeHTML(output)}</pre>
+                      </div>`;
+}
+
+function toolArgumentsPreview(args) {
+  const entries = Object.entries(args || {});
+  if (!entries.length) return "";
+  return entries.slice(0, 2).map(([key, value]) => `${key}: ${String(value)}`).join(", ");
 }
 
 function renderActivity(event, index) {
@@ -771,7 +825,7 @@ function renderActivityDisclosureBody(event) {
   return `
         <div aria-hidden="false" class="overflow-visible" style="pointer-events: auto;">
           <div class="flex flex-col gap-2 pt-2 pb-1 pl-6">
-            ${items.map((item) => `<div class="text-size-chat text-token-text-secondary">${formatInlineCodeText(String(item?.text || item?.path || item || ""))}</div>`).join("")}
+            ${items.map((item) => `<div class="text-size-chat text-token-text-secondary">${formatInlineCodeText(toolSummaryItemText(item))}</div>`).join("")}
           </div>
         </div>`;
 }
@@ -795,11 +849,18 @@ function renderToolSummaryContent(event, index) {
     : Array.isArray(event.data?.items)
       ? event.data.items
       : String(event.text || "").split("\n").filter(Boolean);
-  const list = items.map((item) => `<li class="_markdownText_lzkx4_86 _listItem_lzkx4_168">${String(item).includes("`") ? formatInlineText(item) : formatInlineCodeText(item)}</li>`).join("");
+  const list = items.map((item) => `<li class="_markdownText_lzkx4_86 _listItem_lzkx4_168">${formatInlineCodeText(toolSummaryItemText(item))}</li>`).join("");
   return `
     <div class="group flex min-w-0 flex-col gap-2">
       <div data-selected-text-overlay-target="codex-tool-summary-${index}" class="[&>*:first-child]:mt-0 _markdownContent_lzkx4_60 [&>*:last-child]:mb-0 [&>ol:first-child]:mt-0 [&>ul:first-child]:mt-0"><ul class="_markdownText_lzkx4_86 _list_lzkx4_133 _unorderedList_lzkx4_147">${list}</ul></div>
     </div>`;
+}
+
+function toolSummaryItemText(item) {
+  if (item && typeof item === "object") {
+    return String(item.text || item.path || item.file || item.name || "");
+  }
+  return String(item || "");
 }
 
 function renderHomeComposer() {

@@ -17,7 +17,8 @@ func TestParseHistoryFile(t *testing.T) {
 		`{"timestamp":"2026-07-04T01:00:01Z","type":"event_msg","payload":{"type":"task_started"}}`,
 		`{"timestamp":"2026-07-04T01:00:02Z","type":"event_msg","payload":{"type":"user_message","message":"inspect the repo"}}`,
 		`{"timestamp":"2026-07-04T01:00:03Z","type":"response_item","payload":{"type":"reasoning","summary":[{"text":"Checked the workspace"}]}}`,
-		`{"timestamp":"2026-07-04T01:00:04Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","call_id":"call-1"}}`,
+		`{"timestamp":"2026-07-04T01:00:04Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","call_id":"call-1","arguments":"{\"cmd\":\"git status --short\",\"workdir\":\"/workspace\"}"}}`,
+		`{"timestamp":"2026-07-04T01:00:04Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-1","output":"Chunk ID: abc\nProcess exited with code 0\nOutput:\n M file.go\n"}}`,
 		`{"timestamp":"2026-07-04T01:00:05Z","type":"event_msg","payload":{"type":"agent_message","message":"Done.","phase":"final_answer"}}`,
 		`{"timestamp":"2026-07-04T01:00:06Z","type":"event_msg","payload":{"type":"task_complete"}}`,
 	})
@@ -42,7 +43,7 @@ func TestParseHistoryFile(t *testing.T) {
 			t.Fatalf("event session = %q", event.SessionID)
 		}
 	}
-	want := []string{"user_message", "summary", "tool_call", "assistant_message"}
+	want := []string{"user_message", "summary", "tool_call", "tool_output", "assistant_message"}
 	if len(kinds) != len(want) {
 		t.Fatalf("kinds = %#v, want %#v", kinds, want)
 	}
@@ -53,6 +54,18 @@ func TestParseHistoryFile(t *testing.T) {
 	}
 	if parsed.record.LastSeq != int64(len(want)) {
 		t.Fatalf("LastSeq = %d", parsed.record.LastSeq)
+	}
+	toolCall := parsed.events[2]
+	if got := toolCall.Data["arguments"]; got == "" {
+		t.Fatalf("tool_call arguments missing: %#v", toolCall.Data)
+	}
+	args, ok := toolCall.Data["args"].(map[string]any)
+	if !ok || args["cmd"] != "git status --short" || args["workdir"] != "/workspace" {
+		t.Fatalf("tool_call args = %#v", toolCall.Data["args"])
+	}
+	toolOutput := parsed.events[3]
+	if toolOutput.Data["call_id"] != "call-1" || toolOutput.Data["output"] == "" {
+		t.Fatalf("tool_output data = %#v", toolOutput.Data)
 	}
 }
 
