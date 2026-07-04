@@ -25,6 +25,7 @@
     const virtualizer = virtualizerFactory.create(state, activeSession);
     let shimmerCleanups = [];
     let threadScrollFrame = 0;
+    let suppressThreadScroll = false;
 
 function render() {
   clearShimmerTimers();
@@ -81,12 +82,12 @@ function syncThreadScrollPosition() {
     if (!scroll) return;
     const windowState = virtualizer.activeWindow();
     if (windowState?.pendingScrollTop != null) {
-      scroll.scrollTop = Math.max(0, windowState.pendingScrollTop);
+      setThreadScrollTop(scroll, Math.max(0, windowState.pendingScrollTop));
       windowState.pendingScrollTop = null;
       return;
     }
     if (!windowState || windowState.stickToBottom) {
-      scroll.scrollTop = scroll.scrollHeight;
+      setThreadScrollTop(scroll, scroll.scrollHeight);
     }
   });
 }
@@ -96,12 +97,22 @@ function bindThreadScrollHandler() {
   const scroll = mount.root.querySelector("[data-thread-scroll]");
   if (!scroll) return;
   scroll.addEventListener("scroll", () => {
+    if (suppressThreadScroll) return;
     if (threadScrollFrame) return;
     threadScrollFrame = window.requestAnimationFrame(() => {
       threadScrollFrame = 0;
+      if (suppressThreadScroll) return;
       if (virtualizer.handleScroll(scroll)) render();
     });
   }, { passive: true });
+}
+
+function setThreadScrollTop(scroll, value) {
+  suppressThreadScroll = true;
+  scroll.scrollTop = value;
+  window.requestAnimationFrame(() => {
+    suppressThreadScroll = false;
+  });
 }
 
 function renderListView() {

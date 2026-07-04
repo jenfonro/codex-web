@@ -29,6 +29,7 @@
   const renderer = rendererFactory.create(runtime);
   let initialized = false;
   let sessionReloadTimer = 0;
+  let renderFrame = 0;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });
@@ -148,6 +149,8 @@
     }
     if (!state.apiAvailable) return;
     const qs = new URLSearchParams({ sessionId: sessionID, nodeId: state.nodeId });
+    const lastSeq = latestSeqForSession(sessionID);
+    if (lastSeq > 0) qs.set("lastSeq", String(lastSeq));
     const source = new EventSource(`/api/sessions/events?${qs.toString()}`);
     source.onmessage = (event) => {
       try {
@@ -166,12 +169,34 @@
 function applyIncomingSessionEvent(incoming) {
   if (!incoming?.sessionId) return;
   const events = state.eventsBySession.get(incoming.sessionId) || [];
-  if (!events.some((item) => item.seq === incoming.seq && incoming.seq != null)) {
-    events.push(incoming);
-    state.eventsBySession.set(incoming.sessionId, events);
-  }
+  if (hasSessionEvent(events, incoming)) return;
+  events.push(incoming);
+  state.eventsBySession.set(incoming.sessionId, events);
   if (!updateSessionFromEvent(incoming)) scheduleSessionReload();
-  if (state.view === "list" || state.activeSessionId === incoming.sessionId) renderer.render();
+  if (state.view === "list" || state.activeSessionId === incoming.sessionId) requestRender();
+}
+
+function hasSessionEvent(events, incoming) {
+  const seq = Number(incoming.seq || 0);
+  if (seq > 0) return events.some((event) => Number(event.seq || 0) === seq);
+  return events.some((event) =>
+    event.kind === incoming.kind &&
+    event.time === incoming.time &&
+    event.text === incoming.text
+  );
+}
+
+function latestSeqForSession(sessionID) {
+  const events = state.eventsBySession.get(sessionID) || [];
+  return events.reduce((latest, event) => Math.max(latest, Number(event.seq || 0)), 0);
+}
+
+function requestRender() {
+  if (renderFrame) return;
+  renderFrame = global.requestAnimationFrame(() => {
+    renderFrame = 0;
+    renderer.render();
+  });
 }
 
 function updateSessionFromEvent(event) {
