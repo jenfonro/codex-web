@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -144,9 +145,81 @@ func TestManagerEventsPaginatesFromTailAndBeforeSeq(t *testing.T) {
 	}
 }
 
-func TestManagerRefreshSkipsUnchangedHistoryFiles(t *testing.T) {
+func TestManagerEventsUsesIndexedHistoryWithoutStoringFullEvents(t *testing.T) {
 	codexHome := t.TempDir()
 	sessionID := "319f2402-138c-7092-8098-7fcb30ade7f1"
+	writeHistoryFile(t, codexHome, sessionID, []string{
+		`{"timestamp":"2026-07-04T01:00:00Z","type":"session_meta","payload":{"session_id":"` + sessionID + `","cwd":"/workspace"}}`,
+		`{"timestamp":"2026-07-04T01:00:01Z","type":"event_msg","payload":{"type":"user_message","message":"one"}}`,
+		`{"timestamp":"2026-07-04T01:00:02Z","type":"event_msg","payload":{"type":"agent_message","message":"two"}}`,
+		`{"timestamp":"2026-07-04T01:00:03Z","type":"event_msg","payload":{"type":"user_message","message":"three"}}`,
+	})
+
+	manager := New(Config{CodexHome: codexHome, RootDir: "/workspace", CodexBin: "codex"})
+	session := manager.sessions[sessionID]
+	if session == nil {
+		t.Fatalf("session was not indexed")
+	}
+	if len(session.events) != 0 {
+		t.Fatalf("indexed history stored full events, len = %d", len(session.events))
+	}
+	if len(session.historyEvents) != 3 {
+		t.Fatalf("historyEvents len = %d, want 3", len(session.historyEvents))
+	}
+
+	page, err := manager.Events(model.SessionEventsRequest{SessionID: sessionID, Limit: 2})
+	if err != nil {
+		t.Fatalf("Events() error = %v", err)
+	}
+	if got := eventSeqs(page.Events); got != "2,3" || !page.HasMoreBefore {
+		t.Fatalf("indexed page = %#v, seqs = %s", page, got)
+	}
+}
+
+func TestManagerEventsCombinesIndexedHistoryWithRunningMemoryEvents(t *testing.T) {
+	codexHome := t.TempDir()
+	sessionID := "419f2402-138c-7092-8098-7fcb30ade7f1"
+	writeHistoryFile(t, codexHome, sessionID, []string{
+		`{"timestamp":"2026-07-04T01:00:00Z","type":"session_meta","payload":{"session_id":"` + sessionID + `","cwd":"/workspace"}}`,
+		`{"timestamp":"2026-07-04T01:00:01Z","type":"event_msg","payload":{"type":"user_message","message":"one"}}`,
+		`{"timestamp":"2026-07-04T01:00:02Z","type":"event_msg","payload":{"type":"agent_message","message":"two"}}`,
+		`{"timestamp":"2026-07-04T01:00:03Z","type":"event_msg","payload":{"type":"agent_message","message":"three"}}`,
+	})
+
+	manager := New(Config{CodexHome: codexHome, RootDir: "/workspace", CodexBin: "codex"})
+	_, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	manager.sessions[sessionID].cancel = cancel
+	manager.appendEvent(sessionID, "user_message", "live prompt", nil)
+
+	page, err := manager.Events(model.SessionEventsRequest{SessionID: sessionID, Limit: 2})
+	if err != nil {
+		t.Fatalf("Events(tail) error = %v", err)
+	}
+	if got := eventSeqs(page.Events); got != "3,4" || page.Events[1].Text != "live prompt" {
+		t.Fatalf("combined tail page = %#v, seqs = %s", page, got)
+	}
+
+	page, err = manager.Events(model.SessionEventsRequest{SessionID: sessionID, BeforeSeq: 4, Limit: 2})
+	if err != nil {
+		t.Fatalf("Events(before) error = %v", err)
+	}
+	if got := eventSeqs(page.Events); got != "2,3" {
+		t.Fatalf("combined before page seqs = %s, page = %#v", got, page)
+	}
+
+	page, err = manager.Events(model.SessionEventsRequest{SessionID: sessionID, LastSeq: 3})
+	if err != nil {
+		t.Fatalf("Events(lastSeq) error = %v", err)
+	}
+	if got := eventSeqs(page.Events); got != "4" || page.Events[0].Text != "live prompt" {
+		t.Fatalf("combined lastSeq page = %#v, seqs = %s", page, got)
+	}
+}
+
+func TestManagerRefreshDetectsHistoryFileSizeChanges(t *testing.T) {
+	codexHome := t.TempDir()
+	sessionID := "519f2402-138c-7092-8098-7fcb30ade7f1"
 	path := writeHistoryFile(t, codexHome, sessionID, []string{
 		`{"timestamp":"2026-07-04T01:00:00Z","type":"session_meta","payload":{"session_id":"` + sessionID + `","cwd":"/workspace"}}`,
 		`{"timestamp":"2026-07-04T01:00:01Z","type":"event_msg","payload":{"type":"user_message","message":"cached prompt"}}`,
@@ -178,10 +251,10 @@ func TestManagerRefreshSkipsUnchangedHistoryFiles(t *testing.T) {
 
 	page, err = manager.Events(model.SessionEventsRequest{SessionID: sessionID})
 	if err != nil {
-		t.Fatalf("Events(cached) error = %v", err)
+		t.Fatalf("Events(reparsed) error = %v", err)
 	}
-	if len(page.Events) != 1 || page.Events[0].Text != "cached prompt" {
-		t.Fatalf("cached events were reparsed: %#v", page.Events)
+	if len(page.Events) != 1 || page.Events[0].Text != "reparsed prompt" {
+		t.Fatalf("size-changed history was not reindexed: %#v", page.Events)
 	}
 }
 

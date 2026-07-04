@@ -45,6 +45,8 @@ type managedSession struct {
 	cancel         context.CancelFunc
 	historyPath    string
 	historyModTime time.Time
+	historySize    int64
+	historyEvents  []historyEventRef
 }
 
 func New(cfg Config) *Manager {
@@ -143,10 +145,22 @@ func (m *Manager) Cancel(id string) error {
 func (m *Manager) Events(req model.SessionEventsRequest) (model.SessionEventsPage, error) {
 	m.refreshFromDisk()
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	session := m.sessions[req.SessionID]
 	if session == nil {
+		m.mu.Unlock()
 		return model.SessionEventsPage{}, errors.New("session not found")
+	}
+	if session.historyPath != "" {
+		path := session.historyPath
+		sessionID := session.record.ID
+		refs := append([]historyEventRef(nil), session.historyEvents...)
+		memoryEvents := append([]model.SessionEvent(nil), session.events...)
+		m.mu.Unlock()
+		events, err := loadHistoryAndMemoryEvents(path, sessionID, refs, memoryEvents, req)
+		if err != nil {
+			return model.SessionEventsPage{}, err
+		}
+		return sessionEventsPage(events), nil
 	}
 	events := make([]model.SessionEvent, 0, len(session.events))
 	for _, event := range session.events {
@@ -165,6 +179,7 @@ func (m *Manager) Events(req model.SessionEventsRequest) (model.SessionEventsPag
 			events = events[:req.Limit]
 		}
 	}
+	m.mu.Unlock()
 	return sessionEventsPage(events), nil
 }
 
@@ -449,7 +464,7 @@ func (m *Manager) refreshFromDisk() {
 			if existing != nil && existing.cancel != nil {
 				continue
 			}
-			if existing != nil && !existing.historyModTime.IsZero() && !file.modTime.After(existing.historyModTime) {
+			if existing != nil && !existing.historyModTime.IsZero() && !file.modTime.After(existing.historyModTime) && file.size == existing.historySize {
 				continue
 			}
 		}
@@ -458,7 +473,7 @@ func (m *Manager) refreshFromDisk() {
 	m.mu.Unlock()
 
 	for _, file := range pending {
-		history, err := parseHistoryFile(file.path)
+		history, err := parseHistoryIndex(file.path)
 		if err != nil || history.record.ID == "" {
 			continue
 		}
@@ -478,7 +493,7 @@ func (m *Manager) applyHistorySession(history parsedSession) {
 		if existing.cancel != nil {
 			return
 		}
-		if !existing.historyModTime.IsZero() && !history.modTime.After(existing.historyModTime) {
+		if !existing.historyModTime.IsZero() && !history.modTime.After(existing.historyModTime) && history.size == existing.historySize {
 			return
 		}
 	}
@@ -493,6 +508,8 @@ func (m *Manager) applyHistorySession(history parsedSession) {
 		events:         history.events,
 		historyPath:    history.path,
 		historyModTime: history.modTime,
+		historySize:    history.size,
+		historyEvents:  history.eventRefs,
 	}
 }
 

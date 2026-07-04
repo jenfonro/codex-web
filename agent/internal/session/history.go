@@ -2,7 +2,9 @@ package session
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,15 +15,24 @@ import (
 )
 
 type parsedSession struct {
-	record  model.SessionRecord
-	events  []model.SessionEvent
-	path    string
-	modTime time.Time
+	record    model.SessionRecord
+	events    []model.SessionEvent
+	eventRefs []historyEventRef
+	path      string
+	modTime   time.Time
+	size      int64
 }
 
 type historyFile struct {
 	path    string
 	modTime time.Time
+	size    int64
+}
+
+type historyEventRef struct {
+	seq    int64
+	offset int64
+	length int
 }
 
 type historyEntry struct {
@@ -30,20 +41,18 @@ type historyEntry struct {
 	Payload   map[string]any `json:"payload"`
 }
 
-func loadHistorySessions(codexHome string) ([]parsedSession, error) {
-	files, err := listHistoryFiles(codexHome)
-	if err != nil {
-		return nil, err
-	}
-	sessions := make([]parsedSession, 0, len(files))
-	for _, file := range files {
-		parsed, err := parseHistoryFile(file.path)
-		if err != nil || parsed.record.ID == "" {
-			continue
-		}
-		sessions = append(sessions, parsed)
-	}
-	return sessions, nil
+type historyIndexPayload struct {
+	Type      string `json:"type"`
+	SessionID string `json:"session_id"`
+	ID        string `json:"id"`
+	CWD       string `json:"cwd"`
+	Timestamp string `json:"timestamp"`
+}
+
+type historyIndexEntry struct {
+	Type      string              `json:"type"`
+	Timestamp string              `json:"timestamp"`
+	Payload   historyIndexPayload `json:"payload"`
 }
 
 func listHistoryFiles(codexHome string) ([]historyFile, error) {
@@ -73,7 +82,7 @@ func listHistoryFiles(codexHome string) ([]historyFile, error) {
 			if err != nil {
 				return nil
 			}
-			files = append(files, historyFile{path: path, modTime: info.ModTime().UTC()})
+			files = append(files, historyFile{path: path, modTime: info.ModTime().UTC(), size: info.Size()})
 			return nil
 		}); err != nil {
 			return nil, err
@@ -84,6 +93,19 @@ func listHistoryFiles(codexHome string) ([]historyFile, error) {
 }
 
 func parseHistoryFile(path string) (parsedSession, error) {
+	parsed, err := parseHistoryIndex(path)
+	if err != nil {
+		return parsedSession{}, err
+	}
+	events, err := parseHistoryEvents(path, parsed.record.ID, parsed.eventRefs)
+	if err != nil {
+		return parsedSession{}, err
+	}
+	parsed.events = events
+	return parsed, nil
+}
+
+func parseHistoryIndex(path string) (parsedSession, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return parsedSession{}, err
@@ -103,34 +125,59 @@ func parseHistoryFile(path string) (parsedSession, error) {
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
-	var events []model.SessionEvent
+	var eventRefs []historyEventRef
 	var firstUserText string
 
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
-	for scanner.Scan() {
-		var entry historyEntry
-		if err := json.Unmarshal(scanner.Bytes(), &entry); err != nil {
+	reader := bufio.NewReader(file)
+	var offset int64
+	for {
+		rawLine, readErr := reader.ReadBytes('\n')
+		if len(rawLine) == 0 && readErr == io.EOF {
+			break
+		}
+		lineOffset := offset
+		offset += int64(len(rawLine))
+		line := bytes.TrimSpace(rawLine)
+		if len(line) == 0 {
+			if readErr == io.EOF {
+				break
+			}
+			if readErr != nil {
+				return parsedSession{}, readErr
+			}
+			continue
+		}
+
+		var entry historyIndexEntry
+		if err := json.Unmarshal(line, &entry); err != nil {
+			if readErr == io.EOF {
+				break
+			}
+			if readErr != nil {
+				return parsedSession{}, readErr
+			}
 			continue
 		}
 		eventTime := parseTime(entry.Timestamp, now)
 		if entry.Type == "session_meta" {
-			applySessionMeta(&record, entry.Payload, eventTime)
-			continue
+			applySessionMetaIndex(&record, entry.Payload, eventTime)
+		} else if indexedHistoryEventVisible(line, entry) {
+			if entry.Type == "event_msg" && entry.Payload.Type == "user_message" && firstUserText == "" {
+				firstUserText = indexedUserMessageText(line)
+			}
+			eventRefs = append(eventRefs, historyEventRef{
+				seq:    int64(len(eventRefs) + 1),
+				offset: lineOffset,
+				length: len(rawLine),
+			})
+			record.UpdatedAt = eventTime
 		}
-		event, ok := eventFromHistoryEntry(entry, eventTime, false)
-		if !ok {
-			continue
+		if readErr == io.EOF {
+			break
 		}
-		if event.Kind == "user_message" && firstUserText == "" {
-			firstUserText = event.Text
+		if readErr != nil {
+			return parsedSession{}, readErr
 		}
-		event.Seq = int64(len(events) + 1)
-		events = append(events, event)
-		record.UpdatedAt = event.Time
-	}
-	if err := scanner.Err(); err != nil {
-		return parsedSession{}, err
 	}
 
 	if record.CodexThreadID == "" {
@@ -145,12 +192,9 @@ func parseHistoryFile(path string) (parsedSession, error) {
 	if record.UpdatedAt.IsZero() {
 		record.UpdatedAt = record.CreatedAt
 	}
-	record.LastSeq = int64(len(events))
-	for index := range events {
-		events[index].SessionID = record.ID
-	}
+	record.LastSeq = int64(len(eventRefs))
 
-	return parsedSession{record: record, events: events, path: path, modTime: now}, nil
+	return parsedSession{record: record, eventRefs: eventRefs, path: path, modTime: now, size: info.Size()}, nil
 }
 
 func applySessionMeta(record *model.SessionRecord, payload map[string]any, eventTime time.Time) {
@@ -166,6 +210,27 @@ func applySessionMeta(record *model.SessionRecord, payload map[string]any, event
 		record.CWD = cwd
 	}
 	if ts := firstString(payload, "timestamp"); ts != "" {
+		eventTime = parseTime(ts, eventTime)
+	}
+	record.CreatedAt = eventTime
+	if record.UpdatedAt.IsZero() || record.UpdatedAt.Before(eventTime) {
+		record.UpdatedAt = eventTime
+	}
+}
+
+func applySessionMetaIndex(record *model.SessionRecord, payload historyIndexPayload, eventTime time.Time) {
+	threadID := strings.TrimSpace(payload.SessionID)
+	if threadID == "" {
+		threadID = strings.TrimSpace(payload.ID)
+	}
+	if threadID != "" {
+		record.ID = threadID
+		record.CodexThreadID = threadID
+	}
+	if cwd := strings.TrimSpace(payload.CWD); cwd != "" {
+		record.CWD = cwd
+	}
+	if ts := strings.TrimSpace(payload.Timestamp); ts != "" {
 		eventTime = parseTime(ts, eventTime)
 	}
 	record.CreatedAt = eventTime
@@ -217,6 +282,45 @@ func eventFromHistoryEntry(entry historyEntry, eventTime time.Time, includeTrans
 	return model.SessionEvent{}, false
 }
 
+func indexedHistoryEventVisible(line []byte, entry historyIndexEntry) bool {
+	switch entry.Type {
+	case "event_msg":
+		return entry.Payload.Type == "user_message" || entry.Payload.Type == "agent_message"
+	case "response_item":
+		switch entry.Payload.Type {
+		case "reasoning":
+			return indexedReasoningSummaryText(line) != ""
+		case "function_call", "function_call_output":
+			return true
+		}
+	}
+	return false
+}
+
+func indexedUserMessageText(line []byte) string {
+	var entry struct {
+		Payload struct {
+			Message any `json:"message"`
+		} `json:"payload"`
+	}
+	if err := json.Unmarshal(line, &entry); err != nil {
+		return ""
+	}
+	return messageText(entry.Payload.Message)
+}
+
+func indexedReasoningSummaryText(line []byte) string {
+	var entry struct {
+		Payload struct {
+			Summary any `json:"summary"`
+		} `json:"payload"`
+	}
+	if err := json.Unmarshal(line, &entry); err != nil {
+		return ""
+	}
+	return summaryText(entry.Payload.Summary)
+}
+
 func historyEntryFromMap(raw map[string]any) historyEntry {
 	entry := historyEntry{
 		Type:      firstString(raw, "type"),
@@ -228,6 +332,46 @@ func historyEntryFromMap(raw map[string]any) historyEntry {
 	return entry
 }
 
+func parseHistoryEvents(path, sessionID string, refs []historyEventRef) ([]model.SessionEvent, error) {
+	if len(refs) == 0 {
+		return nil, nil
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	events := make([]model.SessionEvent, 0, len(refs))
+	for _, ref := range refs {
+		if ref.length <= 0 {
+			continue
+		}
+		line := make([]byte, ref.length)
+		n, err := file.ReadAt(line, ref.offset)
+		if err != nil && err != io.EOF {
+			return nil, err
+		}
+		line = bytes.TrimSpace(line[:n])
+		if len(line) == 0 {
+			continue
+		}
+		var entry historyEntry
+		if err := json.Unmarshal(line, &entry); err != nil {
+			continue
+		}
+		eventTime := parseTime(entry.Timestamp, time.Time{})
+		event, ok := eventFromHistoryEntry(entry, eventTime, false)
+		if !ok {
+			continue
+		}
+		event.SessionID = sessionID
+		event.Seq = ref.seq
+		events = append(events, event)
+	}
+	return events, nil
+}
+
 func newParsedEvent(kind, text string, eventTime time.Time, data map[string]any) model.SessionEvent {
 	return model.SessionEvent{
 		Time: eventTime,
@@ -235,6 +379,89 @@ func newParsedEvent(kind, text string, eventTime time.Time, data map[string]any)
 		Text: strings.TrimSpace(text),
 		Data: data,
 	}
+}
+
+func loadHistoryAndMemoryEvents(path, sessionID string, refs []historyEventRef, memoryEvents []model.SessionEvent, req model.SessionEventsRequest) ([]model.SessionEvent, error) {
+	startSeq, endSeq := sessionEventSeqRange(refs, memoryEvents, req)
+	if endSeq < startSeq {
+		return nil, nil
+	}
+	historyEvents, err := parseHistoryEvents(path, sessionID, historyRefsInSeqRange(refs, startSeq, endSeq))
+	if err != nil {
+		return nil, err
+	}
+	events := append(historyEvents, memoryEventsInSeqRange(memoryEvents, startSeq, endSeq)...)
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].Seq < events[j].Seq
+	})
+	return events, nil
+}
+
+func sessionEventSeqRange(refs []historyEventRef, memoryEvents []model.SessionEvent, req model.SessionEventsRequest) (int64, int64) {
+	latestSeq := latestSessionSeq(refs, memoryEvents)
+	if latestSeq == 0 {
+		return 1, 0
+	}
+	startSeq := int64(1)
+	endSeq := latestSeq
+	if req.LastSeq > 0 {
+		startSeq = req.LastSeq + 1
+	}
+	if req.BeforeSeq > 0 && req.BeforeSeq-1 < endSeq {
+		endSeq = req.BeforeSeq - 1
+	}
+	if endSeq < startSeq {
+		return 1, 0
+	}
+	if req.Limit > 0 {
+		limit := int64(req.Limit)
+		if req.BeforeSeq > 0 || req.LastSeq == 0 {
+			if limitedStart := endSeq - limit + 1; limitedStart > startSeq {
+				startSeq = limitedStart
+			}
+		} else if limitedEnd := startSeq + limit - 1; limitedEnd < endSeq {
+			endSeq = limitedEnd
+		}
+	}
+	return startSeq, endSeq
+}
+
+func latestSessionSeq(refs []historyEventRef, memoryEvents []model.SessionEvent) int64 {
+	var latest int64
+	if len(refs) > 0 {
+		latest = refs[len(refs)-1].seq
+	}
+	for _, event := range memoryEvents {
+		if event.Seq > latest {
+			latest = event.Seq
+		}
+	}
+	return latest
+}
+
+func historyRefsInSeqRange(refs []historyEventRef, startSeq, endSeq int64) []historyEventRef {
+	if len(refs) == 0 || endSeq < startSeq {
+		return nil
+	}
+	start := sort.Search(len(refs), func(i int) bool { return refs[i].seq >= startSeq })
+	end := sort.Search(len(refs), func(i int) bool { return refs[i].seq > endSeq })
+	if end < start {
+		end = start
+	}
+	return append([]historyEventRef(nil), refs[start:end]...)
+}
+
+func memoryEventsInSeqRange(events []model.SessionEvent, startSeq, endSeq int64) []model.SessionEvent {
+	if len(events) == 0 || endSeq < startSeq {
+		return nil
+	}
+	out := make([]model.SessionEvent, 0, len(events))
+	for _, event := range events {
+		if event.Seq >= startSeq && event.Seq <= endSeq {
+			out = append(out, event)
+		}
+	}
+	return out
 }
 
 func compactEventData(payload map[string]any) map[string]any {

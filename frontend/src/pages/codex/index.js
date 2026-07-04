@@ -12,7 +12,7 @@
   const panel = document.getElementById("codexPanel");
   if (!panel || !icons || !config || !api || !fixtures || !utils || !lifecycle || !store || !rendererFactory) return;
 
-  const EVENT_PAGE_SIZE = 800;
+  const EVENT_PAGE_SIZE = 400;
   const LOAD_OLDER_EDGE_PX = 480;
 
   const mount = config.createPanelMount(panel);
@@ -149,10 +149,12 @@
     if (!page?.hasMoreBefore || page.loadingBefore) return;
     page.loadingBefore = true;
     state.eventPagesBySession.set(sessionID, page);
+    renderPreservingThreadScroll();
     try {
       const beforeSeq = firstLoadedSeq(sessionID);
       if (!beforeSeq || beforeSeq <= 1) {
         state.eventPagesBySession.set(sessionID, { ...page, hasMoreBefore: false, loadingBefore: false });
+        renderPreservingThreadScroll();
         return;
       }
       const qs = new URLSearchParams({
@@ -165,9 +167,10 @@
       const events = mergeSessionEvents(olderEvents, state.eventsBySession.get(sessionID) || []);
       state.eventsBySession.set(sessionID, events);
       updateEventPage(sessionID, payload, events);
-      renderer.render();
+      renderPreservingThreadScroll();
     } catch {
       state.eventPagesBySession.set(sessionID, { ...page, loadingBefore: false });
+      renderPreservingThreadScroll();
     }
   }
 
@@ -336,6 +339,31 @@ function scheduleSessionReload() {
     await loadSessions(true);
     renderer.render();
   }, 500);
+}
+
+function renderPreservingThreadScroll() {
+  const snapshot = captureThreadScroll();
+  renderer.render();
+  restoreThreadScroll(snapshot);
+}
+
+function captureThreadScroll() {
+  const scroll = mount.root.querySelector("[data-thread-scroll]");
+  if (!scroll) return null;
+  return {
+    scrollTop: scroll.scrollTop,
+    scrollHeight: scroll.scrollHeight,
+  };
+}
+
+function restoreThreadScroll(snapshot) {
+  if (!snapshot) return;
+  global.requestAnimationFrame(() => {
+    const scroll = mount.root.querySelector("[data-thread-scroll]");
+    if (!scroll) return;
+    const heightDelta = scroll.scrollHeight - snapshot.scrollHeight;
+    scroll.scrollTop = Math.max(0, snapshot.scrollTop + heightDelta);
+  });
 }
 
 function handleClick(event) {

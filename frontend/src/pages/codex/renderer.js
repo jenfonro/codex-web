@@ -219,6 +219,8 @@ function renderHeader(title, mode) {
 }
 
 function renderConversationEvents(events) {
+  const sessionID = activeSession()?.id || "thread-reference";
+  const page = state.eventPagesBySession.get(sessionID);
   const visibleEvents = visibleConversationEvents(events);
   const items = groupConversationEvents(visibleEvents);
   const virtualList = conversationVirtualList(events, items);
@@ -226,11 +228,21 @@ function renderConversationEvents(events) {
   const innerStyle = `gap: ${virtualList.gap}px; margin-top: ${virtualList.marginTop || "0px"};`;
   return `
     <div class="relative shrink-0"${outerStyle}>
+      ${renderOlderEventsLoader(page)}
       ${virtualList.topPadding ? `<div aria-hidden="true" data-codex-virtual-spacer="top" style="height:${escapeAttr(virtualList.topPadding)}px"></div>` : ""}
       <div class="flex flex-col" style="${innerStyle}">
         ${virtualList.items.map((item, offset) => `<div style="" data-codex-virtual-turn="${virtualList.start + offset}">${renderConversationItem(item, virtualList.start + offset)}</div>`).join("")}
       </div>
       ${virtualList.bottomPadding ? `<div aria-hidden="true" data-codex-virtual-spacer="bottom" style="height:${escapeAttr(virtualList.bottomPadding)}px"></div>` : ""}
+    </div>`;
+}
+
+function renderOlderEventsLoader(page) {
+  if (!page?.loadingBefore) return "";
+  return `
+    <div class="codex-history-page-loader" role="status" aria-live="polite">
+      <span class="codex-session-status-spinner" aria-hidden="true"></span>
+      <span>正在加载更早记录</span>
     </div>`;
 }
 
