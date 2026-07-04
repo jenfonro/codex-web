@@ -84,6 +84,29 @@ func TestHandleSessionSendRoutesToNode(t *testing.T) {
 	}
 }
 
+func TestWriteSessionBacklogPassesPaging(t *testing.T) {
+	app := &App{nodes: node.NewRegistry(t.TempDir() + "/nodes.json")}
+	client := &serverFakeClient{
+		info:   model.NodeInfo{ID: "server-a", Name: "Server A", Online: true},
+		result: map[string]any{"events": []any{}, "hasMoreBefore": false},
+	}
+	if err := app.nodes.UpsertRemote(client); err != nil {
+		t.Fatalf("UpsertRemote() error = %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/sessions/session-1/events?nodeId=server-a&beforeSeq=42&limit=800", nil)
+	w := httptest.NewRecorder()
+	app.handleSessionItem(w, req, "session-1/events")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	if client.op != "session.events" || client.params["sessionId"] != "session-1" {
+		t.Fatalf("request = %s %#v", client.op, client.params)
+	}
+	if client.params["beforeSeq"] != int64(42) || client.params["limit"] != 800 {
+		t.Fatalf("paging params = %#v", client.params)
+	}
+}
+
 func TestHandleSessionEventsAllowsNodeLevelStream(t *testing.T) {
 	app := &App{nodes: node.NewRegistry(t.TempDir() + "/nodes.json")}
 	client := &serverFakeClient{info: model.NodeInfo{ID: "server-a", Name: "Server A", Online: true}}

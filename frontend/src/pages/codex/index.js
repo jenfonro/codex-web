@@ -12,6 +12,9 @@
   const panel = document.getElementById("codexPanel");
   if (!panel || !icons || !config || !api || !fixtures || !utils || !lifecycle || !store || !rendererFactory) return;
 
+  const EVENT_PAGE_SIZE = 800;
+  const LOAD_OLDER_EDGE_PX = 480;
+
   const mount = config.createPanelMount(panel);
   const fixtureMode = new URLSearchParams(global.location.search).get("codexFixture") || "";
   const useDynamicFixture = fixtureMode === "dynamic";
@@ -25,6 +28,7 @@
     state,
     mount,
     samples: fixtures.createSampleData({ icons, useDynamicFixture, referenceAttachmentSrc: config.USER_ATTACHMENT_PLACEHOLDER }),
+    onThreadScroll: maybeLoadOlderEvents,
   };
   const renderer = rendererFactory.create(runtime);
   let initialized = false;
@@ -88,7 +92,10 @@
       const payload = await api.fetchJSON(`/api/sessions?nodeId=${encodeURIComponent(state.nodeId)}`);
       const sessions = api.normalizeSessions(payload.sessions);
       state.sessions = sessions;
-      if (!preserveEvents) state.eventsBySession = new Map();
+      if (!preserveEvents) {
+        state.eventsBySession = new Map();
+        state.eventPagesBySession = new Map();
+      }
       state.apiAvailable = true;
     } catch {
       useSampleSessions(false);
@@ -98,6 +105,7 @@
   function useSampleSessions(apiAvailable) {
     state.sessions = runtime.samples.sessions.slice();
     state.eventsBySession = new Map(runtime.samples.eventsBySession);
+    state.eventPagesBySession = new Map();
     state.apiAvailable = apiAvailable;
   }
 
@@ -106,6 +114,8 @@
     state.view = "thread";
     state.popover = "";
     state.threadWindows.delete(sessionID);
+    if (!state.eventsBySession.has(sessionID)) state.eventsBySession.set(sessionID, []);
+    renderer.render();
     await loadEvents(sessionID);
     subscribeSession(sessionID);
     renderer.render();
@@ -114,14 +124,65 @@
   async function loadEvents(sessionID) {
     if (!state.apiAvailable) return;
     try {
-      const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(sessionID)}/events?nodeId=${encodeURIComponent(state.nodeId)}`);
+      const qs = new URLSearchParams({ nodeId: state.nodeId, limit: String(EVENT_PAGE_SIZE) });
+      const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(sessionID)}/events?${qs.toString()}`);
       const events = api.normalizeEvents(payload.events);
-      if (events.length) state.eventsBySession.set(sessionID, events);
+      state.eventsBySession.set(sessionID, events);
+      updateEventPage(sessionID, payload, events);
     } catch {
       if (!state.eventsBySession.has(sessionID)) {
         state.eventsBySession.set(sessionID, runtime.samples.eventsBySession.get("thread-reference") || []);
       }
     }
+  }
+
+  async function maybeLoadOlderEvents(scroll) {
+    if (!state.apiAvailable || state.view !== "thread" || !state.activeSessionId) return;
+    if (!scroll || scroll.scrollTop > LOAD_OLDER_EDGE_PX) return;
+    const page = state.eventPagesBySession.get(state.activeSessionId);
+    if (!page?.hasMoreBefore || page.loadingBefore) return;
+    await loadOlderEvents(state.activeSessionId);
+  }
+
+  async function loadOlderEvents(sessionID) {
+    const page = state.eventPagesBySession.get(sessionID);
+    if (!page?.hasMoreBefore || page.loadingBefore) return;
+    page.loadingBefore = true;
+    state.eventPagesBySession.set(sessionID, page);
+    try {
+      const beforeSeq = firstLoadedSeq(sessionID);
+      if (!beforeSeq || beforeSeq <= 1) {
+        state.eventPagesBySession.set(sessionID, { ...page, hasMoreBefore: false, loadingBefore: false });
+        return;
+      }
+      const qs = new URLSearchParams({
+        nodeId: state.nodeId,
+        beforeSeq: String(beforeSeq),
+        limit: String(EVENT_PAGE_SIZE),
+      });
+      const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(sessionID)}/events?${qs.toString()}`);
+      const olderEvents = api.normalizeEvents(payload.events);
+      const events = mergeSessionEvents(olderEvents, state.eventsBySession.get(sessionID) || []);
+      state.eventsBySession.set(sessionID, events);
+      updateEventPage(sessionID, payload, events);
+      renderer.render();
+    } catch {
+      state.eventPagesBySession.set(sessionID, { ...page, loadingBefore: false });
+    }
+  }
+
+  function updateEventPage(sessionID, payload, events) {
+    const eventFirstSeq = firstSeqOf(events);
+    const eventLastSeq = lastSeqOf(events);
+    const firstSeq = Number(payload.firstSeq || eventFirstSeq || firstLoadedSeq(sessionID) || 0);
+    const lastSeq = Math.max(Number(payload.lastSeq || 0), eventLastSeq, latestSeqForSession(sessionID));
+    state.eventPagesBySession.set(sessionID, {
+      firstSeq,
+      lastSeq,
+      hasMoreBefore: Boolean(payload.hasMoreBefore),
+      loadingBefore: false,
+      loaded: true,
+    });
   }
 
   function subscribeNodeSessions() {
@@ -171,7 +232,9 @@ function applyIncomingSessionEvent(incoming) {
   const events = state.eventsBySession.get(incoming.sessionId) || [];
   if (hasSessionEvent(events, incoming)) return;
   events.push(incoming);
+  events.sort(compareEvents);
   state.eventsBySession.set(incoming.sessionId, events);
+  touchEventPage(incoming.sessionId, incoming);
   if (!updateSessionFromEvent(incoming)) scheduleSessionReload();
   if (state.view === "list" || state.activeSessionId === incoming.sessionId) requestRender();
 }
@@ -189,6 +252,57 @@ function hasSessionEvent(events, incoming) {
 function latestSeqForSession(sessionID) {
   const events = state.eventsBySession.get(sessionID) || [];
   return events.reduce((latest, event) => Math.max(latest, Number(event.seq || 0)), 0);
+}
+
+function firstLoadedSeq(sessionID) {
+  return firstSeqOf(state.eventsBySession.get(sessionID) || []);
+}
+
+function firstSeqOf(events) {
+  return events.reduce((first, event) => {
+    const seq = Number(event.seq || 0);
+    if (!seq) return first;
+    return first ? Math.min(first, seq) : seq;
+  }, 0);
+}
+
+function lastSeqOf(events) {
+  return events.reduce((last, event) => Math.max(last, Number(event.seq || 0)), 0);
+}
+
+function mergeSessionEvents(...groups) {
+  const byKey = new Map();
+  for (const events of groups) {
+    for (const event of events || []) {
+      byKey.set(sessionEventKey(event), event);
+    }
+  }
+  return Array.from(byKey.values()).sort(compareEvents);
+}
+
+function sessionEventKey(event) {
+  const seq = Number(event?.seq || 0);
+  if (seq > 0) return `seq:${seq}`;
+  return `event:${event?.kind || ""}:${event?.time || ""}:${event?.text || ""}`;
+}
+
+function compareEvents(a, b) {
+  const aSeq = Number(a?.seq || 0);
+  const bSeq = Number(b?.seq || 0);
+  if (aSeq && bSeq && aSeq !== bSeq) return aSeq - bSeq;
+  return String(a?.time || "").localeCompare(String(b?.time || ""));
+}
+
+function touchEventPage(sessionID, event) {
+  const page = state.eventPagesBySession.get(sessionID);
+  if (!page) return;
+  const seq = Number(event?.seq || 0);
+  if (!seq) return;
+  state.eventPagesBySession.set(sessionID, {
+    ...page,
+    firstSeq: page.firstSeq ? Math.min(page.firstSeq, seq) : seq,
+    lastSeq: Math.max(page.lastSeq || 0, seq),
+  });
 }
 
 function requestRender() {

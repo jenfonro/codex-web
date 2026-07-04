@@ -66,4 +66,13 @@ type SessionCancelRequest struct {
 type SessionEventsRequest struct {
 	SessionID string `json:"sessionId"`
 	LastSeq   int64  `json:"lastSeq"`
+	BeforeSeq int64  `json:"beforeSeq,omitempty"`
+	Limit     int    `json:"limit,omitempty"`
+}
+
+type SessionEventsPage struct {
+	Events        []SessionEvent `json:"events"`
+	FirstSeq      int64          `json:"firstSeq"`
+	LastSeq       int64          `json:"lastSeq"`
+	HasMoreBefore bool           `json:"hasMoreBefore"`
 }

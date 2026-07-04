@@ -103,7 +103,11 @@ function bindThreadScrollHandler() {
     threadScrollFrame = window.requestAnimationFrame(() => {
       threadScrollFrame = 0;
       if (suppressThreadScroll) return;
-      if (virtualizer.handleScroll(scroll)) render();
+      if (virtualizer.handleScroll(scroll)) {
+        render();
+        return;
+      }
+      runtime.onThreadScroll?.(scroll, virtualizer.activeWindow());
     });
   }, { passive: true });
 }
@@ -152,7 +156,11 @@ function renderThreadView() {
   const session = activeSession();
   const sessionID = session?.id || "thread-reference";
   const fallbackEvents = runtime.samples?.eventsBySession?.get("thread-reference") || [];
-  const events = state.eventsBySession.get(sessionID) || fallbackEvents;
+  const events = state.eventsBySession.has(sessionID)
+    ? state.eventsBySession.get(sessionID)
+    : state.apiAvailable
+      ? []
+      : fallbackEvents;
   return `
     <div class="codex-panel-view codex-panel-view-thread relative flex h-full flex-col min-h-0" data-vscode-context="{&quot;chatgpt.supportsNewChatMenu&quot;: true}" data-codex-panel-root data-codex-view="thread">
       <div class="sticky top-0 z-10">${renderHeader(session?.title || "任务", "thread")}</div>

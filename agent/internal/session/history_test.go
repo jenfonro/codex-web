@@ -3,6 +3,8 @@ package session
 import (
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -94,12 +96,51 @@ func TestManagerListRefreshesHistory(t *testing.T) {
 	if got[0].ID != second {
 		t.Fatalf("List() sort = %#v, want newest session first", got)
 	}
-	events, err := manager.Events(second, 0)
+	page, err := manager.Events(model.SessionEventsRequest{SessionID: second})
 	if err != nil {
 		t.Fatalf("Events() error = %v", err)
 	}
+	events := page.Events
 	if len(events) != 1 || events[0].Text != "second prompt" {
 		t.Fatalf("Events() = %#v", events)
+	}
+}
+
+func TestManagerEventsPaginatesFromTailAndBeforeSeq(t *testing.T) {
+	manager := New(Config{CodexHome: t.TempDir(), RootDir: "/workspace", CodexBin: "codex"})
+	manager.sessions["session-1"] = &managedSession{
+		record: model.SessionRecord{ID: "session-1", LastSeq: 5, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		events: []model.SessionEvent{
+			{SessionID: "session-1", Seq: 1, Kind: "user_message", Text: "one"},
+			{SessionID: "session-1", Seq: 2, Kind: "assistant_message", Text: "two"},
+			{SessionID: "session-1", Seq: 3, Kind: "user_message", Text: "three"},
+			{SessionID: "session-1", Seq: 4, Kind: "assistant_message", Text: "four"},
+			{SessionID: "session-1", Seq: 5, Kind: "assistant_message", Text: "five"},
+		},
+	}
+
+	page, err := manager.Events(model.SessionEventsRequest{SessionID: "session-1", Limit: 2})
+	if err != nil {
+		t.Fatalf("Events(tail) error = %v", err)
+	}
+	if got := eventSeqs(page.Events); got != "4,5" || !page.HasMoreBefore || page.FirstSeq != 4 || page.LastSeq != 5 {
+		t.Fatalf("tail page = %#v, seqs = %s", page, got)
+	}
+
+	page, err = manager.Events(model.SessionEventsRequest{SessionID: "session-1", BeforeSeq: 4, Limit: 2})
+	if err != nil {
+		t.Fatalf("Events(before) error = %v", err)
+	}
+	if got := eventSeqs(page.Events); got != "2,3" || !page.HasMoreBefore || page.FirstSeq != 2 || page.LastSeq != 3 {
+		t.Fatalf("before page = %#v, seqs = %s", page, got)
+	}
+
+	page, err = manager.Events(model.SessionEventsRequest{SessionID: "session-1", LastSeq: 3})
+	if err != nil {
+		t.Fatalf("Events(lastSeq) error = %v", err)
+	}
+	if got := eventSeqs(page.Events); got != "4,5" {
+		t.Fatalf("lastSeq page seqs = %s", got)
 	}
 }
 
@@ -162,4 +203,12 @@ func writeHistoryFile(t *testing.T, codexHome, sessionID string, lines []string)
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 	return path
+}
+
+func eventSeqs(events []model.SessionEvent) string {
+	seqs := make([]string, 0, len(events))
+	for _, event := range events {
+		seqs = append(seqs, strconv.FormatInt(event.Seq, 10))
+	}
+	return strings.Join(seqs, ",")
 }

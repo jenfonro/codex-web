@@ -140,21 +140,43 @@ func (m *Manager) Cancel(id string) error {
 	return nil
 }
 
-func (m *Manager) Events(id string, lastSeq int64) ([]model.SessionEvent, error) {
+func (m *Manager) Events(req model.SessionEventsRequest) (model.SessionEventsPage, error) {
 	m.refreshFromDisk()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	session := m.sessions[id]
+	session := m.sessions[req.SessionID]
 	if session == nil {
-		return nil, errors.New("session not found")
+		return model.SessionEventsPage{}, errors.New("session not found")
 	}
 	events := make([]model.SessionEvent, 0, len(session.events))
 	for _, event := range session.events {
-		if event.Seq > lastSeq {
-			events = append(events, event)
+		if req.LastSeq > 0 && event.Seq <= req.LastSeq {
+			continue
+		}
+		if req.BeforeSeq > 0 && event.Seq >= req.BeforeSeq {
+			continue
+		}
+		events = append(events, event)
+	}
+	if req.Limit > 0 && len(events) > req.Limit {
+		if req.BeforeSeq > 0 || req.LastSeq == 0 {
+			events = events[len(events)-req.Limit:]
+		} else {
+			events = events[:req.Limit]
 		}
 	}
-	return events, nil
+	return sessionEventsPage(events), nil
+}
+
+func sessionEventsPage(events []model.SessionEvent) model.SessionEventsPage {
+	page := model.SessionEventsPage{Events: events}
+	if len(events) == 0 {
+		return page
+	}
+	page.FirstSeq = events[0].Seq
+	page.LastSeq = events[len(events)-1].Seq
+	page.HasMoreBefore = page.FirstSeq > 1
+	return page
 }
 
 func (m *Manager) Subscribe() (<-chan model.SessionEvent, func()) {

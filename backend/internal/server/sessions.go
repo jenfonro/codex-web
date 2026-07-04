@@ -128,7 +128,7 @@ func (a *App) handleSessionItem(w http.ResponseWriter, r *http.Request, tail str
 }
 
 func (a *App) writeSessionBacklog(w http.ResponseWriter, r *http.Request, sessionID string) {
-	lastSeq, _ := strconv.ParseInt(r.URL.Query().Get("lastSeq"), 10, 64)
+	lastSeq, beforeSeq, limit := sessionEventQuery(r)
 	client, err := a.nodeClientFromRequest(r, nil)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -137,6 +137,8 @@ func (a *App) writeSessionBacklog(w http.ResponseWriter, r *http.Request, sessio
 	result, err := client.Request(r.Context(), "session.events", map[string]any{
 		"sessionId": sessionID,
 		"lastSeq":   lastSeq,
+		"beforeSeq": beforeSeq,
+		"limit":     limit,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
@@ -151,7 +153,7 @@ func (a *App) handleSessionEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sessionID := strings.TrimSpace(r.URL.Query().Get("sessionId"))
-	lastSeq, _ := strconv.ParseInt(r.URL.Query().Get("lastSeq"), 10, 64)
+	lastSeq, beforeSeq, limit := sessionEventQuery(r)
 	client, err := a.nodeClientFromRequest(r, nil)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -162,6 +164,8 @@ func (a *App) handleSessionEvents(w http.ResponseWriter, r *http.Request) {
 		backlog, err = client.Request(r.Context(), "session.events", map[string]any{
 			"sessionId": sessionID,
 			"lastSeq":   lastSeq,
+			"beforeSeq": beforeSeq,
+			"limit":     limit,
 		})
 		if err != nil {
 			writeError(w, http.StatusBadGateway, err.Error())
@@ -206,6 +210,19 @@ func (a *App) handleSessionEvents(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 		}
 	}
+}
+
+func sessionEventQuery(r *http.Request) (int64, int64, int) {
+	lastSeq, _ := strconv.ParseInt(r.URL.Query().Get("lastSeq"), 10, 64)
+	beforeSeq, _ := strconv.ParseInt(r.URL.Query().Get("beforeSeq"), 10, 64)
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit < 0 {
+		limit = 0
+	}
+	if limit > 2000 {
+		limit = 2000
+	}
+	return lastSeq, beforeSeq, limit
 }
 
 func (a *App) handleWorkspace(w http.ResponseWriter, r *http.Request) {

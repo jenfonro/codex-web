@@ -165,11 +165,11 @@ func (a *Agent) handle(ctx context.Context, msg model.AgentEnvelope) (any, error
 		if err := decodeParams(msg.Params, &req); err != nil {
 			return nil, err
 		}
-		events, err := a.sessions.Events(req.SessionID, req.LastSeq)
+		page, err := a.sessions.Events(req)
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"events": events}, nil
+		return page, nil
 	case "workspace.fetch":
 		endpoint := host.StrAny(msg.Params["endpoint"])
 		value, handled, err := a.hostsvc.Fetch(ctx, endpoint, msg.Params)
