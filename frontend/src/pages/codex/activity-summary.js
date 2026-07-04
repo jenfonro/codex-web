@@ -94,6 +94,10 @@
     return "";
   }
 
+  function detailKind(item) {
+    return eventKind(item.event || item);
+  }
+
   function compactDetailEvents(events) {
     const items = [];
     for (const event of events) {
@@ -142,7 +146,13 @@
 
   function isInspectableProcessEvent(event) {
     const kind = eventKind(event);
-    return kind === "tool_call" || kind === "stdout" || kind === "stderr" || kind === "tool_summary";
+    return (
+      kind === "tool_call" ||
+      kind === "stdout" ||
+      kind === "stderr" ||
+      kind === "tool_summary" ||
+      assistantEventHasContent(event)
+    );
   }
 
   function eventKind(event, fallback = "") {
@@ -169,6 +179,7 @@
 
   global.CodexPanelActivitySummary = {
     detailIcon,
+    detailKind,
     detailLabel,
     detailStatus,
     splitTurnFollowups,

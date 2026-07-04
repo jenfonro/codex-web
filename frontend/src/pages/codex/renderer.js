@@ -664,14 +664,18 @@ function renderTurnActivitySummary(split, baseEvent) {
 
 function renderTurnActivityDetail(item) {
   const iconName = activitySummary.detailIcon(item);
+  const kind = activitySummary.detailKind(item);
   const label = activitySummary.detailLabel(item);
   const status = activitySummary.detailStatus(item);
+  const labelClass = kind === "assistant_message"
+    ? "codex-turn-activity-row-label codex-turn-activity-row-label-wrap"
+    : "codex-turn-activity-row-label";
   const statusText = status && status !== "completed" ? `<span class="codex-turn-activity-status">${escapeHTML(status)}</span>` : "";
   const countText = item.count > 1 ? `<span class="codex-turn-activity-count">×${escapeHTML(item.count)}</span>` : "";
   return `
                   <div class="codex-turn-activity-row">
                     ${iconName ? icons.svg(iconName, "icon-xs shrink-0 text-token-input-placeholder-foreground") : '<span class="codex-turn-activity-icon-spacer" aria-hidden="true"></span>'}
-                    <span class="codex-turn-activity-row-label">${formatInlineCodeText(label)}</span>
+                    <span class="${labelClass}">${formatInlineCodeText(label)}</span>
                     ${countText}
                     ${statusText}
                   </div>`;

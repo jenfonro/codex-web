@@ -231,6 +231,13 @@
   white-space: nowrap;
 }
 
+.codex-turn-activity-row-label-wrap {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .codex-turn-activity-count,
 .codex-turn-activity-status {
   flex: 0 0 auto;
