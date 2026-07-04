@@ -170,7 +170,8 @@ function renderHeader(title, mode) {
 }
 
 function renderConversationEvents(events) {
-  const items = groupConversationEvents(events);
+  const visibleEvents = visibleConversationEvents(events);
+  const items = groupConversationEvents(visibleEvents);
   const virtualList = conversationVirtualList(events);
   const outerStyle = virtualList.height ? ` style="height: ${escapeAttr(virtualList.height)}"` : "";
   const innerStyle = `gap: 12px; margin-top: ${virtualList.marginTop || "0px"};`;
@@ -180,6 +181,49 @@ function renderConversationEvents(events) {
         ${items.map((item, index) => `<div style="">${renderConversationItem(item, index)}</div>`).join("")}
       </div>
     </div>`;
+}
+
+function visibleConversationEvents(events) {
+  const visible = [];
+  let turnFollowups = [];
+
+  const flushTurnFollowups = () => {
+    if (!turnFollowups.length) return;
+    const settled = turnFollowups.some(isTurnSettlingEvent);
+    for (const event of turnFollowups) {
+      if (isControlEvent(event)) continue;
+      if (settled && isPendingPlaceholderEvent(event)) continue;
+      visible.push(event);
+    }
+    turnFollowups = [];
+  };
+
+  for (const event of events) {
+    if ((event.kind || "assistant_message") === "user_message") {
+      flushTurnFollowups();
+      visible.push(event);
+      continue;
+    }
+    turnFollowups.push(event);
+  }
+  flushTurnFollowups();
+
+  return visible;
+}
+
+function isControlEvent(event) {
+  return ["turn_completed", "thread_started", "cli_event"].includes(event.kind || "");
+}
+
+function isTurnSettlingEvent(event) {
+  const kind = event.kind || "";
+  if (kind === "turn_completed" || kind === "error") return true;
+  if (kind !== "assistant_message") return false;
+  return Boolean(String(event.text || assistantTextFromData(event.data)).trim());
+}
+
+function isPendingPlaceholderEvent(event) {
+  return ["turn_started", "reasoning"].includes(event.kind || "") && isActivityPending(event);
 }
 
 function conversationVirtualList(events) {

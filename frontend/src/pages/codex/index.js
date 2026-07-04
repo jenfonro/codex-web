@@ -168,6 +168,7 @@ function applyIncomingSessionEvent(incoming) {
     events.push(incoming);
     state.eventsBySession.set(incoming.sessionId, events);
   }
+  if (isTurnSettlingEvent(incoming)) prunePendingTurnPlaceholders(incoming.sessionId);
   if (!updateSessionFromEvent(incoming)) scheduleSessionReload();
   if (state.view === "list" || state.activeSessionId === incoming.sessionId) renderer.render();
 }
@@ -193,8 +194,50 @@ function statusFromEvent(event, fallback) {
   if (kind === "error") return "error";
   if (kind === "turn_completed") return "idle";
   if (kind === "assistant_message" && event.data?.phase === "final_answer") return "idle";
+  if (kind === "assistant_message" && assistantEventHasContent(event)) return "idle";
   if (["user_message", "turn_started", "reasoning", "tool_call", "stdout", "stderr"].includes(kind)) return "running";
   return fallback || "idle";
+}
+
+function prunePendingTurnPlaceholders(sessionID) {
+  const events = state.eventsBySession.get(sessionID);
+  if (!events?.length) return;
+  let settledIndex = -1;
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    if (isTurnSettlingEvent(events[index])) {
+      settledIndex = index;
+      break;
+    }
+  }
+  if (settledIndex < 0) return;
+
+  let turnStartIndex = -1;
+  for (let index = settledIndex; index >= 0; index -= 1) {
+    if ((events[index].kind || "") === "user_message") {
+      turnStartIndex = index;
+      break;
+    }
+  }
+
+  const pruned = events.filter((event, index) => {
+    if (index <= turnStartIndex || index >= settledIndex) return true;
+    return !isPendingPlaceholderEvent(event);
+  });
+  if (pruned.length !== events.length) state.eventsBySession.set(sessionID, pruned);
+}
+
+function isTurnSettlingEvent(event) {
+  const kind = event.kind || "";
+  if (kind === "turn_completed" || kind === "error") return true;
+  return kind === "assistant_message" && assistantEventHasContent(event);
+}
+
+function assistantEventHasContent(event) {
+  return Boolean(String(event.text || utils.assistantTextFromData(event.data)).trim());
+}
+
+function isPendingPlaceholderEvent(event) {
+  return ["turn_started", "reasoning"].includes(event.kind || "");
 }
 
 function scheduleSessionReload() {

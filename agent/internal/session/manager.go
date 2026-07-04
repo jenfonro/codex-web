@@ -270,6 +270,8 @@ func (m *Manager) runCodex(ctx context.Context, sessionID, codexThreadID, prompt
 	m.mu.Unlock()
 	if err != nil {
 		m.appendEvent(sessionID, "error", err.Error(), nil)
+	} else if !m.hasEventKindSince(sessionID, "turn_completed", startedAt) {
+		m.appendEvent(sessionID, "turn_completed", "", map[string]any{"status": "completed"})
 	}
 }
 
@@ -461,6 +463,10 @@ func (m *Manager) sessionIDForThreadLocked(threadID string) string {
 }
 
 func (m *Manager) hasAssistantMessageSince(sessionID string, since time.Time) bool {
+	return m.hasEventKindSince(sessionID, "assistant_message", since)
+}
+
+func (m *Manager) hasEventKindSince(sessionID, kind string, since time.Time) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	session := m.sessions[sessionID]
@@ -468,7 +474,7 @@ func (m *Manager) hasAssistantMessageSince(sessionID string, since time.Time) bo
 		return false
 	}
 	for _, event := range session.events {
-		if event.Kind == "assistant_message" && !event.Time.Before(since) {
+		if event.Kind == kind && !event.Time.Before(since) {
 			return true
 		}
 	}
