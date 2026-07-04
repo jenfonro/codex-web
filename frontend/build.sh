@@ -48,6 +48,7 @@ script_sources=(
   "pages/codex/config.js"
   "pages/codex/utils.js"
   "pages/codex/lifecycle.js"
+  "pages/codex/activity-summary.js"
   "pages/codex/virtualizer.js"
   "pages/codex/api.js"
   "pages/codex/fixtures.js"

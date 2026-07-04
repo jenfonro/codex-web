@@ -187,6 +187,57 @@
   border-right-color: currentColor;
 }
 
+.codex-turn-activity-details > summary {
+  list-style: none;
+}
+
+.codex-turn-activity-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.codex-turn-activity-details[open] .codex-turn-activity-chevron {
+  transform: rotate(90deg);
+}
+
+.codex-turn-activity-detail-list {
+  display: flex;
+  max-width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0 2px 20px;
+}
+
+.codex-turn-activity-row {
+  display: flex;
+  max-width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-token-text-tertiary);
+  line-height: 20px;
+}
+
+.codex-turn-activity-icon-spacer {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+}
+
+.codex-turn-activity-row-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codex-turn-activity-count,
+.codex-turn-activity-status {
+  flex: 0 0 auto;
+  color: var(--color-token-text-tertiary);
+  opacity: .85;
+}
+
 @keyframes codex-session-status-spin {
   to {
     transform: rotate(360deg);

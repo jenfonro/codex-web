@@ -3,6 +3,7 @@
 (function defineCodexPanelVirtualizer(global) {
   const { assistantTextFromData } = global.CodexPanelUtils;
   const { isActivityEvent, isActivityPending } = global.CodexPanelLifecycle;
+  const activitySummary = global.CodexPanelActivitySummary;
 
   const VIRTUAL_TURN_THRESHOLD = 28;
   const VIRTUAL_WINDOW_TURNS = 36;
@@ -146,6 +147,15 @@
   function estimateItemHeight(item) {
     if (!item) return 180;
     if (item.type !== "user-turn") return estimateEventHeight(item.event);
+    const split = activitySummary?.splitTurnFollowups(item.followups || []);
+    if (split?.hasProcessSummary) {
+      const events = [
+        item.event,
+        ...split.streamFollowups,
+        ...(split.finalFollowup ? [split.finalFollowup] : []),
+      ];
+      return Math.max(120, events.reduce((total, event) => total + estimateEventHeight(event), 68));
+    }
     const events = [item.event, ...(item.followups || [])];
     return Math.max(120, events.reduce((total, event) => total + estimateEventHeight(event), 24));
   }

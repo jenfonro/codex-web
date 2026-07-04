@@ -18,6 +18,7 @@
     isActivityPending,
     visibleConversationEvents,
   } = global.CodexPanelLifecycle;
+  const activitySummary = global.CodexPanelActivitySummary;
   const virtualizerFactory = global.CodexPanelVirtualizer;
 
   function createCodexPanelRenderer(runtime) {
@@ -369,34 +370,28 @@ function renderUserTurn(event, followups, index) {
 }
 
 function renderUserTurnAfterContent(followups, index, baseEvent) {
-  const finalIndex = followups.findIndex((event) => event.placement === "final" || event.data?.placement === "final");
-  let finalFollowup = finalIndex >= 0 ? followups[finalIndex] : null;
-  const summaryIndex = followups.findIndex((event) => (event.kind || "") === "summary");
-  const summaryFollowup = summaryIndex >= 0 ? followups[summaryIndex] : null;
-  let streamFollowups = followups.filter((_, eventIndex) => eventIndex !== finalIndex && eventIndex !== summaryIndex);
-  if (!finalFollowup && streamFollowups.length === 1 && (streamFollowups[0].kind || "assistant_message") === "assistant_message") {
-    finalFollowup = streamFollowups[0];
-    streamFollowups = [];
-  }
+  const split = activitySummary.splitTurnFollowups(followups);
+  const finalFollowup = split.finalFollowup;
+  const streamFollowups = split.streamFollowups;
   const turnKey = turnKeyFromEvent(baseEvent, index);
 
-  if (!streamFollowups.length && !summaryFollowup && !finalFollowup) {
+  if (!streamFollowups.length && !split.hasProcessSummary && !finalFollowup) {
     return `
         <div class="flex flex-col"><div class="-mx-1.5 px-1.5" style="overflow: hidden; opacity: 1; height: auto;"></div></div>
         <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
         <div class="flex flex-col"><div></div></div>`;
   }
 
-  if (finalFollowup && !streamFollowups.length && !summaryFollowup) {
+  if (finalFollowup && !streamFollowups.length && !split.hasProcessSummary) {
     const finalUnit = contentUnitFor(finalFollowup, 1);
     return `<div class="flex flex-col" data-local-conversation-final-assistant="true"><div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnKey, finalUnit, "assistant"))}">${renderAssistantContent(finalFollowup, `${index}-final`, false)}</div></div>`;
   }
 
-  if (summaryFollowup && !streamFollowups.length) {
+  if (split.hasProcessSummary && !streamFollowups.length) {
     const finalAttrs = finalFollowup ? ' data-local-conversation-final-assistant="true"' : "";
     const finalUnit = contentUnitFor(finalFollowup, 1);
     return `
-        <div class="flex flex-col">${renderSummaryBody(summaryFollowup)}</div>
+        <div class="flex flex-col">${renderTurnActivitySummary(split, baseEvent)}</div>
         <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
         <div class="flex flex-col"${finalAttrs}><div${finalFollowup ? ` data-content-search-unit-key="${escapeAttr(contentSearchKey(turnKey, finalUnit, "assistant"))}"` : ""}>${finalFollowup ? renderAssistantContent(finalFollowup, `${index}-final`, false) : ""}</div></div>`;
   }
@@ -411,6 +406,7 @@ function renderUserTurnAfterContent(followups, index, baseEvent) {
             </div>
           </div>
         </div>
+        ${split.hasProcessSummary ? `<div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div><div class="flex flex-col">${renderTurnActivitySummary(split, baseEvent)}</div>` : ""}
         <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
         <div class="flex flex-col"${finalAttrs}><div${finalFollowup ? ` data-content-search-unit-key="${escapeAttr(contentSearchKey(turnKey, finalUnit, "assistant"))}"` : ""}>${finalFollowup ? renderAssistantContent(finalFollowup, `${index}-final`, false) : ""}</div></div>`;
 }
@@ -643,6 +639,42 @@ function renderSummaryBody(event) {
           <div class="text-size-chat pt-1 text-token-text-secondary">
             <div class="w-full border-t border-token-border-light"></div>
           </div>`;
+}
+
+function renderTurnActivitySummary(split, baseEvent) {
+  const label = activitySummary.summaryLabel(baseEvent, split);
+  if (!split.detailEvents.length) return renderSummaryBody({ text: label });
+
+  return `
+          <div class="text-size-chat text-token-text-secondary codex-turn-activity">
+            <details class="codex-turn-activity-details">
+              <summary class="text-size-chat hover:bg-token-bg-subtle inline-flex cursor-interaction items-center gap-1 rounded-md border border-transparent focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:outline-none">
+                <span><span class="text-token-foreground/60">${escapeHTML(label)}</span></span>
+                ${icons.svg("chevronRight", "codex-turn-activity-chevron icon-2xs text-token-foreground/40 transition-transform duration-200 rotate-0")}
+              </summary>
+              <div class="codex-turn-activity-detail-list">
+                ${split.detailEvents.map(renderTurnActivityDetail).join("")}
+              </div>
+            </details>
+          </div>
+          <div class="text-size-chat pt-1 text-token-text-secondary">
+            <div class="w-full border-t border-token-border-light"></div>
+          </div>`;
+}
+
+function renderTurnActivityDetail(item) {
+  const iconName = activitySummary.detailIcon(item);
+  const label = activitySummary.detailLabel(item);
+  const status = activitySummary.detailStatus(item);
+  const statusText = status && status !== "completed" ? `<span class="codex-turn-activity-status">${escapeHTML(status)}</span>` : "";
+  const countText = item.count > 1 ? `<span class="codex-turn-activity-count">×${escapeHTML(item.count)}</span>` : "";
+  return `
+                  <div class="codex-turn-activity-row">
+                    ${iconName ? icons.svg(iconName, "icon-xs shrink-0 text-token-input-placeholder-foreground") : '<span class="codex-turn-activity-icon-spacer" aria-hidden="true"></span>'}
+                    <span class="codex-turn-activity-row-label">${formatInlineCodeText(label)}</span>
+                    ${countText}
+                    ${statusText}
+                  </div>`;
 }
 
 function renderActivity(event, index) {
