@@ -87,6 +87,21 @@ func TestManagerListRefreshesHistory(t *testing.T) {
 	}
 }
 
+func TestItemTextTreatsCLIConfigWarningAsNonFatal(t *testing.T) {
+	text, kind := itemText(map[string]any{
+		"type":    "error",
+		"message": "Ignored unsupported project-local config keys in /workspace/.codex/config.toml: model_provider, model_providers.",
+	})
+	if text != "" || kind != "" {
+		t.Fatalf("itemText() = %q/%q, want skipped warning", text, kind)
+	}
+
+	text, kind = itemText(map[string]any{"type": "error", "message": "real stderr"})
+	if text != "real stderr" || kind != "stderr" {
+		t.Fatalf("itemText() = %q/%q, want stderr", text, kind)
+	}
+}
+
 func writeHistoryFile(t *testing.T, codexHome, sessionID string, lines []string) string {
 	t.Helper()
 	dir := filepath.Join(codexHome, "sessions", "2026", "07", "04")

@@ -346,6 +346,9 @@ func (m *Manager) handleCLIEvent(sessionID string, raw map[string]any) {
 		m.appendEvent(sessionID, "turn_completed", "", raw)
 	case "item.completed":
 		text, kind := itemText(raw["item"])
+		if kind == "" {
+			return
+		}
 		m.appendEvent(sessionID, kind, text, raw)
 	default:
 		m.appendEvent(sessionID, "cli_event", "", raw)
@@ -485,6 +488,12 @@ func itemText(value any) (string, string) {
 		return stringAny(item["text"]), "reasoning"
 	case "tool_call":
 		return stringAny(item["text"]), "tool_call"
+	case "error":
+		message := stringAny(item["message"])
+		if strings.HasPrefix(message, "Ignored unsupported project-local config keys") {
+			return "", ""
+		}
+		return message, "stderr"
 	default:
 		if text := stringAny(item["text"]); text != "" {
 			return text, itemType
