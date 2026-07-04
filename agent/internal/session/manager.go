@@ -247,8 +247,14 @@ func (m *Manager) runCodex(ctx context.Context, sessionID, codexThreadID, prompt
 	m.scanStdout(sessionID, stdout)
 	err = cmd.Wait()
 	m.refreshFromDisk()
-	if err != nil && m.hasAssistantMessageSince(sessionID, startedAt) {
-		err = nil
+	if err != nil {
+		for attempt := 0; attempt < 6 && !m.hasAssistantMessageSince(sessionID, startedAt); attempt++ {
+			time.Sleep(500 * time.Millisecond)
+			m.refreshFromDisk()
+		}
+		if m.hasAssistantMessageSince(sessionID, startedAt) {
+			err = nil
+		}
 	}
 	m.mu.Lock()
 	session := m.sessions[sessionID]
