@@ -210,6 +210,7 @@ func (m *Manager) startTurn(parent context.Context, sessionID, codexThreadID, pr
 }
 
 func (m *Manager) runCodex(ctx context.Context, sessionID, codexThreadID, prompt, cwd string) {
+	startedAt := time.Now().UTC()
 	args := []string{}
 	if codexThreadID == "" {
 		args = append(args, "exec", "--json", "--skip-git-repo-check", "-C", cwd, "-")
@@ -245,6 +246,10 @@ func (m *Manager) runCodex(ctx context.Context, sessionID, codexThreadID, prompt
 	go m.scanStderr(sessionID, stderr)
 	m.scanStdout(sessionID, stdout)
 	err = cmd.Wait()
+	m.refreshFromDisk()
+	if err != nil && m.hasAssistantMessageSince(sessionID, startedAt) {
+		err = nil
+	}
 	m.mu.Lock()
 	session := m.sessions[sessionID]
 	if session != nil {
@@ -259,8 +264,6 @@ func (m *Manager) runCodex(ctx context.Context, sessionID, codexThreadID, prompt
 	m.mu.Unlock()
 	if err != nil {
 		m.appendEvent(sessionID, "error", err.Error(), nil)
-	} else {
-		m.refreshFromDisk()
 	}
 }
 
@@ -447,6 +450,21 @@ func (m *Manager) sessionIDForThreadLocked(threadID string) string {
 		}
 	}
 	return ""
+}
+
+func (m *Manager) hasAssistantMessageSince(sessionID string, since time.Time) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	session := m.sessions[sessionID]
+	if session == nil {
+		return false
+	}
+	for _, event := range session.events {
+		if event.Kind == "assistant_message" && !event.Time.Before(since) {
+			return true
+		}
+	}
+	return false
 }
 
 func itemText(value any) (string, string) {
