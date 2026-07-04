@@ -74,6 +74,11 @@ for name in auth.json config.toml; do
   fi
 done
 
+if [[ -d "${HOST_CODEX_HOME}/sessions" ]]; then
+  mkdir -p "${DATA_DIR}/codex-home/sessions"
+  tar -C "${HOST_CODEX_HOME}" -cf - sessions | tar -C "${DATA_DIR}/codex-home" --skip-old-files -xf -
+fi
+
 docker rm -f "${CONTAINER}" >/dev/null 2>&1 || true
 
 RUN_ARGS=(

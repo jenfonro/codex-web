@@ -274,7 +274,7 @@ function renderEvent(event, index) {
   return renderAssistantMessage(event, index, false);
 }
 
-function renderTurnShell(index, role, content, afterContentOverride, eventForKey) {
+function renderTurnContainer(index, role, content, afterContentOverride, eventForKey) {
   const turnKey = turnKeyFromEvent(eventForKey, index);
   const unit = contentUnitFor(eventForKey, role === "user" ? 0 : 0);
   const afterContent = afterContentOverride !== undefined
@@ -316,7 +316,7 @@ function renderUserMessage(event, index) {
 }
 
 function renderUserTurn(event, followups, index) {
-  return renderTurnShell(index, "user", renderUserContent(event), renderUserTurnAfterContent(followups, index, event), event);
+  return renderTurnContainer(index, "user", renderUserContent(event), renderUserTurnAfterContent(followups, index, event), event);
 }
 
 function renderUserTurnAfterContent(followups, index, baseEvent) {
@@ -459,7 +459,7 @@ function renderUserBubble(event) {
 }
 
 function renderAssistantMessage(event, index, isError) {
-  return renderTurnShell(index, "assistant", renderAssistantContent(event, index, isError), undefined, event);
+  return renderTurnContainer(index, "assistant", renderAssistantContent(event, index, isError), undefined, event);
 }
 
 function renderAssistantContent(event, index, isError, includeActions = true) {
@@ -482,7 +482,7 @@ function renderAssistantContent(event, index, isError, includeActions = true) {
 }
 
 function renderDiffCard(card) {
-  const files = Array.isArray(card?.files) && card.files.length ? card.files : ["frontend/src/app/shell.js", "frontend/src/app/index.css", "frontend/src/pages/codex/index.js"];
+  const files = Array.isArray(card?.files) && card.files.length ? card.files : ["frontend/src/app/bootstrap.js", "frontend/src/app/layout.css", "frontend/src/pages/codex/index.js"];
   const total = card?.total || files.length;
   const additions = card?.additions || "+1,198";
   const deletions = card?.deletions || "-2";
@@ -702,7 +702,7 @@ function renderShimmerText(text, className) {
 }
 
 function renderToolSummaryTurn(event, index) {
-  return renderTurnShell(index, "tool-summary", renderToolSummaryContent(event, index), undefined, event);
+  return renderTurnContainer(index, "tool-summary", renderToolSummaryContent(event, index), undefined, event);
 }
 
 function renderToolSummaryContent(event, index) {

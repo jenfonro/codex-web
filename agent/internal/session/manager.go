@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -39,26 +40,34 @@ type Manager struct {
 }
 
 type managedSession struct {
-	record model.SessionRecord
-	events []model.SessionEvent
-	cancel context.CancelFunc
+	record         model.SessionRecord
+	events         []model.SessionEvent
+	cancel         context.CancelFunc
+	historyPath    string
+	historyModTime time.Time
 }
 
 func New(cfg Config) *Manager {
-	return &Manager{
+	manager := &Manager{
 		cfg:         cfg,
 		sessions:    map[string]*managedSession{},
 		subscribers: map[int]chan model.SessionEvent{},
 	}
+	manager.refreshFromDisk()
+	return manager
 }
 
 func (m *Manager) List() []model.SessionRecord {
+	m.refreshFromDisk()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	out := make([]model.SessionRecord, 0, len(m.sessions))
 	for _, session := range m.sessions {
 		out = append(out, session.record)
 	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].UpdatedAt.After(out[j].UpdatedAt)
+	})
 	return out
 }
 
@@ -91,6 +100,7 @@ func (m *Manager) Create(ctx context.Context, req model.SessionCreateRequest) (m
 }
 
 func (m *Manager) Send(ctx context.Context, req model.SessionSendRequest) (model.SessionRecord, error) {
+	m.refreshFromDisk()
 	prompt := strings.TrimSpace(req.Prompt)
 	if prompt == "" {
 		return model.SessionRecord{}, errors.New("prompt is required")
@@ -131,6 +141,7 @@ func (m *Manager) Cancel(id string) error {
 }
 
 func (m *Manager) Events(id string, lastSeq int64) ([]model.SessionEvent, error) {
+	m.refreshFromDisk()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	session := m.sessions[id]
@@ -248,6 +259,8 @@ func (m *Manager) runCodex(ctx context.Context, sessionID, codexThreadID, prompt
 	m.mu.Unlock()
 	if err != nil {
 		m.appendEvent(sessionID, "error", err.Error(), nil)
+	} else {
+		m.refreshFromDisk()
 	}
 }
 
@@ -285,6 +298,30 @@ func (m *Manager) scanStderr(sessionID string, reader io.Reader) {
 func (m *Manager) handleCLIEvent(sessionID string, raw map[string]any) {
 	eventType := stringAny(raw["type"])
 	switch eventType {
+	case "session_meta":
+		entry := historyEntryFromMap(raw)
+		threadID := firstString(entry.Payload, "session_id", "id")
+		m.mu.Lock()
+		if session := m.sessions[sessionID]; session != nil && threadID != "" {
+			session.record.CodexThreadID = threadID
+			if cwd := firstString(entry.Payload, "cwd"); cwd != "" {
+				session.record.CWD = cwd
+			}
+			session.record.UpdatedAt = time.Now().UTC()
+		}
+		m.mu.Unlock()
+	case "event_msg", "response_item":
+		entry := historyEntryFromMap(raw)
+		eventTime := parseTime(entry.Timestamp, time.Now().UTC())
+		event, ok := eventFromHistoryEntry(entry, eventTime, true)
+		if !ok {
+			return
+		}
+		if event.Kind == "turn_completed" {
+			m.setStatus(sessionID, statusIdle)
+			return
+		}
+		m.appendParsedEvent(sessionID, event)
 	case "thread.started":
 		threadID := stringAny(raw["thread_id"])
 		m.mu.Lock()
@@ -327,21 +364,27 @@ func (m *Manager) setStatus(sessionID, status string) {
 }
 
 func (m *Manager) appendEvent(sessionID, kind, text string, data map[string]any) {
+	m.appendParsedEvent(sessionID, model.SessionEvent{
+		Kind: kind,
+		Text: text,
+		Time: time.Now().UTC(),
+		Data: data,
+	})
+}
+
+func (m *Manager) appendParsedEvent(sessionID string, event model.SessionEvent) {
 	m.mu.Lock()
 	session := m.sessions[sessionID]
 	if session == nil {
 		m.mu.Unlock()
 		return
 	}
-	seq := session.record.LastSeq + 1
-	event := model.SessionEvent{
-		SessionID: sessionID,
-		Seq:       seq,
-		Time:      time.Now().UTC(),
-		Kind:      kind,
-		Text:      text,
-		Data:      data,
+	if event.Time.IsZero() {
+		event.Time = time.Now().UTC()
 	}
+	seq := session.record.LastSeq + 1
+	event.SessionID = sessionID
+	event.Seq = seq
 	session.record.LastSeq = seq
 	session.record.UpdatedAt = event.Time
 	session.events = append(session.events, event)
@@ -356,6 +399,54 @@ func (m *Manager) appendEvent(sessionID, kind, text string, data map[string]any)
 		default:
 		}
 	}
+}
+
+func (m *Manager) refreshFromDisk() {
+	parsed, err := loadHistorySessions(m.cfg.CodexHome)
+	if err != nil {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, history := range parsed {
+		targetID := history.record.ID
+		if existingID := m.sessionIDForThreadLocked(history.record.CodexThreadID); existingID != "" {
+			targetID = existingID
+		}
+		existing := m.sessions[targetID]
+		if existing != nil {
+			if existing.cancel != nil {
+				continue
+			}
+			if !existing.historyModTime.IsZero() && !history.modTime.After(existing.historyModTime) {
+				continue
+			}
+		}
+		if targetID != history.record.ID {
+			history.record.ID = targetID
+			for index := range history.events {
+				history.events[index].SessionID = targetID
+			}
+		}
+		m.sessions[targetID] = &managedSession{
+			record:         history.record,
+			events:         history.events,
+			historyPath:    history.path,
+			historyModTime: history.modTime,
+		}
+	}
+}
+
+func (m *Manager) sessionIDForThreadLocked(threadID string) string {
+	if strings.TrimSpace(threadID) == "" {
+		return ""
+	}
+	for id, session := range m.sessions {
+		if session.record.CodexThreadID == threadID {
+			return id
+		}
+	}
+	return ""
 }
 
 func itemText(value any) (string, string) {

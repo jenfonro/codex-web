@@ -1,6 +1,6 @@
 # Codex Markup Alignment Audit
 
-Generated: 2026-07-03T20:44:09.316Z
+Generated: 2026-07-04T10:46:27.745Z
 
 This audit compares canonical markup from captured extension DOM to the current Codex Web Shadow DOM. Screenshots are not used.
 

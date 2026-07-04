@@ -39,7 +39,8 @@ try {
       "frontend\src\pages\codex\api.js",
       "frontend\src\pages\codex\fixtures.js",
       "frontend\src\pages\codex\renderer.js",
-      "frontend\src\app\shell.js",
+      "frontend\src\components\workspace\layout.js",
+      "frontend\src\app\bootstrap.js",
       "frontend\src\store\codex.js"
     )) {
       node --check $File
@@ -51,12 +52,12 @@ try {
   Invoke-Step "node syntax: markup audit" { node --check "scripts\audit-codex-markup-alignment.cjs" }
   Invoke-Step "node syntax: computed audit" { node --check "scripts\audit-codex-computed-styles.cjs" }
   Invoke-Step "node syntax: dynamic audit" { node --check "scripts\audit-codex-dynamic-states.cjs" }
-  Invoke-Step "python syntax: shell style audit" { python -m py_compile "scripts\audit-code-server-shell-styles.py" }
+  Invoke-Step "python syntax: workspace layout audit" { python -m py_compile "scripts\audit-workspace-layout-styles.py" }
   Invoke-Step "python syntax: Playwright screenshot verifier" { python -m py_compile "scripts\verify-codex-panel-playwright.py" }
   [scriptblock]::Create((Get-Content -LiteralPath "scripts\audit-codex-visual-diff.ps1" -Raw)) | Out-Null
 
   Invoke-Step "source alignment" { node "scripts\audit-codex-source-alignment.cjs" }
-  Invoke-Step "code-server shell style audit" { python "scripts\audit-code-server-shell-styles.py" }
+  Invoke-Step "workspace layout audit" { python "scripts\audit-workspace-layout-styles.py" }
 
   New-Item -ItemType Directory -Force -Path $Profile | Out-Null
   $ChromeProcess = Start-Process -FilePath $Chrome -ArgumentList @(

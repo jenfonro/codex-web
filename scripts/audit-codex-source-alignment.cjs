@@ -20,7 +20,7 @@ const localFiles = [
   "frontend/src/pages/codex/panel.css",
 ];
 
-const localAssetDir = "frontend/src/assets/chatgpt";
+const localAssetDir = "frontend/src/assets/codex-panel";
 const officialAssetDir = "reference/extension-source/openai.chatgpt-26.5623.31443/webview/assets";
 const referenceJSON = "reference/codex-reference/codex-reference.json";
 

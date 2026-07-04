@@ -193,7 +193,7 @@ foreach ($Case in $Cases) {
   if (-not (Test-Path -LiteralPath $LocalFull)) { throw "missing local full: $LocalFull" }
 
   $PanelDiffPath = Join-Path $DiffRoot "$($Case.Name)-panel-diff.png"
-  $ShellDiffPath = Join-Path $DiffRoot "$($Case.Name)-shell-diff.png"
+  $WorkspaceDiffPath = Join-Path $DiffRoot "$($Case.Name)-workspace-diff.png"
 
   $PanelResult = Use-Bitmap -Path $RefCrop -Block {
     param($RefBitmap)
@@ -213,23 +213,23 @@ foreach ($Case in $Cases) {
     }
   }
 
-  $ShellResult = $null
+  $WorkspaceResult = $null
   if (Test-Path -LiteralPath $RefFull) {
-    $ShellResult = Use-Bitmap -Path $RefFull -Block {
+    $WorkspaceResult = Use-Bitmap -Path $RefFull -Block {
       param($RefBitmap)
-      $ReferenceShell = New-BitmapCrop -Bitmap $RefBitmap -Rect @(0, 0, 700, 985)
+      $ReferenceWorkspace = New-BitmapCrop -Bitmap $RefBitmap -Rect @(0, 0, 700, 985)
       try {
         return Use-Bitmap -Path $LocalFull -Block {
           param($LocalBitmap)
-          $LocalShell = New-BitmapCrop -Bitmap $LocalBitmap -Rect @(0, 0, 700, 985)
+          $LocalWorkspace = New-BitmapCrop -Bitmap $LocalBitmap -Rect @(0, 0, 700, 985)
           try {
-            Compare-Bitmaps -Reference $ReferenceShell -Current $LocalShell -DiffPath $ShellDiffPath -Threshold $Threshold
+            Compare-Bitmaps -Reference $ReferenceWorkspace -Current $LocalWorkspace -DiffPath $WorkspaceDiffPath -Threshold $Threshold
           } finally {
-            $LocalShell.Dispose()
+            $LocalWorkspace.Dispose()
           }
         }
       } finally {
-        $ReferenceShell.Dispose()
+        $ReferenceWorkspace.Dispose()
       }
     }
   }
@@ -239,7 +239,7 @@ foreach ($Case in $Cases) {
     referenceDir = $Case.ReferenceDir
     localCaptureDir = $LocalCaptureDir
     panel = $PanelResult
-    shell = $ShellResult
+    workspace = $WorkspaceResult
   }
 }
 
@@ -257,7 +257,7 @@ $Md.Add("# Codex Visual Diff Audit")
 $Md.Add("")
 $Md.Add("Generated: $($Audit.generatedAt)")
 $Md.Add("")
-$Md.Add("Compares captured code-server reference screenshots against the latest local Codex Web screenshots. This is an auxiliary visual audit; source, DOM, markup, and computed-style audits remain the primary exactness gates.")
+$Md.Add("Compares captured workspace reference screenshots against the latest local Codex Web screenshots. This is an auxiliary visual audit; source, DOM, markup, and computed-style audits remain the primary exactness gates.")
 $Md.Add("")
 $Md.Add("- Threshold: max channel delta > $Threshold counts as different.")
 $Md.Add("- Local capture: $LocalCaptureDir")
@@ -265,7 +265,7 @@ $Md.Add("")
 $Md.Add("| View | Layer | Size | Different Pixels | Different % | Mean Channel Delta | Max Channel Delta | Diff |")
 $Md.Add("| --- | --- | --- | ---: | ---: | ---: | ---: | --- |")
 foreach ($Row in $Rows) {
-  foreach ($Layer in @("panel", "shell")) {
+  foreach ($Layer in @("panel", "workspace")) {
     $Result = $Row[$Layer]
     if (-not $Result) { continue }
     $Size = "$($Result.width)x$($Result.height)"
@@ -282,8 +282,8 @@ foreach ($Row in $Rows) {
 }
 $Md.Add("")
 $Md.Add("Interpretation notes:")
-$Md.Add("- shell includes activity bar, title/sidebar chrome, editor edge, and status bar.")
-$Md.Add("- panel crops the actual ChatGPT/Codex webview area from the reference and compares it with the local panel screenshot.")
+$Md.Add("- workspace includes activity bar, title/sidebar chrome, editor edge, and status bar.")
+$Md.Add("- panel crops the actual Codex webview area from the reference and compares it with the local panel screenshot.")
 $Md.Add("- Dynamic labels and sampled conversation text can create legitimate pixel differences; inspect source/DOM/computed audits before treating visual diffs as actionable.")
 $Md -join "`n" | Set-Content -LiteralPath $AuditMd -Encoding UTF8
 

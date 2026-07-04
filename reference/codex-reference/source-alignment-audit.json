@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T20:44:02.617Z",
+  "generatedAt": "2026-07-04T10:46:20.951Z",
   "basis": "Static source alignment audit. Compares local component/CSS source against captured extension HTML and official extension CSS assets. Screenshots are not used.",
   "files": {
     "local": [
@@ -12,7 +12,7 @@
       "frontend/src/pages/codex/panel-shadow.css",
       "frontend/src/pages/codex/panel.css"
     ],
-    "localAssetDir": "frontend/src/assets/chatgpt",
+    "localAssetDir": "frontend/src/assets/codex-panel",
     "officialAssetDir": "reference/extension-source/openai.chatgpt-26.5623.31443/webview/assets",
     "referenceJSON": "reference/codex-reference/codex-reference.json",
     "captures": [

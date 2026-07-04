@@ -6,7 +6,7 @@ const fs = require("fs");
 const path = require("path");
 
 const repoRoot = path.resolve(__dirname, "..");
-const outDir = path.resolve(process.env.CODE_SERVER_SHELL_REFERENCE_DIR || path.join(repoRoot, "reference", "code-server-shell"));
+const outDir = path.resolve(process.env.CODEX_WORKSPACE_REFERENCE_DIR || path.join(repoRoot, "reference", "workspace-reference"));
 const assetsDir = path.join(outDir, "assets");
 const domDir = path.join(outDir, "dom");
 const networkDir = path.join(outDir, "network");
@@ -42,7 +42,7 @@ const RESOURCE_TYPES = new Set([
     deviceScaleFactor: 1,
     ignoreHTTPSErrors: true,
     recordHar: {
-      path: path.join(networkDir, "code-server.har"),
+      path: path.join(networkDir, "workspace.har"),
       content: "embed",
       mode: "full",
     },
@@ -86,7 +86,7 @@ const RESOURCE_TYPES = new Set([
   await page.waitForTimeout(1000);
 
   await page.screenshot({
-    path: path.join(screenshotsDir, "code-server-shell-1920x1080.png"),
+    path: path.join(screenshotsDir, "workspace-1920x1080.png"),
     fullPage: false,
   });
 
@@ -238,7 +238,7 @@ const RESOURCE_TYPES = new Set([
 
   await context.close();
   await browser.close();
-  console.log(`wrote code-server shell reference to ${outDir}`);
+  console.log(`wrote workspace reference to ${outDir}`);
 })().catch((error) => {
   console.error(error);
   process.exit(1);

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T20:44:05.169063Z",
+  "generatedAt": "2026-07-04T10:46:23.593625Z",
   "appUrl": "http://127.0.0.1:58888/?codexFixture=reference",
   "referenceCapture": "20260702-184840-codex-session-list-wide-611",
   "viewport": {
@@ -34,7 +34,7 @@
       },
       "current": {
         "className": "monaco-enable-motion monaco-workbench web chromium nopanel noauxiliarybar fullscreen file-icons-enabled vs vscode-theme-defaults-themes-2026-light-json windows",
-        "text": "root 2 CODEX 欢迎 打开聊天 Ctrl + Alt + I 显示所有命令 Ctrl + Shift + P 在文件中查找 Ctrl + Shift + F 0 0 0 Layout: US",
+        "text": "root 2 CODEX Workspace Open Codex Ctrl + Alt + I Command palette Ctrl + Shift + P Search sessions Ctrl + Shift + F 0 0 0 Codex Web",
         "rect": {
           "x": 0,
           "y": 0,
@@ -174,7 +174,7 @@
       },
       "current": {
         "className": "part editor",
-        "text": "欢迎 打开聊天 Ctrl + Alt + I 显示所有命令 Ctrl + Shift + P 在文件中查找 Ctrl + Shift + F",
+        "text": "Workspace Open Codex Ctrl + Alt + I Command palette Ctrl + Shift + P Search sessions Ctrl + Shift + F",
         "rect": {
           "x": 659,
           "y": 35,
@@ -628,7 +628,7 @@
         }
       },
       "current": {
-        "className": "action-label codicon codicon-source-control-view-icon",
+        "className": "action-label codicon codicon-remote-explorer",
         "text": "",
         "rect": {
           "x": 0,
@@ -663,7 +663,7 @@
         }
       },
       "current": {
-        "className": "action-label codicon codicon-run-view-icon",
+        "className": "action-label codicon codicon-source-control-view-icon",
         "text": "",
         "rect": {
           "x": 0,
@@ -698,7 +698,7 @@
         }
       },
       "current": {
-        "className": "action-label codicon codicon-extensions-view-icon",
+        "className": "action-label codicon codicon-run-view-icon",
         "text": "",
         "rect": {
           "x": 0,
@@ -830,6 +830,26 @@
         "baseBackgroundColor": "rgba(0, 0, 0, 0)",
         "baseBeforeBackgroundColor": "rgba(0, 0, 0, 0)",
         "resizingBeforeBackgroundColor": "rgb(0, 105, 204)"
+      }
+    },
+    {
+      "name": "fixedWorkbenchPlatform",
+      "selector": ".monaco-workbench",
+      "status": "exact",
+      "differences": [],
+      "current": {
+        "present": true,
+        "className": "monaco-enable-motion monaco-workbench web chromium nopanel noauxiliarybar fullscreen file-icons-enabled vs vscode-theme-defaults-themes-2026-light-json windows",
+        "fontFamily": "\"Segoe WPC\", \"Segoe UI\", sans-serif"
+      }
+    },
+    {
+      "name": "platformSourceGuards",
+      "selector": "frontend source",
+      "status": "exact",
+      "differences": [],
+      "current": {
+        "forbiddenHits": []
       }
     }
   ]

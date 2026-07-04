@@ -1,21 +1,23 @@
 "use strict";
 
-applyWorkbenchPlatformClass();
-initSidebarResize();
+initCodexWorkspace();
 
-function applyWorkbenchPlatformClass() {
+function initCodexWorkspace() {
+  window.CodexWorkspaceLayout?.render();
+  applyFixedWorkspacePlatformClass();
+  initSidebarResize();
+}
+
+function applyFixedWorkspacePlatformClass() {
   const workbench = document.querySelector(".monaco-workbench");
   if (!workbench) return;
-  const ua = navigator.userAgent || "";
-  const platform = navigator.userAgentData?.platform || navigator.platform || "";
-  const isWindows = /Windows/i.test(ua) || /^Win/i.test(platform);
-  const isMac = /Macintosh|Mac OS X/i.test(ua) || /^Mac/i.test(platform);
   workbench.classList.remove("linux", "windows", "mac");
-  workbench.classList.add(isWindows ? "windows" : isMac ? "mac" : "linux");
+  workbench.classList.add("windows");
 }
 
 function initSidebarResize() {
-  const handle = document.getElementById("sidebarResizeHandle");
+  const handleID = window.CodexWorkspaceLayout?.IDS?.sidebarResizeHandle || "codexSidebarResizeHandle";
+  const handle = document.getElementById(handleID);
   if (!handle) return;
 
   const storageKey = "codex-web:sidebar-width";

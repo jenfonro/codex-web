@@ -38,9 +38,9 @@ function resetFollowupHTML() {
     <ol class="_markdownText_lzkx4_86 _list_lzkx4_133 _orderedList_lzkx4_159">
       <li class="_markdownText_lzkx4_86 _listItem_lzkx4_168"><p class="_markdownText_lzkx4_86 _paragraph_lzkx4_82">先丢弃当前前端试验改动：</p>
         <ul class="_markdownText_lzkx4_86 _list_lzkx4_133 _unorderedList_lzkx4_147">
-          <li class="_markdownText_lzkx4_86 _listItem_lzkx4_168"><span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">frontend/src/app/shell.js</span></li>
+          <li class="_markdownText_lzkx4_86 _listItem_lzkx4_168"><span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">frontend/src/app/bootstrap.js</span></li>
           <li class="_markdownText_lzkx4_86 _listItem_lzkx4_168"><span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">frontend/src/index.html</span></li>
-          <li class="_markdownText_lzkx4_86 _listItem_lzkx4_168"><span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">frontend/src/app/index.css</span></li>
+          <li class="_markdownText_lzkx4_86 _listItem_lzkx4_168"><span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">frontend/src/app/layout.css</span></li>
           <li class="_markdownText_lzkx4_86 _listItem_lzkx4_168">新增的 OpenAI 字体/图标资源</li>
         </ul>
       </li>
@@ -67,7 +67,7 @@ function cleanedFollowupHTML() {
     <p class="_markdownText_lzkx4_86 _paragraph_lzkx4_82">验证已完成：<span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">node --check</span>、<span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">go test ./...</span>、<span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">./build-all.sh</span>、<span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">GET /api/nodes</span>。</p>
     <p class="_markdownText_lzkx4_86 _paragraph_lzkx4_82">服务状态：active。</p>
     <ul class="_markdownText_lzkx4_86 _list_lzkx4_133 _unorderedList_lzkx4_147">
-      <li class="_markdownText_lzkx4_86 _listItem_lzkx4_168"><span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">node --check frontend/src/app/shell.js</span></li>
+      <li class="_markdownText_lzkx4_86 _listItem_lzkx4_168"><span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">node --check frontend/src/app/bootstrap.js</span></li>
       <li class="_markdownText_lzkx4_86 _listItem_lzkx4_168"><span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">go test ./...</span> in <span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">backend</span></li>
       <li class="_markdownText_lzkx4_86 _listItem_lzkx4_168"><span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">go test ./...</span> in <span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">agent</span></li>
       <li class="_markdownText_lzkx4_86 _listItem_lzkx4_168"><span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">./build-all.sh</span></li>
@@ -187,7 +187,7 @@ function createSampleData(options = {}) {
     { kind: "assistant_message", contentUnit: 7, text: "当前页面和你保存的目标页相比，最大问题不只是字体：`composer` 的底部按钮、授权状态、线程页 header、消息区、任务列表 spacing 都是简化版。", time: "2026-07-02T17:39:32.000Z", seq: 10 },
     { kind: "assistant_message", contentUnit: 8, text: "完整保存页本身在 `headless` 打开有一些 Chrome 保存造成的副作用，比如左侧活动栏图标状态/`hover` 被固化了。", time: "2026-07-02T17:39:34.000Z", seq: 11 },
     { kind: "assistant_message", contentUnit: 9, text: "`fake.html` 单独打开没有加载扩展 CSS；但它仍然给了真实 `DOM`、`class` 和文本。", time: "2026-07-02T17:39:35.000Z", seq: 12 },
-    { kind: "assistant_message", contentUnit: 10, text: "我会先不动后端。前端保留 `code-server` 外壳，只重写 `frontend/src` 里 Codex 面板相关 DOM/CSS/JS。", time: "2026-07-02T17:39:36.000Z", seq: 13 },
+    { kind: "assistant_message", contentUnit: 10, text: "我会先不动后端。前端保留参考工作区布局，只重写 `frontend/src` 里 Codex 面板相关 DOM/CSS/JS。", time: "2026-07-02T17:39:36.000Z", seq: 13 },
     { kind: "assistant_message", contentUnit: 11, text: "我现在开始改文件：`app.js` 会重写为状态化 Codex 面板，直接接 `/api/nodes`、`/api/sessions` 和 `SSE`。", time: "2026-07-02T17:39:37.000Z", seq: 14 },
     { kind: "tool_call", text: "已创建 1 个文件", time: "2026-07-02T17:39:38.000Z", seq: 15 },
     { kind: "assistant_message", contentUnit: 13, text: "`app.js` 已经重写完成，接下来补样式覆盖。这里会保留 `composer-surface-chrome`、`ProseMirror`、`data-user-message-bubble`、`_markdownContent_lzkx4_60`。", time: "2026-07-02T17:39:39.000Z", seq: 16 },
@@ -196,9 +196,9 @@ function createSampleData(options = {}) {
     { kind: "assistant_message", contentUnit: 17, text: "语法检查通过。接下来构建并重启服务，然后用 1920×1002 截图确认实际运行效果。", time: "2026-07-02T17:39:40.400Z", seq: 19 },
     { kind: "assistant_message", contentUnit: 18, text: "构建和 Go 测试都通过了：`./build-all.sh`。", time: "2026-07-02T17:39:40.600Z", seq: 20 },
     { kind: "assistant_message", contentUnit: 19, text: "服务已重启且处于 active。接下来我会访问本地 58888 截图，并检查控制台/API 是否有明显错误。", time: "2026-07-02T17:39:40.800Z", seq: 21 },
-    { kind: "assistant_message", contentUnit: 20, text: "API 正常返回远程 agent 和会话列表。截图已生成，我会查看当前效果，如果有明显偏差就继续调整。", placement: "final", diffCard: { files: ["frontend/src/app/shell.js", "frontend/src/app/index.css", "frontend/src/pages/codex/index.js"] }, time: "2026-07-02T17:51:00.000Z", seq: 22 },
+    { kind: "assistant_message", contentUnit: 20, text: "API 正常返回远程 agent 和会话列表。截图已生成，我会查看当前效果，如果有明显偏差就继续调整。", placement: "final", diffCard: { files: ["frontend/src/app/bootstrap.js", "frontend/src/app/layout.css", "frontend/src/pages/codex/index.js"] }, time: "2026-07-02T17:51:00.000Z", seq: 22 },
     { kind: "summary", turnKey: "019f23f4-f091-75e2-bfc2-dc8a7cc4cb53", text: "已处理 3m 5s", followup: { contentUnit: 12, html: summaryFollowupHTML(), diffCard: { files: [
-      { path: "code/codex-web/frontend/src/app/index.css", additions: "+12", deletions: "-0" },
+      { path: "code/codex-web/frontend/src/app/layout.css", additions: "+12", deletions: "-0" },
       { path: "codex-web-browser/fonts.conf", additions: "+41", deletions: "-0" },
       { path: "codex-web-browser/run.sh", additions: "+4", deletions: "-1" },
     ], total: 4, additions: "+61", deletions: "-2", showMore: true }, time: "2026-07-02T17:54:00.000Z" }, time: "2026-07-02T17:51:20.000Z", seq: 3 },

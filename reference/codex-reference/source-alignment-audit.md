@@ -1,6 +1,6 @@
 # Codex Source Alignment Audit
 
-Generated: 2026-07-03T20:44:02.617Z
+Generated: 2026-07-04T10:46:20.951Z
 
 Static source alignment audit. Compares local component/CSS source against captured extension HTML and official extension CSS assets. Screenshots are not used.
 

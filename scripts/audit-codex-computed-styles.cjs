@@ -216,7 +216,7 @@ function compare(reference, local) {
 
   return {
     generatedAt: new Date().toISOString(),
-    basis: "Compares local runtime computed styles against captured code-server ChatGPT/Codex extension computed styles. Screenshots are not used.",
+    basis: "Compares local runtime computed styles against captured Codex extension computed styles. Screenshots are not used.",
     appUrl: APP_URL,
     viewport: { width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT },
     sidebarWidth: SIDEBAR_WIDTH || "derived-per-reference-view",

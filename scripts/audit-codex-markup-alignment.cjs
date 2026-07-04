@@ -86,7 +86,7 @@ async function main() {
 
     const audit = {
       generatedAt: new Date().toISOString(),
-      basis: "Canonical markup comparison against captured ChatGPT/Codex extension DOM. Screenshots are not used.",
+      basis: "Canonical markup comparison against captured Codex extension DOM. Screenshots are not used.",
       maxDepth: MAX_DEPTH,
       maxNodes: MAX_NODES,
       captures: CAPTURES,

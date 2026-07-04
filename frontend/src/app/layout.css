@@ -4,14 +4,14 @@
   --cw-activitybar-width: 48px;
   --cw-sidebar-width: min(611px, calc(100vw - 360px));
   --cw-border: rgb(240, 241, 242);
-  --cw-shell-bg: rgb(250, 250, 253);
+  --cw-workspace-bg: rgb(250, 250, 253);
   --cw-editor-bg: rgb(255, 255, 255);
   --cw-foreground: rgb(32, 32, 32);
   --cw-titlebar-foreground: rgb(96, 96, 96);
   --cw-strong: rgb(32, 32, 32);
   --cw-selected: rgb(32, 32, 32);
   --cw-muted: rgb(96, 96, 96);
-  --cw-font-family: system-ui, Ubuntu, "Droid Sans", sans-serif;
+  --cw-font-family: "Segoe WPC", "Segoe UI", sans-serif;
 }
 
 html,
@@ -41,30 +41,10 @@ body {
   forced-color-adjust: none;
 }
 
-.monaco-workbench.windows.web {
+.monaco-workbench.web,
+.monaco-workbench.web:lang(zh-Hans) {
   --cw-font-family: "Segoe WPC", "Segoe UI", sans-serif;
   font-family: var(--cw-font-family);
-}
-
-.monaco-workbench.windows.web:lang(zh-Hans) {
-  --cw-font-family: "Segoe WPC", "Segoe UI", sans-serif;
-  font-family: var(--cw-font-family);
-}
-
-.monaco-workbench.mac.web {
-  --cw-font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
-.monaco-workbench.mac.web:lang(zh-Hans) {
-  --cw-font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", sans-serif;
-}
-
-.monaco-workbench.linux.web {
-  --cw-font-family: system-ui, Ubuntu, "Droid Sans", sans-serif;
-}
-
-.monaco-workbench.linux.web:lang(zh-Hans) {
-  --cw-font-family: system-ui, Ubuntu, "Droid Sans", "Source Han Sans SC", "Source Han Sans CN", "Source Han Sans", sans-serif;
 }
 
 .codicon {
@@ -89,7 +69,7 @@ body {
   flex: 0 0 var(--cw-titlebar-height);
   overflow: hidden;
   color: var(--cw-titlebar-foreground);
-  background-color: var(--cw-shell-bg);
+  background-color: var(--cw-workspace-bg);
   border-bottom: 1px solid var(--cw-border);
   box-shadow: rgba(0, 0, 0, 0.08) 0 0 6px 0;
   z-index: auto;
@@ -136,7 +116,7 @@ body {
 .window-appicon {
   width: 35px;
   height: 35px;
-  background: url("assets/code-icon.svg") center / 17px 17px no-repeat;
+  background: url("../assets/workbench/workspace-icon.svg") center / 17px 17px no-repeat;
 }
 
 .titlebar .actions-container {
@@ -258,7 +238,7 @@ body {
   border-radius: 6px;
 }
 
-.workbench-main {
+.codex-workspace-main {
   position: relative;
   width: 100%;
   height: calc(100% - var(--cw-titlebar-height) - var(--cw-statusbar-height));
@@ -267,7 +247,7 @@ body {
   overflow: hidden;
 }
 
-.workbench-main::before {
+.codex-workspace-main::before {
   content: "";
   position: absolute;
   top: 0;
@@ -297,7 +277,7 @@ body {
   flex: 0 0 var(--cw-activitybar-width);
   overflow: hidden;
   color: var(--cw-foreground);
-  background-color: var(--cw-shell-bg);
+  background-color: var(--cw-workspace-bg);
   border-color: var(--cw-border);
 }
 
@@ -385,8 +365,8 @@ body {
   font-size: 15px;
   line-height: 48px;
   text-align: left;
-  -webkit-mask: url("assets/blossom-black.svg") center / 24px 24px no-repeat;
-  mask: url("assets/blossom-black.svg") center / 24px 24px no-repeat;
+  -webkit-mask: url("../assets/blossom-black.svg") center / 24px 24px no-repeat;
+  mask: url("../assets/blossom-black.svg") center / 24px 24px no-repeat;
 }
 
 .monaco-workbench .activitybar .active-item-indicator {
@@ -420,7 +400,7 @@ body {
   flex: 0 0 var(--cw-sidebar-width);
   overflow: hidden;
   color: var(--cw-foreground);
-  background-color: var(--cw-shell-bg);
+  background-color: var(--cw-workspace-bg);
   border-right: 1px solid var(--cw-border);
 }
 
@@ -461,7 +441,7 @@ body {
   align-items: center;
   padding: 0 8px;
   color: var(--cw-foreground);
-  background-color: var(--cw-shell-bg);
+  background-color: var(--cw-workspace-bg);
 }
 
 .sidebar .title-label {
@@ -684,7 +664,7 @@ body {
   height: 35px;
   overflow: hidden;
   color: var(--cw-foreground);
-  background-color: var(--cw-shell-bg);
+  background-color: var(--cw-workspace-bg);
 }
 
 .tabs-and-actions-container {
@@ -793,7 +773,7 @@ body {
 .monaco-workbench .editor-group-watermark .letterpress {
   width: 256px !important;
   height: 180px !important;
-  background: url("assets/letterpress-light.svg") center / contain no-repeat !important;
+  background: url("../assets/workbench/welcome-letterpress.svg") center / contain no-repeat !important;
   opacity: 0.23;
 }
 
@@ -837,7 +817,7 @@ body {
   flex: 0 0 var(--cw-statusbar-height);
   overflow: hidden;
   color: var(--cw-muted);
-  background-color: var(--cw-shell-bg);
+  background-color: var(--cw-workspace-bg);
   font-size: 12px;
 }
 

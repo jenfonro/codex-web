@@ -1,13 +1,13 @@
 # Codex Web
 
 Codex Web is a controller website for managing Codex sessions across multiple
-servers. The controller owns login, node registry, and browser streaming. Each
-server runs a `codex-agent` that owns the Codex CLI process and keeps sessions
-alive even when the browser is closed.
+servers. The controller owns the node registry, browser streaming, and static
+workspace UI. Each server runs a `codex-agent` that owns the Codex CLI process
+and keeps sessions alive even when the browser is closed.
 
-The previous frontend implementation has been reset. The next frontend should
-be rebuilt from the captured code-server shell reference in
-`reference/code-server-shell`; do not reuse the deleted approximate UI.
+The current frontend is a framework-free static workspace under `frontend/src`.
+Its visual baseline is captured from the Windows Chrome reference data in
+`reference/windows-captures`, while app-owned code and paths use Codex Web names.
 
 ## Architecture
 
@@ -25,7 +25,7 @@ the last sequence number and continues streaming new events over SSE.
 
 ## Capabilities
 
-- Password-protected controller UI.
+- Static Codex Web workspace UI served by the controller.
 - Persistent node registry in `build/data/nodes.json`.
 - Agent token in `build/data/agent-token.txt`.
 - Outbound agent WebSocket connection to the controller.
@@ -47,8 +47,7 @@ build/codex-web
 build/codex-agent
 ```
 
-The current build intentionally does not embed a frontend. Until the new UI is
-rebuilt, non-API browser routes return a service-unavailable response.
+On Windows, the same targets are emitted with the platform `.exe` suffix.
 
 ## Run Controller
 
@@ -62,18 +61,11 @@ Default URL:
 http://127.0.0.1:58888
 ```
 
-If `CODEX_WEB_PASSWORD` is not set, the controller creates one at:
-
-```text
-build/data/password.txt
-```
-
 Controller environment:
 
 ```bash
 CODEX_WEB_ADDR=127.0.0.1:58888
 CODEX_WEB_DATA=/path/to/data
-CODEX_WEB_PASSWORD=change-me
 CODEX_WEB_AGENT_TOKEN=change-me
 ```
 
@@ -170,20 +162,21 @@ go test ./...
 ./build-all.sh
 ```
 
-Refresh the code-server shell reference when needed:
+Refresh the captured workspace reference when needed:
 
 ```bash
-node --check scripts/capture-code-server-shell-reference.cjs
-node scripts/capture-code-server-shell-reference.cjs
+node --check scripts/capture-workspace-reference.cjs
+node scripts/capture-workspace-reference.cjs
 ```
 
 ## Project Layout
 
 ```text
-backend/   Controller HTTP server, auth, node registry, session routing, SSE
+backend/   Controller HTTP server, node registry, session routing, SSE
 agent/     Agent process, Codex CLI session manager, workspace and git services
-reference/ Captured code-server shell DOM, CSS, assets, HAR, and screenshots
-scripts/   CLI checker, Docker helpers, and shell reference capture
+frontend/  Static Codex Web workspace UI, panel runtime, local assets, and state
+reference/ Captured workspace/Codex panel DOM, CSS, assets, HAR, and screenshots
+scripts/   CLI checker, Docker helpers, and workspace reference capture
 systemd/   codex-web.service
 build/     Binaries, controller state, generated secrets, logs, temp caches
 ```

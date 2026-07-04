@@ -82,9 +82,9 @@
     try {
       const payload = await api.fetchJSON(`/api/sessions?nodeId=${encodeURIComponent(state.nodeId)}`);
       const sessions = api.normalizeSessions(payload.sessions);
-      state.sessions = sessions.length ? sessions : runtime.samples.sessions.slice();
-      if (!sessions.length) state.eventsBySession = new Map(runtime.samples.eventsBySession);
-      state.apiAvailable = sessions.length > 0;
+      state.sessions = sessions;
+      state.eventsBySession = new Map();
+      state.apiAvailable = true;
     } catch {
       useSampleSessions(false);
     }

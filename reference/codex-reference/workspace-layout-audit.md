@@ -1,8 +1,8 @@
-# Code-Server Shell Style Audit
+# Codex Web Workspace Layout Audit
 
-Generated: 2026-07-03T20:44:05.169063Z
+Generated: 2026-07-04T10:46:23.593625Z
 
-Compares current Codex Web shell geometry/computed styles against captured code-server top-level runtime styles.
+Compares current Codex Web workspace geometry/computed styles against the captured workspace reference.
 
 ## Summary
 
@@ -41,7 +41,9 @@ Compares current Codex Web shell geometry/computed styles against captured code-
 | Rule | Selector | Status | Differences |
 | --- | --- | --- | --- |
 | `sidebarResizeHandle` | `.sidebar-resize-handle` | `exact` |  |
+| `fixedWorkbenchPlatform` | `.monaco-workbench` | `exact` |  |
+| `platformSourceGuards` | `frontend source` | `exact` |  |
 
 ## Rule
 
-- Any actionable difference here means the code-server shell is not fully aligned unless explicitly documented as a required local adapter.
+- Any actionable difference here means the Codex Web workspace layout is not fully aligned unless explicitly documented as a required local adapter.

@@ -200,7 +200,7 @@ function renderSummary(report) {
   const lines = [
     "# Codex Extension Reference",
     "",
-    "Generated from captured Windows Chrome code-server webview runtime files.",
+    "Generated from captured Windows Chrome Codex webview runtime files.",
     "",
     "## Captures",
     "",
