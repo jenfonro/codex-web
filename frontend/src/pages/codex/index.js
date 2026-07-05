@@ -448,8 +448,8 @@ async function submitComposer() {
         renderer.render();
       }
     } else {
-      appendLocalEvent(state.activeSessionId, { kind: "turn_started", text: "正在思�? });
-      appendLocalEvent(state.activeSessionId, { kind: "assistant_message", text: "我会按当前参考样式继续处理这个请求�?, time: new Date().toISOString() });
+      appendLocalEvent(state.activeSessionId, { kind: "turn_started", text: "正在思考" });
+      appendLocalEvent(state.activeSessionId, { kind: "assistant_message", text: "我会按当前参考样式继续处理这个请求。", time: new Date().toISOString() });
       renderer.render();
     }
     return;
@@ -488,7 +488,7 @@ function createLocalSession(prompt, errorText = "") {
   state.sessions.unshift(session);
   state.eventsBySession.set(id, [
     { kind: "user_message", text: prompt, time: new Date().toISOString(), seq: 1 },
-    errorText ? { kind: "error", text: errorText, time: new Date().toISOString(), seq: 2 } : { kind: "assistant_message", text: "本地样式预览会话已创建�?, time: new Date().toISOString(), seq: 2 },
+    errorText ? { kind: "error", text: errorText, time: new Date().toISOString(), seq: 2 } : { kind: "assistant_message", text: "本地样式预览会话已创建。", time: new Date().toISOString(), seq: 2 },
   ]);
   void openSession(id);
 }
