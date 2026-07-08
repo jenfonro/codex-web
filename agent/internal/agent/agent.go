@@ -20,9 +20,10 @@ type Agent struct {
 	cfg      config.Agent
 	hostsvc  *host.Service
 	sessions *session.Manager
-	conn     *websocket.Conn
 	writeMu  sync.Mutex
 }
+
+var agentWriteTimeout = 15 * time.Second
 
 func New(cfg config.Agent) (*Agent, error) {
 	agent := &Agent{
@@ -59,14 +60,13 @@ func (a *Agent) connectAndServe(ctx context.Context) error {
 	}
 	connCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	a.conn = conn
 	defer conn.Close()
-	if err := a.write(a.hello()); err != nil {
+	if err := a.write(conn, a.hello()); err != nil {
 		return err
 	}
-	done := make(chan error, 1)
-	go func() { done <- a.readLoop(connCtx) }()
-	go a.forwardEvents(connCtx)
+	done := make(chan error, 2)
+	go func() { done <- a.readLoop(connCtx, conn) }()
+	go func() { done <- a.forwardEvents(connCtx, conn) }()
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -76,7 +76,7 @@ func (a *Agent) connectAndServe(ctx context.Context) error {
 		case err := <-done:
 			return err
 		case <-ticker.C:
-			if err := a.write(model.AgentEnvelope{Type: "agent.heartbeat", NodeID: a.cfg.ID}); err != nil {
+			if err := a.write(conn, model.AgentEnvelope{Type: "agent.heartbeat", NodeID: a.cfg.ID}); err != nil {
 				return err
 			}
 		}
@@ -100,20 +100,20 @@ func (a *Agent) hello() model.AgentEnvelope {
 	}
 }
 
-func (a *Agent) readLoop(ctx context.Context) error {
+func (a *Agent) readLoop(ctx context.Context, conn *websocket.Conn) error {
 	for {
 		var msg model.AgentEnvelope
-		if err := a.conn.ReadJSON(&msg); err != nil {
+		if err := conn.ReadJSON(&msg); err != nil {
 			return err
 		}
 		if msg.Type != "controller.request" {
 			continue
 		}
-		go a.handleRequest(ctx, msg)
+		go a.handleRequest(ctx, conn, msg)
 	}
 }
 
-func (a *Agent) handleRequest(ctx context.Context, msg model.AgentEnvelope) {
+func (a *Agent) handleRequest(ctx context.Context, conn *websocket.Conn, msg model.AgentEnvelope) {
 	response := model.AgentEnvelope{
 		Type:      "agent.response",
 		RequestID: msg.RequestID,
@@ -125,7 +125,7 @@ func (a *Agent) handleRequest(ctx context.Context, msg model.AgentEnvelope) {
 	} else {
 		response.Result = result
 	}
-	if err := a.write(response); err != nil {
+	if err := a.write(conn, response); err != nil {
 		log.Printf("agent response failed: %v", err)
 	}
 }
@@ -188,33 +188,36 @@ func (a *Agent) handle(ctx context.Context, msg model.AgentEnvelope) (any, error
 	}
 }
 
-func (a *Agent) forwardEvents(ctx context.Context) {
+func (a *Agent) forwardEvents(ctx context.Context, conn *websocket.Conn) error {
 	events, unsubscribe := a.sessions.Subscribe()
 	defer unsubscribe()
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return ctx.Err()
 		case event, ok := <-events:
 			if !ok {
-				return
+				return nil
 			}
 			msg := model.AgentEnvelope{
 				Type:   "agent.event",
 				NodeID: a.cfg.ID,
 				Event:  &model.AgentEvent{Method: "session.event", Params: sessionEventParams(event)},
 			}
-			if err := a.write(msg); err != nil {
-				return
+			if err := a.write(conn, msg); err != nil {
+				return err
 			}
 		}
 	}
 }
 
-func (a *Agent) write(msg model.AgentEnvelope) error {
+func (a *Agent) write(conn *websocket.Conn, msg model.AgentEnvelope) error {
 	a.writeMu.Lock()
 	defer a.writeMu.Unlock()
-	return a.conn.WriteJSON(msg)
+	if agentWriteTimeout > 0 {
+		_ = conn.SetWriteDeadline(time.Now().Add(agentWriteTimeout))
+	}
+	return conn.WriteJSON(msg)
 }
 
 type unknownOpError struct {

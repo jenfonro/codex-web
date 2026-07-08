@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -250,6 +251,9 @@ func eventFromHistoryEntry(entry historyEntry, eventTime time.Time, includeTrans
 	case "event_msg":
 		switch payloadType {
 		case "user_message":
+			if attachments := userMessageAttachments(payload); len(attachments) > 0 {
+				data["attachments"] = attachments
+			}
 			return newParsedEvent("user_message", messageText(payload["message"]), eventTime, data), true
 		case "agent_message":
 			return newParsedEvent("assistant_message", messageText(payload["message"]), eventTime, data), true
@@ -258,8 +262,15 @@ func eventFromHistoryEntry(entry historyEntry, eventTime time.Time, includeTrans
 				return newParsedEvent("turn_started", "", eventTime, map[string]any{"status": "running"}), true
 			}
 		case "task_complete":
+			if summary, ok := taskCompleteSummaryEvent(eventTime, payload); ok && !includeTransient {
+				return summary, true
+			}
 			if includeTransient {
-				return newParsedEvent("turn_completed", "", eventTime, map[string]any{"status": "completed"}), true
+				return newParsedEvent("turn_completed", "", eventTime, taskCompleteData(payload)), true
+			}
+		case "patch_apply_end":
+			if event, ok := patchApplyEndEvent(eventTime, payload); ok {
+				return event, true
 			}
 		}
 	case "response_item":
@@ -271,10 +282,14 @@ func eventFromHistoryEntry(entry historyEntry, eventTime time.Time, includeTrans
 			if includeTransient {
 				return newParsedEvent("reasoning", "", eventTime, map[string]any{"status": "running"}), true
 			}
-		case "function_call":
-			data["status"] = "completed"
+		case "function_call", "tool_call":
+			if includeTransient {
+				data["status"] = "running"
+			} else {
+				data["status"] = "completed"
+			}
 			return newParsedEvent("tool_call", toolCallText(payload), eventTime, data), true
-		case "function_call_output":
+		case "function_call_output", "tool_call_output":
 			data["status"] = "completed"
 			return newParsedEvent("tool_output", toolOutputText(payload), eventTime, data), true
 		}
@@ -285,12 +300,21 @@ func eventFromHistoryEntry(entry historyEntry, eventTime time.Time, includeTrans
 func indexedHistoryEventVisible(line []byte, entry historyIndexEntry) bool {
 	switch entry.Type {
 	case "event_msg":
-		return entry.Payload.Type == "user_message" || entry.Payload.Type == "agent_message"
+		if entry.Payload.Type == "user_message" || entry.Payload.Type == "agent_message" {
+			return true
+		}
+		if entry.Payload.Type == "task_complete" {
+			return indexedTaskCompleteDurationMS(line) > 0
+		}
+		if entry.Payload.Type == "patch_apply_end" {
+			return true
+		}
+		return false
 	case "response_item":
 		switch entry.Payload.Type {
 		case "reasoning":
 			return indexedReasoningSummaryText(line) != ""
-		case "function_call", "function_call_output":
+		case "function_call", "function_call_output", "tool_call", "tool_call_output":
 			return true
 		}
 	}
@@ -319,6 +343,16 @@ func indexedReasoningSummaryText(line []byte) string {
 		return ""
 	}
 	return summaryText(entry.Payload.Summary)
+}
+
+func indexedTaskCompleteDurationMS(line []byte) int64 {
+	var entry struct {
+		Payload map[string]any `json:"payload"`
+	}
+	if err := json.Unmarshal(line, &entry); err != nil {
+		return 0
+	}
+	return int64Any(entry.Payload["duration_ms"])
 }
 
 func historyEntryFromMap(raw map[string]any) historyEntry {
@@ -379,6 +413,185 @@ func newParsedEvent(kind, text string, eventTime time.Time, data map[string]any)
 		Text: strings.TrimSpace(text),
 		Data: data,
 	}
+}
+
+func taskCompleteSummaryEvent(eventTime time.Time, payload map[string]any) (model.SessionEvent, bool) {
+	durationMS := int64Any(payload["duration_ms"])
+	if durationMS <= 0 {
+		return model.SessionEvent{}, false
+	}
+	event := newParsedEvent("summary", "\u5df2\u5904\u7406 "+formatDurationMS(durationMS), eventTime, taskCompleteData(payload))
+	event.Inline = true
+	return event, true
+}
+
+func taskCompleteData(payload map[string]any) map[string]any {
+	data := compactEventData(payload)
+	data["status"] = "completed"
+	if durationMS := int64Any(payload["duration_ms"]); durationMS > 0 {
+		data["durationMs"] = durationMS
+	}
+	if firstTokenMS := int64Any(payload["time_to_first_token_ms"]); firstTokenMS > 0 {
+		data["timeToFirstTokenMs"] = firstTokenMS
+	}
+	return data
+}
+
+func patchApplyEndEvent(eventTime time.Time, payload map[string]any) (model.SessionEvent, bool) {
+	files := patchApplyFiles(payload["changes"])
+	if len(files) == 0 {
+		return model.SessionEvent{}, false
+	}
+	data := compactEventData(payload)
+	data["type"] = "file_change"
+	data["status"] = "completed"
+	data["files"] = files
+	return newParsedEvent("file_change", fileChangeLabel(files), eventTime, data), true
+}
+
+func userMessageAttachments(payload map[string]any) []map[string]any {
+	var attachments []map[string]any
+	attachments = appendImageAttachments(attachments, payload["images"])
+	attachments = appendImageAttachments(attachments, payload["local_images"])
+	return attachments
+}
+
+func appendImageAttachments(attachments []map[string]any, value any) []map[string]any {
+	items, ok := value.([]any)
+	if !ok || len(items) == 0 {
+		return attachments
+	}
+	for _, item := range items {
+		if attachment := imageAttachment(item); attachment != nil {
+			attachments = append(attachments, attachment)
+		}
+	}
+	return attachments
+}
+
+func imageAttachment(value any) map[string]any {
+	switch v := value.(type) {
+	case string:
+		src := strings.TrimSpace(v)
+		if src == "" {
+			return nil
+		}
+		return map[string]any{"label": "用户附件", "src": src}
+	case map[string]any:
+		src := firstString(v, "src", "url", "image_url", "path")
+		if src == "" {
+			return nil
+		}
+		label := firstString(v, "label", "alt", "name")
+		if label == "" {
+			label = "用户附件"
+		}
+		return map[string]any{"label": label, "src": src}
+	default:
+		return nil
+	}
+}
+
+func patchApplyFiles(value any) []map[string]any {
+	changes, ok := value.(map[string]any)
+	if !ok || len(changes) == 0 {
+		return nil
+	}
+	paths := make([]string, 0, len(changes))
+	for path := range changes {
+		if strings.TrimSpace(path) != "" {
+			paths = append(paths, path)
+		}
+	}
+	sort.Strings(paths)
+	files := make([]map[string]any, 0, len(paths))
+	for _, path := range paths {
+		body, _ := changes[path].(map[string]any)
+		unifiedDiff := firstString(body, "unified_diff")
+		content := firstString(body, "content")
+		additions, deletions := diffStat(unifiedDiff)
+		if additions == 0 && deletions == 0 {
+			additions, deletions = contentFallbackStat(firstString(body, "type"), content)
+		}
+		item := map[string]any{
+			"path":      path,
+			"type":      firstString(body, "type"),
+			"additions": additions,
+			"deletions": deletions,
+		}
+		if unifiedDiff != "" {
+			item["unifiedDiff"] = unifiedDiff
+		} else if content != "" {
+			item["content"] = content
+		}
+		if movePath := firstString(body, "move_path"); movePath != "" {
+			item["movePath"] = movePath
+		}
+		files = append(files, item)
+	}
+	return files
+}
+
+func diffStat(diff string) (int, int) {
+	additions := 0
+	deletions := 0
+	for _, line := range strings.Split(diff, "\n") {
+		if strings.HasPrefix(line, "+++") || strings.HasPrefix(line, "---") {
+			continue
+		}
+		if strings.HasPrefix(line, "+") {
+			additions++
+		} else if strings.HasPrefix(line, "-") {
+			deletions++
+		}
+	}
+	return additions, deletions
+}
+
+func contentFallbackStat(changeType, content string) (int, int) {
+	lines := contentLineCount(content)
+	switch strings.TrimSpace(changeType) {
+	case "add":
+		return lines, 0
+	case "delete":
+		return 0, lines
+	default:
+		return 0, 0
+	}
+}
+
+func contentLineCount(content string) int {
+	if content == "" {
+		return 0
+	}
+	count := strings.Count(content, "\n")
+	if !strings.HasSuffix(content, "\n") {
+		count++
+	}
+	return count
+}
+
+func fileChangeLabel(files []map[string]any) string {
+	count := len(files)
+	action := "\u5df2\u7f16\u8f91"
+	if allFileChangeType(files, "add") {
+		action = "\u5df2\u521b\u5efa"
+	} else if allFileChangeType(files, "delete") {
+		action = "\u5df2\u5220\u9664"
+	}
+	return action + " " + strconv.Itoa(count) + " \u4e2a\u6587\u4ef6"
+}
+
+func allFileChangeType(files []map[string]any, want string) bool {
+	if len(files) == 0 {
+		return false
+	}
+	for _, file := range files {
+		if strings.TrimSpace(stringAny(file["type"])) != want {
+			return false
+		}
+	}
+	return true
 }
 
 func loadHistoryAndMemoryEvents(path, sessionID string, refs []historyEventRef, memoryEvents []model.SessionEvent, req model.SessionEventsRequest) ([]model.SessionEvent, error) {
@@ -464,9 +677,103 @@ func memoryEventsInSeqRange(events []model.SessionEvent, startSeq, endSeq int64)
 	return out
 }
 
+func compactSessionEvents(events []model.SessionEvent, includeFileDetails bool) []model.SessionEvent {
+	if len(events) == 0 {
+		return events
+	}
+	out := make([]model.SessionEvent, len(events))
+	for index, event := range events {
+		out[index] = compactSessionEvent(event, includeFileDetails)
+	}
+	return out
+}
+
+func compactSessionEvent(event model.SessionEvent, includeFileDetails bool) model.SessionEvent {
+	switch event.Kind {
+	case "tool_output":
+		if event.Text != "" {
+			event.Text = ""
+		}
+		event.Data = compactToolOutputData(event.Data)
+	case "file_change":
+		if !includeFileDetails {
+			event.Data = compactFileChangeData(event.Data)
+		}
+	}
+	return event
+}
+
+func compactToolOutputData(data map[string]any) map[string]any {
+	if len(data) == 0 {
+		return data
+	}
+	out := copyEventData(data)
+	if _, ok := out["output"]; ok {
+		delete(out, "output")
+		out["outputOmitted"] = true
+	}
+	return out
+}
+
+func compactFileChangeData(data map[string]any) map[string]any {
+	if len(data) == 0 {
+		return data
+	}
+	out := copyEventData(data)
+	files, ok := out["files"].([]map[string]any)
+	if ok {
+		out["files"] = compactFileChangeFiles(files)
+		return out
+	}
+	rawFiles, ok := out["files"].([]any)
+	if !ok {
+		return out
+	}
+	files = make([]map[string]any, 0, len(rawFiles))
+	for _, raw := range rawFiles {
+		if file, ok := raw.(map[string]any); ok {
+			files = append(files, file)
+		}
+	}
+	out["files"] = compactFileChangeFiles(files)
+	return out
+}
+
+func compactFileChangeFiles(files []map[string]any) []map[string]any {
+	out := make([]map[string]any, 0, len(files))
+	for _, file := range files {
+		item := copyEventData(file)
+		omitted := false
+		if _, ok := item["unifiedDiff"]; ok {
+			delete(item, "unifiedDiff")
+			omitted = true
+		}
+		if _, ok := item["content"]; ok {
+			delete(item, "content")
+			omitted = true
+		}
+		if omitted {
+			item["detailOmitted"] = true
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+func copyEventData(data map[string]any) map[string]any {
+	if len(data) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(data))
+	for key, value := range data {
+		out[key] = value
+	}
+	return out
+}
+
 func compactEventData(payload map[string]any) map[string]any {
 	data := map[string]any{}
-	for _, key := range []string{"type", "phase", "name", "call_id", "id", "arguments", "output"} {
+	for _, key := range []string{"type", "phase", "name", "call_id", "id", "arguments", "output", "status", "exit_code", "turn_id", "last_agent_message"} {
 		if value, ok := payload[key]; ok && value != nil {
 			data[key] = value
 		}
@@ -577,4 +884,47 @@ func firstString(values map[string]any, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+func int64Any(value any) int64 {
+	switch v := value.(type) {
+	case int:
+		return int64(v)
+	case int64:
+		return v
+	case float64:
+		return int64(v)
+	case json.Number:
+		n, _ := v.Int64()
+		return n
+	default:
+		return 0
+	}
+}
+
+func formatDurationMS(durationMS int64) string {
+	if durationMS <= 0 {
+		return ""
+	}
+	totalSeconds := durationMS / 1000
+	if totalSeconds < 1 {
+		totalSeconds = 1
+	}
+	minutes := totalSeconds / 60
+	seconds := totalSeconds % 60
+	if minutes == 0 {
+		return strconv.FormatInt(seconds, 10) + "s"
+	}
+	if minutes < 60 {
+		if seconds == 0 {
+			return strconv.FormatInt(minutes, 10) + "m"
+		}
+		return strconv.FormatInt(minutes, 10) + "m " + strconv.FormatInt(seconds, 10) + "s"
+	}
+	hours := minutes / 60
+	restMinutes := minutes % 60
+	if restMinutes == 0 {
+		return strconv.FormatInt(hours, 10) + "h"
+	}
+	return strconv.FormatInt(hours, 10) + "h " + strconv.FormatInt(restMinutes, 10) + "m"
 }

@@ -23,9 +23,19 @@ type Remote struct {
 	mu          sync.Mutex
 	closed      bool
 	pending     map[string]chan model.AgentEnvelope
-	subscribers map[int]chan Event
+	subscribers map[int]*subscriber
 	nextSubID   int
 	writeMu     sync.Mutex
+}
+
+var (
+	remoteHeartbeatTimeout = 45 * time.Second
+	remoteWriteTimeout     = 15 * time.Second
+)
+
+type subscriber struct {
+	ch     chan Event
+	closed bool
 }
 
 func NewRemote(info model.NodeInfo, conn *websocket.Conn, registry *Registry) *Remote {
@@ -37,7 +47,7 @@ func NewRemote(info model.NodeInfo, conn *websocket.Conn, registry *Registry) *R
 		conn:        conn,
 		registry:    registry,
 		pending:     map[string]chan model.AgentEnvelope{},
-		subscribers: map[int]chan Event{},
+		subscribers: map[int]*subscriber{},
 	}
 }
 
@@ -56,6 +66,7 @@ func (r *Remote) Online() bool {
 }
 
 func (r *Remote) Serve() {
+	r.extendReadDeadline()
 	defer func() {
 		_ = r.Close()
 		if r.registry != nil {
@@ -67,6 +78,7 @@ func (r *Remote) Serve() {
 		if err := r.conn.ReadJSON(&msg); err != nil {
 			return
 		}
+		r.extendReadDeadline()
 		switch msg.Type {
 		case "agent.response":
 			r.resolve(msg)
@@ -85,16 +97,23 @@ func (r *Remote) Request(ctx context.Context, op string, params map[string]any) 
 }
 
 func (r *Remote) Subscribe() (<-chan Event, func()) {
-	ch := make(chan Event, 128)
+	sub := &subscriber{ch: make(chan Event, 128)}
 	r.mu.Lock()
+	if r.closed {
+		r.closeSubscriberLocked(sub)
+		r.mu.Unlock()
+		return sub.ch, func() {}
+	}
 	id := r.nextSubID
 	r.nextSubID++
-	r.subscribers[id] = ch
+	r.subscribers[id] = sub
 	r.mu.Unlock()
-	return ch, func() {
+	return sub.ch, func() {
 		r.mu.Lock()
-		delete(r.subscribers, id)
-		close(ch)
+		if existing := r.subscribers[id]; existing != nil {
+			delete(r.subscribers, id)
+			r.closeSubscriberLocked(existing)
+		}
 		r.mu.Unlock()
 	}
 }
@@ -108,6 +127,11 @@ func (r *Remote) Close() error {
 	r.closed = true
 	pending := r.pending
 	r.pending = map[string]chan model.AgentEnvelope{}
+	subscribers := r.subscribers
+	r.subscribers = map[int]*subscriber{}
+	for _, sub := range subscribers {
+		r.closeSubscriberLocked(sub)
+	}
 	r.mu.Unlock()
 	for _, ch := range pending {
 		ch <- model.AgentEnvelope{Type: "agent.response", Error: "agent disconnected"}
@@ -116,12 +140,13 @@ func (r *Remote) Close() error {
 }
 
 func (r *Remote) request(ctx context.Context, op string, params map[string]any) (any, error) {
-	if !r.Online() {
-		return nil, errors.New("node is offline")
-	}
 	requestID := fmt.Sprintf("%d", r.nextID.Add(1))
 	ch := make(chan model.AgentEnvelope, 1)
 	r.mu.Lock()
+	if r.closed {
+		r.mu.Unlock()
+		return nil, errors.New("node is offline")
+	}
 	r.pending[requestID] = ch
 	r.mu.Unlock()
 	msg := model.AgentEnvelope{
@@ -135,6 +160,10 @@ func (r *Remote) request(ctx context.Context, op string, params map[string]any) 
 		r.mu.Lock()
 		delete(r.pending, requestID)
 		r.mu.Unlock()
+		_ = r.Close()
+		if r.registry != nil {
+			_ = r.registry.MarkOffline(r.info.ID, r)
+		}
 		return nil, err
 	}
 	select {
@@ -159,6 +188,9 @@ func (r *Remote) request(ctx context.Context, op string, params map[string]any) 
 func (r *Remote) write(msg model.AgentEnvelope) error {
 	r.writeMu.Lock()
 	defer r.writeMu.Unlock()
+	if remoteWriteTimeout > 0 {
+		_ = r.conn.SetWriteDeadline(time.Now().Add(remoteWriteTimeout))
+	}
 	return r.conn.WriteJSON(msg)
 }
 
@@ -183,15 +215,29 @@ func (r *Remote) touch() {
 
 func (r *Remote) broadcast(event Event) {
 	r.mu.Lock()
-	subscribers := make([]chan Event, 0, len(r.subscribers))
-	for _, ch := range r.subscribers {
-		subscribers = append(subscribers, ch)
-	}
-	r.mu.Unlock()
-	for _, ch := range subscribers {
+	for _, sub := range r.subscribers {
+		if sub.closed {
+			continue
+		}
 		select {
-		case ch <- event:
+		case sub.ch <- event:
 		default:
 		}
 	}
+	r.mu.Unlock()
+}
+
+func (r *Remote) extendReadDeadline() {
+	if remoteHeartbeatTimeout <= 0 {
+		return
+	}
+	_ = r.conn.SetReadDeadline(time.Now().Add(remoteHeartbeatTimeout))
+}
+
+func (r *Remote) closeSubscriberLocked(sub *subscriber) {
+	if sub.closed {
+		return
+	}
+	sub.closed = true
+	close(sub.ch)
 }

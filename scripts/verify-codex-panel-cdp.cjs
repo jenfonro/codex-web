@@ -58,7 +58,7 @@ const STYLE_PROPS = [
 
 const METRIC_SELECTORS = {
   panelRoot: "[data-codex-panel-root]",
-  header: ".draggable.extension\\:px-panel",
+  header: ".codex-panel-header.extension\\:px-panel",
   sessionRow: "[data-codex-session-id]",
   sessionTitle: "[data-thread-title='true']",
   threadConversation: "[data-thread-find-target='conversation']",

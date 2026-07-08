@@ -25,11 +25,29 @@
 /reference/
 !/reference/
 /reference/*
-!/reference/codex-panel-worklist.md
-!/reference/codex-reference/
-!/reference/codex-reference/**
+!/reference/codex-live-parity-worklist.md
 !/reference/extension-source/
 !/reference/extension-source/**
+!/reference/legacy/
+reference/legacy/20260707-reset30-false-positive-archive/
+reference/legacy/20260707-reset31-unaccepted-live-probes/
+reference/legacy/**/live-anchor-alignment*/
+reference/legacy/**/live-currentness*/
+reference/legacy/**/invalid-or-ambiguous-reports*/
+reference/legacy/**/other-active-artifacts*/
+reference/legacy/**/source-setup.png
+reference/legacy/**/target-setup.png
+reference/legacy/**/source-anchor-*.png
+reference/legacy/**/target-anchor-*.png
+reference/legacy/**/summary.json
+reference/legacy/**/summary.md
+reference/legacy/**/latest.txt
+reference/legacy/*-unaccepted-active-archive/
+reference/legacy/20260708-reset39-false-positive-active-archive/same-anchor-evidence/
+reference/legacy/20260708-reset40-false-positive-active-archive/same-anchor-evidence/
+!/reference/legacy/codex-collapse-alignment-worklist.false-positive-archive-20260707.md
+!/reference/legacy/20260707-false-positive-workfiles/
+!/reference/legacy/20260707-false-positive-workfiles/**
 
 # Local env and secrets
 .env
@@ -39,6 +57,7 @@
 # OS/editor
 .DS_Store
 Thumbs.db
+__pycache__/
 .idea/
 .vscode/
 *.swp

@@ -93,7 +93,7 @@ func TestWriteSessionBacklogPassesPaging(t *testing.T) {
 	if err := app.nodes.UpsertRemote(client); err != nil {
 		t.Fatalf("UpsertRemote() error = %v", err)
 	}
-	req := httptest.NewRequest(http.MethodGet, "/api/sessions/session-1/events?nodeId=server-a&beforeSeq=42&limit=800", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/sessions/session-1/events?nodeId=server-a&beforeSeq=42&limit=800&compact=true&fileDetails=true", nil)
 	w := httptest.NewRecorder()
 	app.handleSessionItem(w, req, "session-1/events")
 	if w.Code != http.StatusOK {
@@ -102,7 +102,7 @@ func TestWriteSessionBacklogPassesPaging(t *testing.T) {
 	if client.op != "session.events" || client.params["sessionId"] != "session-1" {
 		t.Fatalf("request = %s %#v", client.op, client.params)
 	}
-	if client.params["beforeSeq"] != int64(42) || client.params["limit"] != 800 {
+	if client.params["beforeSeq"] != int64(42) || client.params["limit"] != 800 || client.params["compact"] != true || client.params["fileDetails"] != true {
 		t.Fatalf("paging params = %#v", client.params)
 	}
 }
@@ -122,16 +122,58 @@ func TestHandleSessionEventsAllowsNodeLevelStream(t *testing.T) {
 	if got := w.Header().Get("Content-Type"); got != "text/event-stream; charset=utf-8" {
 		t.Fatalf("Content-Type = %q", got)
 	}
+	if got := w.Header().Get("X-Accel-Buffering"); got != "no" {
+		t.Fatalf("X-Accel-Buffering = %q, want no", got)
+	}
 	if client.op != "" {
 		t.Fatalf("op = %q, want no backlog request", client.op)
 	}
 }
 
+func TestHandleSessionEventsSubscribesBeforeBacklog(t *testing.T) {
+	app := &App{nodes: node.NewRegistry(t.TempDir() + "/nodes.json")}
+	eventCh := make(chan node.Event, 1)
+	client := &serverFakeClient{
+		info: model.NodeInfo{ID: "server-a", Name: "Server A", Online: true},
+		result: map[string]any{"events": []any{
+			map[string]any{"sessionId": "session-1", "seq": float64(1), "kind": "user_message", "text": "backlog"},
+		}},
+		events: eventCh,
+	}
+	client.onRequest = func(f *serverFakeClient) {
+		eventCh <- node.Event{
+			Method: "session.event",
+			Params: map[string]any{"sessionId": "session-1", "seq": float64(2), "kind": "assistant_message", "text": "live"},
+		}
+		close(eventCh)
+	}
+	if err := app.nodes.UpsertRemote(client); err != nil {
+		t.Fatalf("UpsertRemote() error = %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/sessions/events?nodeId=server-a&sessionId=session-1", nil)
+	w := httptest.NewRecorder()
+	app.handleSessionEvents(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	if !client.requestSawSubscription {
+		t.Fatalf("session backlog was requested before live subscription was established")
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "backlog") || !strings.Contains(body, "live") {
+		t.Fatalf("SSE body = %q, want backlog and live events", body)
+	}
+}
+
 type serverFakeClient struct {
-	info   model.NodeInfo
-	op     string
-	params map[string]any
-	result any
+	info                   model.NodeInfo
+	op                     string
+	params                 map[string]any
+	result                 any
+	events                 chan node.Event
+	subscribed             bool
+	requestSawSubscription bool
+	onRequest              func(*serverFakeClient)
 }
 
 func (f *serverFakeClient) Info() model.NodeInfo { return f.info }
@@ -139,12 +181,20 @@ func (f *serverFakeClient) Online() bool         { return f.info.Online }
 func (f *serverFakeClient) Request(_ context.Context, op string, params map[string]any) (any, error) {
 	f.op = op
 	f.params = params
+	f.requestSawSubscription = f.subscribed
+	if f.onRequest != nil {
+		f.onRequest(f)
+	}
 	if f.result != nil {
 		return f.result, nil
 	}
 	return map[string]any{}, nil
 }
 func (f *serverFakeClient) Subscribe() (<-chan node.Event, func()) {
+	f.subscribed = true
+	if f.events != nil {
+		return f.events, func() {}
+	}
 	ch := make(chan node.Event)
 	close(ch)
 	return ch, func() {}

@@ -1,0 +1,855 @@
+{
+  "generatedAt": "2026-07-06T17:06:24.778438Z",
+  "appUrl": "http://127.0.0.1:58888/?codexFixture=reference",
+  "referenceCapture": "20260702-184840-codex-session-list-wide-611",
+  "viewport": {
+    "width": 1904,
+    "height": 985
+  },
+  "sidebarWidth": 611,
+  "summary": {
+    "trackedRows": 23,
+    "actionableDifferences": 0,
+    "missingRows": 0
+  },
+  "rows": [
+    {
+      "name": "workbench",
+      "selector": ".monaco-workbench",
+      "index": 0,
+      "status": "exact",
+      "reference": {
+        "className": "monaco-enable-motion monaco-workbench windows web chromium nopanel file-icons-enabled vs vscode-theme-defaults-themes-2026-light-json noauxiliarybar",
+        "text": "root 2 CODEX 欢迎 code-server 编辑进化 启动 新建文件... 打开文件... 克隆 Git 仓库... 最近 你没有最近使用的文件夹，打开文件夹以开始。 Next Up Deploy code-server for your team Provision software development environments on your infrastructure with Coder. Coder is a self-service portal which provisions via Terraform—Linux, macOS, Windows, x86, ARM, and, of course, Kubernetes based infrastructure. Get started 演练 面向 Web 的 VS Code 入门 自定义编辑器、了解基础知识并开始编码 了解基础知识 启动时显示欢迎页 0 0 0 Layout: US 辅助侧边栏已隐藏",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1904,
+          "height": 985,
+          "top": 0,
+          "right": 1904,
+          "bottom": 985,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "monaco-enable-motion monaco-workbench web chromium nopanel noauxiliarybar fullscreen file-icons-enabled vs vscode-theme-defaults-themes-2026-light-json windows checked",
+        "text": "root 2 CODEX Workspace Open Codex Ctrl + Alt + I Command palette Ctrl + Shift + P Search sessions Ctrl + Shift + F 0 0 0 Codex Web",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1904,
+          "height": 985,
+          "top": 0,
+          "right": 1904,
+          "bottom": 985,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "titlebar",
+      "selector": ".part.titlebar",
+      "index": 0,
+      "status": "exact",
+      "reference": {
+        "className": "part titlebar light",
+        "text": "root 2",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1904,
+          "height": 35,
+          "top": 0,
+          "right": 1904,
+          "bottom": 35,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "part titlebar light",
+        "text": "root 2",
+        "rect": {
+          "x": 0,
+          "y": 0,
+          "width": 1904,
+          "height": 35,
+          "top": 0,
+          "right": 1904,
+          "bottom": 35,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activitybar",
+      "selector": ".part.activitybar",
+      "index": 0,
+      "status": "exact",
+      "reference": {
+        "className": "part activitybar left bordered",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 35,
+          "width": 48,
+          "height": 928,
+          "top": 35,
+          "right": 48,
+          "bottom": 963,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "part activitybar left bordered",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 35,
+          "width": 48,
+          "height": 928,
+          "top": 35,
+          "right": 48,
+          "bottom": 963,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "sidebar",
+      "selector": ".part.sidebar",
+      "index": 0,
+      "status": "exact",
+      "reference": {
+        "className": "part sidebar left pane-composite-part",
+        "text": "CODEX",
+        "rect": {
+          "x": 48,
+          "y": 35,
+          "width": 611,
+          "height": 928,
+          "top": 35,
+          "right": 659,
+          "bottom": 963,
+          "left": 48
+        }
+      },
+      "current": {
+        "className": "part sidebar left pane-composite-part",
+        "text": "CODEX",
+        "rect": {
+          "x": 48,
+          "y": 35,
+          "width": 611,
+          "height": 928,
+          "top": 35,
+          "right": 659,
+          "bottom": 963,
+          "left": 48
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "editor",
+      "selector": ".part.editor",
+      "index": 0,
+      "status": "exact",
+      "reference": {
+        "className": "part editor",
+        "text": "欢迎 code-server 编辑进化 启动 新建文件... 打开文件... 克隆 Git 仓库... 最近 你没有最近使用的文件夹，打开文件夹以开始。 Next Up Deploy code-server for your team Provision software development environments on your infrastructure with Coder. Coder is a self-service portal which provisions via Terraform—Linux, macOS, Windows, x86, ARM, and, of course, Kubernetes based infrastructure. Get started 演练 面向 Web 的 VS Code 入门 自定义编辑器、了解基础知识并开始编码 了解基础知识 启动时显示欢迎页",
+        "rect": {
+          "x": 659,
+          "y": 35,
+          "width": 1245,
+          "height": 928,
+          "top": 35,
+          "right": 1904,
+          "bottom": 963,
+          "left": 659
+        }
+      },
+      "current": {
+        "className": "part editor",
+        "text": "Workspace Open Codex Ctrl + Alt + I Command palette Ctrl + Shift + P Search sessions Ctrl + Shift + F",
+        "rect": {
+          "x": 659,
+          "y": 35,
+          "width": 1245,
+          "height": 928,
+          "top": 35,
+          "right": 1904,
+          "bottom": 963,
+          "left": 659
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "sidebarTitle",
+      "selector": ".sidebar .composite.title",
+      "index": 0,
+      "status": "exact",
+      "reference": {
+        "className": "composite title",
+        "text": "CODEX",
+        "rect": {
+          "x": 48,
+          "y": 35,
+          "width": 610,
+          "height": 35,
+          "top": 35,
+          "right": 658,
+          "bottom": 70,
+          "left": 48
+        }
+      },
+      "current": {
+        "className": "composite title has-actions",
+        "text": "CODEX",
+        "rect": {
+          "x": 48,
+          "y": 35,
+          "width": 610,
+          "height": 35,
+          "top": 35,
+          "right": 658,
+          "bottom": 70,
+          "left": 48
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "sidebarContent",
+      "selector": ".sidebar .content",
+      "index": 0,
+      "status": "exact",
+      "reference": {
+        "className": "content",
+        "text": "将视图拖动到此处显示。Codex",
+        "rect": {
+          "x": 48,
+          "y": 70,
+          "width": 610,
+          "height": 893,
+          "top": 70,
+          "right": 658,
+          "bottom": 963,
+          "left": 48
+        }
+      },
+      "current": {
+        "className": "content codex-sidebar-content",
+        "text": "Workspace Select an online node . No files to show. Agents 0 No agent nodes are connected. Source Control Select an online node 0Staged 0Changed 0Untracked No c",
+        "rect": {
+          "x": 48,
+          "y": 70,
+          "width": 610,
+          "height": 893,
+          "top": 70,
+          "right": 658,
+          "bottom": 963,
+          "left": 48
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityItem",
+      "selector": ".activitybar .action-item",
+      "index": 0,
+      "status": "exact",
+      "reference": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 70,
+          "width": 48,
+          "height": 48,
+          "top": 70,
+          "right": 48,
+          "bottom": 118,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 70,
+          "width": 48,
+          "height": 48,
+          "top": 70,
+          "right": 48,
+          "bottom": 118,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityItem",
+      "selector": ".activitybar .action-item",
+      "index": 1,
+      "status": "exact",
+      "reference": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 118,
+          "width": 48,
+          "height": 48,
+          "top": 118,
+          "right": 48,
+          "bottom": 166,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 118,
+          "width": 48,
+          "height": 48,
+          "top": 118,
+          "right": 48,
+          "bottom": 166,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityItem",
+      "selector": ".activitybar .action-item",
+      "index": 2,
+      "status": "exact",
+      "reference": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 166,
+          "width": 48,
+          "height": 48,
+          "top": 166,
+          "right": 48,
+          "bottom": 214,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 166,
+          "width": 48,
+          "height": 48,
+          "top": 166,
+          "right": 48,
+          "bottom": 214,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityItem",
+      "selector": ".activitybar .action-item",
+      "index": 3,
+      "status": "exact",
+      "reference": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 214,
+          "width": 48,
+          "height": 48,
+          "top": 214,
+          "right": 48,
+          "bottom": 262,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 214,
+          "width": 48,
+          "height": 48,
+          "top": 214,
+          "right": 48,
+          "bottom": 262,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityItem",
+      "selector": ".activitybar .action-item",
+      "index": 4,
+      "status": "exact",
+      "reference": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 262,
+          "width": 48,
+          "height": 48,
+          "top": 262,
+          "right": 48,
+          "bottom": 310,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 262,
+          "width": 48,
+          "height": 48,
+          "top": 262,
+          "right": 48,
+          "bottom": 310,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityItem",
+      "selector": ".activitybar .action-item",
+      "index": 5,
+      "status": "exact",
+      "reference": {
+        "className": "action-item icon checked",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 310,
+          "width": 48,
+          "height": 48,
+          "top": 310,
+          "right": 48,
+          "bottom": 358,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-item icon checked",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 310,
+          "width": 48,
+          "height": 48,
+          "top": 310,
+          "right": 48,
+          "bottom": 358,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityItem",
+      "selector": ".activitybar .action-item",
+      "index": 6,
+      "status": "exact",
+      "reference": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 867,
+          "width": 48,
+          "height": 48,
+          "top": 867,
+          "right": 48,
+          "bottom": 915,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 867,
+          "width": 48,
+          "height": 48,
+          "top": 867,
+          "right": 48,
+          "bottom": 915,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityItem",
+      "selector": ".activitybar .action-item",
+      "index": 7,
+      "status": "exact",
+      "reference": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 915,
+          "width": 48,
+          "height": 48,
+          "top": 915,
+          "right": 48,
+          "bottom": 963,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-item icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 915,
+          "width": 48,
+          "height": 48,
+          "top": 915,
+          "right": 48,
+          "bottom": 963,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityLabel",
+      "selector": ".activitybar .action-label",
+      "index": 0,
+      "status": "exact",
+      "reference": {
+        "className": "action-label codicon codicon-explorer-view-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 70,
+          "width": 48,
+          "height": 48,
+          "top": 70,
+          "right": 48,
+          "bottom": 118,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-label codicon codicon-explorer-view-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 70,
+          "width": 48,
+          "height": 48,
+          "top": 70,
+          "right": 48,
+          "bottom": 118,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityLabel",
+      "selector": ".activitybar .action-label",
+      "index": 1,
+      "status": "exact",
+      "reference": {
+        "className": "action-label codicon codicon-search-view-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 118,
+          "width": 48,
+          "height": 48,
+          "top": 118,
+          "right": 48,
+          "bottom": 166,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-label codicon codicon-search-view-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 118,
+          "width": 48,
+          "height": 48,
+          "top": 118,
+          "right": 48,
+          "bottom": 166,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityLabel",
+      "selector": ".activitybar .action-label",
+      "index": 2,
+      "status": "exact",
+      "reference": {
+        "className": "action-label codicon codicon-source-control-view-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 166,
+          "width": 48,
+          "height": 48,
+          "top": 166,
+          "right": 48,
+          "bottom": 214,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-label codicon codicon-remote-explorer",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 166,
+          "width": 48,
+          "height": 48,
+          "top": 166,
+          "right": 48,
+          "bottom": 214,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityLabel",
+      "selector": ".activitybar .action-label",
+      "index": 3,
+      "status": "exact",
+      "reference": {
+        "className": "action-label codicon codicon-run-view-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 214,
+          "width": 48,
+          "height": 48,
+          "top": 214,
+          "right": 48,
+          "bottom": 262,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-label codicon codicon-source-control-view-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 214,
+          "width": 48,
+          "height": 48,
+          "top": 214,
+          "right": 48,
+          "bottom": 262,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityLabel",
+      "selector": ".activitybar .action-label",
+      "index": 4,
+      "status": "exact",
+      "reference": {
+        "className": "action-label codicon codicon-extensions-view-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 262,
+          "width": 48,
+          "height": 48,
+          "top": 262,
+          "right": 48,
+          "bottom": 310,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-label codicon codicon-run-view-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 262,
+          "width": 48,
+          "height": 48,
+          "top": 262,
+          "right": 48,
+          "bottom": 310,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityLabel",
+      "selector": ".activitybar .action-label",
+      "index": 5,
+      "status": "exact",
+      "reference": {
+        "className": "action-label activity-workbench-view-extension-codexSecondaryViewContainer-eba858aa00fa38501c2916b4309e17680d24d5c3 uri-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 310,
+          "width": 48,
+          "height": 48,
+          "top": 310,
+          "right": 48,
+          "bottom": 358,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-label activity-workbench-view-extension-codexSecondaryViewContainer-eba858aa00fa38501c2916b4309e17680d24d5c3 uri-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 310,
+          "width": 48,
+          "height": 48,
+          "top": 310,
+          "right": 48,
+          "bottom": 358,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityLabel",
+      "selector": ".activitybar .action-label",
+      "index": 6,
+      "status": "exact",
+      "reference": {
+        "className": "action-label codicon codicon-accounts-view-bar-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 867,
+          "width": 48,
+          "height": 48,
+          "top": 867,
+          "right": 48,
+          "bottom": 915,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-label codicon codicon-accounts-view-bar-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 867,
+          "width": 48,
+          "height": 48,
+          "top": 867,
+          "right": 48,
+          "bottom": 915,
+          "left": 0
+        }
+      },
+      "differences": []
+    },
+    {
+      "name": "activityLabel",
+      "selector": ".activitybar .action-label",
+      "index": 7,
+      "status": "exact",
+      "reference": {
+        "className": "action-label codicon codicon-settings-view-bar-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 915,
+          "width": 48,
+          "height": 48,
+          "top": 915,
+          "right": 48,
+          "bottom": 963,
+          "left": 0
+        }
+      },
+      "current": {
+        "className": "action-label codicon codicon-settings-view-bar-icon",
+        "text": "",
+        "rect": {
+          "x": 0,
+          "y": 915,
+          "width": 48,
+          "height": 48,
+          "top": 915,
+          "right": 48,
+          "bottom": 963,
+          "left": 0
+        }
+      },
+      "differences": []
+    }
+  ],
+  "localRules": [
+    {
+      "name": "noSidebarResizeHandle",
+      "selector": ".sidebar-resize-handle",
+      "status": "exact",
+      "differences": [],
+      "current": {
+        "present": false,
+        "count": 0,
+        "classNames": []
+      }
+    },
+    {
+      "name": "fixedWorkbenchPlatform",
+      "selector": ".monaco-workbench",
+      "status": "exact",
+      "differences": [],
+      "current": {
+        "present": true,
+        "className": "monaco-enable-motion monaco-workbench web chromium nopanel noauxiliarybar fullscreen file-icons-enabled vs vscode-theme-defaults-themes-2026-light-json windows checked",
+        "fontFamily": "\"Segoe WPC\", \"Segoe UI\", sans-serif"
+      }
+    },
+    {
+      "name": "platformSourceGuards",
+      "selector": "frontend source",
+      "status": "exact",
+      "differences": [],
+      "current": {
+        "forbiddenHits": []
+      }
+    }
+  ]
+}

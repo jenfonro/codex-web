@@ -1,0 +1,299 @@
+{
+  "generatedAt": "2026-07-06T17:06:29.010701+00:00",
+  "appURL": "http://127.0.0.1:58888/?codexFixture=reference",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "summary": {
+    "checks": 16,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "controller views audit completed",
+      "ok": true,
+      "details": "ok"
+    },
+    {
+      "name": "viewport is 1920x1080 or larger",
+      "ok": true,
+      "details": "1920x1080"
+    },
+    {
+      "name": "Nodes view is reachable from Activity Bar",
+      "ok": true,
+      "details": "title='NODES'"
+    },
+    {
+      "name": "online and offline nodes render",
+      "ok": true,
+      "details": "online=1, offline=1"
+    },
+    {
+      "name": "selecting a node posts active node id",
+      "ok": true,
+      "details": "[{\"nodeId\": \"server-a\"}]"
+    },
+    {
+      "name": "selecting a node updates stored node id",
+      "ok": true,
+      "details": "stored='server-a'"
+    },
+    {
+      "name": "offline node deletion calls controller",
+      "ok": true,
+      "details": "[\"server-b\"]"
+    },
+    {
+      "name": "Workspace view is reachable from Activity Bar",
+      "ok": true,
+      "details": "title='WORKSPACE'"
+    },
+    {
+      "name": "workspace directory entries use selected node",
+      "ok": true,
+      "details": "server-a:workspace-directory-entries:{'directoryPath': '', 'includeHidden': False}, server-a:workspace-directory-entries:{'directoryPath': 'src', 'includeHidden': False}, server-a:workspace-directory-tree-search:{'query': 'main', 'includeHidden': False}"
+    },
+    {
+      "name": "workspace directory navigation sends path",
+      "ok": true,
+      "details": "server-a:workspace-directory-entries:{'directoryPath': '', 'includeHidden': False}, server-a:workspace-directory-entries:{'directoryPath': 'src', 'includeHidden': False}, server-a:workspace-directory-tree-search:{'query': 'main', 'includeHidden': False}"
+    },
+    {
+      "name": "workspace search uses selected node",
+      "ok": true,
+      "details": "server-a:workspace-directory-entries:{'directoryPath': '', 'includeHidden': False}, server-a:workspace-directory-entries:{'directoryPath': 'src', 'includeHidden': False}, server-a:workspace-directory-tree-search:{'query': 'main', 'includeHidden': False}"
+    },
+    {
+      "name": "workspace search sends query",
+      "ok": true,
+      "details": "server-a:workspace-directory-entries:{'directoryPath': '', 'includeHidden': False}, server-a:workspace-directory-entries:{'directoryPath': 'src', 'includeHidden': False}, server-a:workspace-directory-tree-search:{'query': 'main', 'includeHidden': False}"
+    },
+    {
+      "name": "Git view is reachable from Activity Bar",
+      "ok": true,
+      "details": "title='SOURCE CONTROL'"
+    },
+    {
+      "name": "git requests use selected node",
+      "ok": true,
+      "details": "server-a:branch-metadata:{'cwd': '/workspace'}, server-a:status-summary:{'cwd': '/workspace'}, server-a:review-summary:{'cwd': '/workspace', 'includeUntrackedFiles': True}"
+    },
+    {
+      "name": "git requests cover metadata, status, and review summary",
+      "ok": true,
+      "details": "server-a:branch-metadata:{'cwd': '/workspace'}, server-a:status-summary:{'cwd': '/workspace'}, server-a:review-summary:{'cwd': '/workspace', 'includeUntrackedFiles': True}"
+    },
+    {
+      "name": "git changed file renders",
+      "ok": true,
+      "details": "file='app.go'"
+    }
+  ],
+  "evidence": {
+    "apiRequests": [
+      {
+        "method": "GET",
+        "path": "/api/nodes",
+        "query": "",
+        "body": {}
+      },
+      {
+        "method": "POST",
+        "path": "/api/nodes/active",
+        "query": "",
+        "body": {
+          "nodeId": "server-a"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/nodes",
+        "query": "",
+        "body": {}
+      },
+      {
+        "method": "DELETE",
+        "path": "/api/nodes/server-b",
+        "query": "",
+        "body": {}
+      },
+      {
+        "method": "GET",
+        "path": "/api/nodes",
+        "query": "",
+        "body": {}
+      },
+      {
+        "method": "GET",
+        "path": "/api/nodes",
+        "query": "",
+        "body": {}
+      },
+      {
+        "method": "POST",
+        "path": "/api/workspace",
+        "query": "",
+        "body": {
+          "nodeId": "server-a",
+          "endpoint": "workspace-directory-entries",
+          "params": {
+            "directoryPath": "",
+            "includeHidden": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/nodes",
+        "query": "",
+        "body": {}
+      },
+      {
+        "method": "POST",
+        "path": "/api/workspace",
+        "query": "",
+        "body": {
+          "nodeId": "server-a",
+          "endpoint": "workspace-directory-entries",
+          "params": {
+            "directoryPath": "src",
+            "includeHidden": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/nodes",
+        "query": "",
+        "body": {}
+      },
+      {
+        "method": "POST",
+        "path": "/api/workspace",
+        "query": "",
+        "body": {
+          "nodeId": "server-a",
+          "endpoint": "workspace-directory-tree-search",
+          "params": {
+            "query": "main",
+            "includeHidden": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/nodes",
+        "query": "",
+        "body": {}
+      },
+      {
+        "method": "POST",
+        "path": "/api/git",
+        "query": "",
+        "body": {
+          "nodeId": "server-a",
+          "method": "branch-metadata",
+          "params": {
+            "cwd": "/workspace"
+          }
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/api/git",
+        "query": "",
+        "body": {
+          "nodeId": "server-a",
+          "method": "status-summary",
+          "params": {
+            "cwd": "/workspace"
+          }
+        }
+      },
+      {
+        "method": "POST",
+        "path": "/api/git",
+        "query": "",
+        "body": {
+          "nodeId": "server-a",
+          "method": "review-summary",
+          "params": {
+            "cwd": "/workspace",
+            "includeUntrackedFiles": true
+          }
+        }
+      }
+    ],
+    "activeNodeRequests": [
+      {
+        "nodeId": "server-a"
+      }
+    ],
+    "deletedNodes": [
+      "server-b"
+    ],
+    "workspaceRequests": [
+      {
+        "nodeId": "server-a",
+        "endpoint": "workspace-directory-entries",
+        "params": {
+          "directoryPath": "",
+          "includeHidden": false
+        }
+      },
+      {
+        "nodeId": "server-a",
+        "endpoint": "workspace-directory-entries",
+        "params": {
+          "directoryPath": "src",
+          "includeHidden": false
+        }
+      },
+      {
+        "nodeId": "server-a",
+        "endpoint": "workspace-directory-tree-search",
+        "params": {
+          "query": "main",
+          "includeHidden": false
+        }
+      }
+    ],
+    "gitRequests": [
+      {
+        "nodeId": "server-a",
+        "method": "branch-metadata",
+        "params": {
+          "cwd": "/workspace"
+        }
+      },
+      {
+        "nodeId": "server-a",
+        "method": "status-summary",
+        "params": {
+          "cwd": "/workspace"
+        }
+      },
+      {
+        "nodeId": "server-a",
+        "method": "review-summary",
+        "params": {
+          "cwd": "/workspace",
+          "includeUntrackedFiles": true
+        }
+      }
+    ],
+    "nodesTitle": "NODES",
+    "onlineNodeCount": 1,
+    "offlineNodeCount": 1,
+    "storedNodeAfterSelect": "server-a",
+    "nodeRowsAfterDelete": 1,
+    "workspaceTitle": "WORKSPACE",
+    "workspaceFirstEntry": "src",
+    "workspaceNestedEntry": "main.go",
+    "gitTitle": "SOURCE CONTROL",
+    "gitBranch": "Source Control",
+    "gitFileName": "app.go"
+  }
+}

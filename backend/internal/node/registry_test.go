@@ -62,6 +62,44 @@ func TestRegistryRemoteReconnectReplacesClient(t *testing.T) {
 	}
 }
 
+func TestRegistryStaleDisconnectDoesNotMarkReconnectedNodeOffline(t *testing.T) {
+	reg := NewRegistry(filepath.Join(t.TempDir(), "nodes.json"))
+	first := &fakeClient{info: model.NodeInfo{ID: "server-a", Name: "A", Kind: "remote", Online: true}}
+	second := &fakeClient{info: model.NodeInfo{ID: "server-a", Name: "A2", Kind: "remote", Online: true}}
+	if err := reg.UpsertRemote(first); err != nil {
+		t.Fatalf("UpsertRemote(first) error = %v", err)
+	}
+	if err := reg.UpsertRemote(second); err != nil {
+		t.Fatalf("UpsertRemote(second) error = %v", err)
+	}
+	if err := reg.MarkOffline("server-a", first); err != nil {
+		t.Fatalf("MarkOffline(first) error = %v", err)
+	}
+	if got := reg.Client("server-a"); got != second {
+		t.Fatalf("stale disconnect removed active client")
+	}
+	nodes := reg.List()
+	if len(nodes) != 1 {
+		t.Fatalf("List() len = %d, want 1", len(nodes))
+	}
+	if !nodes[0].Online {
+		t.Fatalf("node Online = false after stale disconnect, want true")
+	}
+	if err := reg.MarkOffline("server-a", second); err != nil {
+		t.Fatalf("MarkOffline(second) error = %v", err)
+	}
+	if got := reg.Client("server-a"); got != nil {
+		t.Fatalf("active disconnect left client = %#v, want nil", got)
+	}
+	nodes = reg.List()
+	if len(nodes) != 1 {
+		t.Fatalf("List() len = %d, want 1", len(nodes))
+	}
+	if nodes[0].Online {
+		t.Fatalf("node Online = true after active disconnect, want false")
+	}
+}
+
 func TestRegistryDeleteOfflineRejectsOnline(t *testing.T) {
 	reg := NewRegistry(filepath.Join(t.TempDir(), "nodes.json"))
 	client := &fakeClient{info: model.NodeInfo{ID: "server-a", Name: "A", Kind: "remote", Online: true}}

@@ -128,17 +128,19 @@ func (a *App) handleSessionItem(w http.ResponseWriter, r *http.Request, tail str
 }
 
 func (a *App) writeSessionBacklog(w http.ResponseWriter, r *http.Request, sessionID string) {
-	lastSeq, beforeSeq, limit := sessionEventQuery(r)
+	lastSeq, beforeSeq, limit, compact, fileDetails := sessionEventQuery(r)
 	client, err := a.nodeClientFromRequest(r, nil)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	result, err := client.Request(r.Context(), "session.events", map[string]any{
-		"sessionId": sessionID,
-		"lastSeq":   lastSeq,
-		"beforeSeq": beforeSeq,
-		"limit":     limit,
+		"sessionId":   sessionID,
+		"lastSeq":     lastSeq,
+		"beforeSeq":   beforeSeq,
+		"limit":       limit,
+		"compact":     compact,
+		"fileDetails": fileDetails,
 	})
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
@@ -153,19 +155,23 @@ func (a *App) handleSessionEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sessionID := strings.TrimSpace(r.URL.Query().Get("sessionId"))
-	lastSeq, beforeSeq, limit := sessionEventQuery(r)
+	lastSeq, beforeSeq, limit, compact, fileDetails := sessionEventQuery(r)
 	client, err := a.nodeClientFromRequest(r, nil)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	events, unsubscribe := client.Subscribe()
+	defer unsubscribe()
 	var backlog any
 	if sessionID != "" {
 		backlog, err = client.Request(r.Context(), "session.events", map[string]any{
-			"sessionId": sessionID,
-			"lastSeq":   lastSeq,
-			"beforeSeq": beforeSeq,
-			"limit":     limit,
+			"sessionId":   sessionID,
+			"lastSeq":     lastSeq,
+			"beforeSeq":   beforeSeq,
+			"limit":       limit,
+			"compact":     compact,
+			"fileDetails": fileDetails,
 		})
 		if err != nil {
 			writeError(w, http.StatusBadGateway, err.Error())
@@ -180,14 +186,13 @@ func (a *App) handleSessionEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
 	if sessionID != "" {
 		for _, event := range sessionEventsFromResult(backlog) {
 			writeSSE(w, event)
 		}
 	}
 	flusher.Flush()
-	events, unsubscribe := client.Subscribe()
-	defer unsubscribe()
 	for {
 		select {
 		case <-r.Context().Done():
@@ -212,7 +217,7 @@ func (a *App) handleSessionEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func sessionEventQuery(r *http.Request) (int64, int64, int) {
+func sessionEventQuery(r *http.Request) (int64, int64, int, bool, bool) {
 	lastSeq, _ := strconv.ParseInt(r.URL.Query().Get("lastSeq"), 10, 64)
 	beforeSeq, _ := strconv.ParseInt(r.URL.Query().Get("beforeSeq"), 10, 64)
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
@@ -222,7 +227,9 @@ func sessionEventQuery(r *http.Request) (int64, int64, int) {
 	if limit > 2000 {
 		limit = 2000
 	}
-	return lastSeq, beforeSeq, limit
+	compact, _ := strconv.ParseBool(r.URL.Query().Get("compact"))
+	fileDetails, _ := strconv.ParseBool(r.URL.Query().Get("fileDetails"))
+	return lastSeq, beforeSeq, limit, compact, fileDetails
 }
 
 func (a *App) handleWorkspace(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,240 @@
+.workspace-panel-frame {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-view {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  color: var(--cw-foreground);
+  background: transparent;
+}
+
+.workspace-toolbar,
+.workspace-search-row,
+.workspace-path-row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--cw-border);
+}
+
+.workspace-toolbar {
+  min-height: 42px;
+  justify-content: space-between;
+}
+
+.workspace-title-block {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-title,
+.workspace-subtitle,
+.workspace-current-path,
+.workspace-entry-name,
+.workspace-entry-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-title {
+  color: var(--cw-foreground);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.workspace-subtitle,
+.workspace-current-path,
+.workspace-entry-path,
+.workspace-entry-meta {
+  color: var(--cw-muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.workspace-toolbar-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.workspace-search-row {
+  height: 32px;
+}
+
+.workspace-search-input {
+  min-width: 0;
+  height: 24px;
+  flex: 1 1 auto;
+  padding: 0 2px;
+  color: var(--cw-foreground);
+  background: transparent;
+  border: 0;
+  font-family: var(--cw-font-family);
+  font-size: 12px;
+  outline: none;
+}
+
+.workspace-search-input::placeholder {
+  color: var(--cw-muted);
+}
+
+.workspace-path-row {
+  height: 28px;
+}
+
+.workspace-current-path {
+  flex: 1 1 auto;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.workspace-error {
+  margin: 8px;
+  padding: 6px 8px;
+  color: var(--vscode-errorForeground, #a1260d);
+  background: color-mix(in srgb, var(--vscode-errorForeground, #a1260d) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--vscode-errorForeground, #a1260d) 24%, transparent);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.workspace-list {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 3px 0 8px;
+}
+
+.workspace-row {
+  box-sizing: border-box;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  color: var(--cw-foreground);
+}
+
+.workspace-row:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.workspace-row[data-workspace-type="directory"] {
+  cursor: pointer;
+}
+
+.workspace-entry-icon {
+  width: 16px;
+  flex: 0 0 16px;
+  color: var(--cw-muted);
+  font-size: 16px;
+}
+
+.workspace-entry-main {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-entry-name {
+  color: var(--cw-foreground);
+  font-size: 13px;
+  line-height: 17px;
+}
+
+.workspace-entry-meta {
+  flex: 0 0 auto;
+  max-width: 96px;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-icon-button {
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--cw-muted);
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.workspace-icon-button:hover:not(:disabled),
+.workspace-icon-button.active {
+  color: var(--cw-foreground);
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.workspace-icon-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.workspace-empty {
+  height: 100%;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--cw-muted);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.workspace-empty .codicon {
+  font-size: 24px;
+}
+
+.workspace-row-skeleton {
+  position: relative;
+  min-height: 28px;
+  overflow: hidden;
+}
+
+.workspace-row-skeleton::before {
+  content: "";
+  position: absolute;
+  inset: 5px 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgb(238, 239, 242), rgb(247, 247, 249), rgb(238, 239, 242));
+  background-size: 220% 100%;
+  animation: workspace-skeleton 1.4s ease-in-out infinite;
+  animation-delay: calc(var(--workspace-delay, 0) * 80ms);
+}
+
+@keyframes workspace-skeleton {
+  0% {
+    background-position: 120% 0;
+  }
+
+  100% {
+    background-position: -120% 0;
+  }
+}

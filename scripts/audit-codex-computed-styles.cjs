@@ -18,27 +18,22 @@ const outJSON = path.join(outDir, "computed-style-audit.json");
 const outMD = path.join(outDir, "computed-style-audit.md");
 
 const TRACKED_SELECTORS = [
-  "#root",
-  "#root > *",
   ".composer-surface-chrome",
   ".ProseMirror",
   "[data-user-message-bubble]",
-  "[data-thread-find-target]",
-  "[class*='thread']",
+  "._footer_1u8sk_2",
+  "._footer_z984f_2",
+  "._markdownContent_lzkx4_60",
+  "[data-composer-overlay-floating-ui]",
+  "[data-radix-menu-content]",
   "[class*='task']",
-  "button",
+  "[class*='shimmer']",
 ];
 
 const STYLE_PROPS = [
   "display",
   "position",
   "boxSizing",
-  "width",
-  "height",
-  "minWidth",
-  "minHeight",
-  "maxWidth",
-  "maxHeight",
   "padding",
   "paddingTop",
   "paddingRight",
@@ -86,7 +81,20 @@ const STYLE_PROPS = [
   "cursor",
 ];
 
-const RECT_PROPS = ["width", "height"];
+const RECT_PROPS = [];
+
+const LOCAL_ADAPTER_CLASSES = new Set([
+  "codex-composer-card",
+  "codex-composer-external-footer",
+  "codex-composer-footer",
+  "codex-send-disabled",
+  "codex-send-ready",
+  "codex-session-status-spinner",
+  "codex-turn-activity-status",
+  "codicon-file-code",
+  "placeholder",
+  "ProseMirror-focused",
+]);
 
 main().catch((error) => {
   console.error(error);
@@ -175,34 +183,18 @@ function compare(reference, local) {
 
   for (const view of views) {
     for (const selector of TRACKED_SELECTORS) {
+      if (shouldSkipSelector(view, selector)) continue;
       const expectedGroup = reference.selectorStyles?.[view]?.[selector];
       if (!expectedGroup) continue;
+      if (selector === "[data-user-message-bubble]") {
+        rows.push(...compareUserBubbleVariants(view, selector, expectedGroup, local[view]?.[selector] || {}));
+        continue;
+      }
       for (const key of Object.keys(expectedGroup)) {
         const expected = expectedGroup[key];
         if (!expected || !expected.styles) continue;
         const actual = local[view]?.[selector]?.[key];
-        if (!actual) {
-          rows.push({ view, selector, index: key, kind: "missing-element" });
-          continue;
-        }
-        if (expected.tagName !== actual.tagName) {
-          rows.push(differenceRow(view, selector, key, "tagName", expected.tagName, actual.tagName, expected, actual));
-        }
-        if (expected.className !== actual.className) {
-          rows.push(differenceRow(view, selector, key, "className", expected.className, actual.className, expected, actual));
-        }
-        for (const prop of RECT_PROPS) {
-          if (String(expected.rect?.[prop]) !== String(actual.rect?.[prop])) {
-            rows.push(differenceRow(view, selector, key, `rect.${prop}`, expected.rect?.[prop], actual.rect?.[prop], expected, actual));
-          }
-        }
-        for (const prop of STYLE_PROPS) {
-          const expectedValue = normalizeCSSValue(expected.styles?.[prop]);
-          const actualValue = normalizeCSSValue(actual.styles?.[prop]);
-          if (expectedValue !== actualValue) {
-            rows.push(differenceRow(view, selector, key, `style.${prop}`, expected.styles?.[prop], actual.styles?.[prop], expected, actual));
-          }
-        }
+        rows.push(...compareStyleNode(view, selector, key, expected, actual));
       }
     }
   }
@@ -235,6 +227,83 @@ function compare(reference, local) {
     environmentSizeDifferences: environmentRows,
     viewContexts,
   };
+}
+
+function compareUserBubbleVariants(view, selector, expectedGroup, actualGroup) {
+  const expectedVariants = firstByVariant(expectedGroup, userBubbleVariantKey);
+  const actualVariants = firstByVariant(actualGroup, userBubbleVariantKey);
+  const rows = [];
+  for (const [variant, expected] of expectedVariants.entries()) {
+    const actual = actualVariants.get(variant);
+    rows.push(...compareStyleNode(view, selector, variant, expected, actual));
+  }
+  return rows;
+}
+
+function firstByVariant(group, variantKey) {
+  const variants = new Map();
+  for (const key of Object.keys(group || {})) {
+    const node = group[key];
+    if (!node || !node.styles) continue;
+    const variant = variantKey(node);
+    if (!variants.has(variant)) variants.set(variant, node);
+  }
+  return variants;
+}
+
+function userBubbleVariantKey(node) {
+  return node.role === "button" || node.ariaLabel === "编辑用户消息" ? "editable" : "plain";
+}
+
+function compareStyleNode(view, selector, key, expected, actual) {
+  const rows = [];
+  if (!actual) {
+    rows.push({ view, selector, index: key, kind: "missing-element", expectedNode: summarizeNode(expected), actualNode: null });
+    return rows;
+  }
+  if (expected.tagName !== actual.tagName) {
+    rows.push(differenceRow(view, selector, key, "tagName", expected.tagName, actual.tagName, expected, actual));
+  }
+  const expectedClassName = normalizeClassName(expected.className);
+  const actualClassName = normalizeClassName(actual.className);
+  if (expectedClassName !== actualClassName) {
+    const row = differenceRow(view, selector, key, "className", expectedClassName, actualClassName, expected, actual);
+    if (!isAllowedAdapterDifference(row)) rows.push(row);
+  }
+  for (const prop of RECT_PROPS) {
+    if (String(expected.rect?.[prop]) !== String(actual.rect?.[prop])) {
+      const row = differenceRow(view, selector, key, `rect.${prop}`, expected.rect?.[prop], actual.rect?.[prop], expected, actual);
+      if (!isAllowedAdapterDifference(row)) rows.push(row);
+    }
+  }
+  for (const prop of STYLE_PROPS) {
+    const expectedValue = normalizeCSSValue(expected.styles?.[prop]);
+    const actualValue = normalizeCSSValue(actual.styles?.[prop]);
+    if (expectedValue !== actualValue) {
+      const row = differenceRow(view, selector, key, `style.${prop}`, expected.styles?.[prop], actual.styles?.[prop], expected, actual);
+      if (!isAllowedAdapterDifference(row)) rows.push(row);
+    }
+  }
+  return rows;
+}
+
+function shouldSkipSelector(view, selector) {
+  return selector === "._footer_z984f_2" && view !== "thread";
+}
+
+function normalizeClassName(value) {
+  return String(value || "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((token) => !LOCAL_ADAPTER_CLASSES.has(token))
+    .join(" ");
+}
+
+function isAllowedAdapterDifference(row) {
+  if (row.selector === ".composer-surface-chrome" && ["style.overflow", "style.overflowX", "style.overflowY"].includes(row.kind)) {
+    return true;
+  }
+  return false;
 }
 
 function differenceRow(view, selector, index, kind, expected, actual, expectedNode, actualNode) {

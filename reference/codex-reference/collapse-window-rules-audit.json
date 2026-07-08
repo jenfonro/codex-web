@@ -1,0 +1,1163 @@
+{
+  "generatedAt": "2026-07-07T22:54:33.622Z",
+  "basis": "Audits per-window turn grouping, semantic counts, and turn-level DOM/computed-style evidence from the latest collapse-alignment capture.",
+  "summaryPath": "reference\\collapse-alignment\\20260707-225412\\summary.json",
+  "captureDir": "reference\\collapse-alignment\\20260707-225412",
+  "summary": {
+    "checks": 27,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "source scroll chunks are readable",
+      "ok": true,
+      "details": "chunks=20"
+    },
+    {
+      "name": "source has multiple unique virtual windows",
+      "ok": true,
+      "details": "unique=18"
+    },
+    {
+      "name": "source every visible turn has style evidence",
+      "ok": true,
+      "details": "146/146"
+    },
+    {
+      "name": "source every visible turn has DOM signature evidence",
+      "ok": true,
+      "details": "146/146"
+    },
+    {
+      "name": "source every visible turn has semantic selector evidence",
+      "ok": true,
+      "details": "146/146"
+    },
+    {
+      "name": "source grouped turns contain user anchors",
+      "ok": true,
+      "details": "userAnchors=22"
+    },
+    {
+      "name": "source grouped turns contain assistant units",
+      "ok": true,
+      "details": "assistantUnits=86"
+    },
+    {
+      "name": "source turn grouping has no rule violations",
+      "ok": true,
+      "details": ""
+    },
+    {
+      "name": "source processed summary text appears in captured windows",
+      "ok": true,
+      "details": "windows=17"
+    },
+    {
+      "name": "source file reference windows are captured",
+      "ok": true,
+      "details": "windows=9"
+    },
+    {
+      "name": "target scroll chunks are readable",
+      "ok": true,
+      "details": "chunks=9"
+    },
+    {
+      "name": "target has multiple unique virtual windows",
+      "ok": true,
+      "details": "unique=6"
+    },
+    {
+      "name": "target every visible turn has style evidence",
+      "ok": true,
+      "details": "59/59"
+    },
+    {
+      "name": "target every visible turn has DOM signature evidence",
+      "ok": true,
+      "details": "59/59"
+    },
+    {
+      "name": "target every visible turn has semantic selector evidence",
+      "ok": true,
+      "details": "59/59"
+    },
+    {
+      "name": "target grouped turns contain user anchors",
+      "ok": true,
+      "details": "userAnchors=10"
+    },
+    {
+      "name": "target grouped turns contain assistant units",
+      "ok": true,
+      "details": "assistantUnits=15"
+    },
+    {
+      "name": "target turn grouping has no rule violations",
+      "ok": true,
+      "details": ""
+    },
+    {
+      "name": "target processed summary text appears in captured windows",
+      "ok": true,
+      "details": "windows=9"
+    },
+    {
+      "name": "target file reference windows are captured",
+      "ok": true,
+      "details": "windows=7"
+    },
+    {
+      "name": "target activity headers are captured",
+      "ok": true,
+      "details": "sourceMax=3, sourceSemanticMax=2, targetMax=2, targetSemanticMax=2"
+    },
+    {
+      "name": "target tool disclosures are captured",
+      "ok": true,
+      "details": "sourceMax=6, sourceSemanticMax=4, targetMax=2, targetSemanticMax=2"
+    },
+    {
+      "name": "target windows with activity keep matching tool disclosure coverage",
+      "ok": true,
+      "details": ""
+    },
+    {
+      "name": "target official-alignment windows do not expose Codex Web command enhancement rows",
+      "ok": true,
+      "details": "windows=0"
+    },
+    {
+      "name": "target official-alignment windows do not expose grouped command child rows",
+      "ok": true,
+      "details": "windows=0"
+    },
+    {
+      "name": "source and target both expose processed summary rows",
+      "ok": true,
+      "details": "source=4, target=2"
+    },
+    {
+      "name": "source and target both expose file reference styling windows",
+      "ok": true,
+      "details": "source=6, target=12"
+    }
+  ],
+  "sides": {
+    "source": {
+      "side": "source",
+      "ok": true,
+      "reverse": true,
+      "chunkCount": 20,
+      "uniqueWindowCount": 18,
+      "maxScroll": 94410,
+      "windows": [
+        {
+          "label": "chunk-0",
+          "requestedScrollTop": 0,
+          "actualScrollTop": 0,
+          "turnCount": 28,
+          "viewportTurnCount": 8,
+          "groupCount": 2,
+          "contentUnitCount": 6,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 5,
+          "firstTurnKey": "019f23fd-476e-7bf0-894b-ec4d2297a4d6",
+          "lastTurnKey": "019f2401-7d31-73e0-a86d-c63d299fe7eb:4:assistant",
+          "counts": {
+            "summaries": 2,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 3,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 6,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 3,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-1",
+          "requestedScrollTop": -814,
+          "actualScrollTop": -814,
+          "turnCount": 47,
+          "viewportTurnCount": 10,
+          "groupCount": 2,
+          "contentUnitCount": 8,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 7,
+          "firstTurnKey": "019f23f8-a04c-7993-9c12-af1ad7cf7085",
+          "lastTurnKey": "019f23fd-476e-7bf0-894b-ec4d2297a4d6:6:assistant",
+          "counts": {
+            "summaries": 2,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 3,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 6,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 3,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-2",
+          "requestedScrollTop": -1628,
+          "actualScrollTop": -1628,
+          "turnCount": 50,
+          "viewportTurnCount": 9,
+          "groupCount": 3,
+          "contentUnitCount": 6,
+          "userAnchorCount": 2,
+          "assistantUnitCount": 4,
+          "firstTurnKey": "019f23f4-f091-75e2-bfc2-dc8a7cc4cb53",
+          "lastTurnKey": "019f23fd-476e-7bf0-894b-ec4d2297a4d6:0:user",
+          "counts": {
+            "summaries": 4,
+            "activityHeaders": 1,
+            "toolDisclosures": 2,
+            "toolGroupItems": 0,
+            "fileReferences": 3,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 8,
+            "summaryButton": 2,
+            "activityHeader": 1,
+            "toolDisclosure": 2,
+            "toolGroupItem": 0,
+            "fileReference": 3,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-3",
+          "requestedScrollTop": -2442,
+          "actualScrollTop": -1628,
+          "turnCount": 50,
+          "viewportTurnCount": 9,
+          "groupCount": 3,
+          "contentUnitCount": 6,
+          "userAnchorCount": 2,
+          "assistantUnitCount": 4,
+          "firstTurnKey": "019f23f4-f091-75e2-bfc2-dc8a7cc4cb53",
+          "lastTurnKey": "019f23fd-476e-7bf0-894b-ec4d2297a4d6:0:user",
+          "counts": {
+            "summaries": 4,
+            "activityHeaders": 1,
+            "toolDisclosures": 2,
+            "toolGroupItems": 0,
+            "fileReferences": 3,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 8,
+            "summaryButton": 2,
+            "activityHeader": 1,
+            "toolDisclosure": 2,
+            "toolGroupItem": 0,
+            "fileReference": 3,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-4",
+          "requestedScrollTop": -3256,
+          "actualScrollTop": -3256,
+          "turnCount": 50,
+          "viewportTurnCount": 7,
+          "groupCount": 1,
+          "contentUnitCount": 6,
+          "userAnchorCount": 0,
+          "assistantUnitCount": 6,
+          "firstTurnKey": "019f23f4-f091-75e2-bfc2-dc8a7cc4cb53",
+          "lastTurnKey": "019f23f4-f091-75e2-bfc2-dc8a7cc4cb53:10:assistant",
+          "counts": {
+            "summaries": 2,
+            "activityHeaders": 1,
+            "toolDisclosures": 2,
+            "toolGroupItems": 0,
+            "fileReferences": 0,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 0,
+            "assistantMarkdown": 8,
+            "summaryButton": 2,
+            "activityHeader": 1,
+            "toolDisclosure": 2,
+            "toolGroupItem": 0,
+            "fileReference": 0,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-5",
+          "requestedScrollTop": -4070,
+          "actualScrollTop": -4070,
+          "turnCount": 47,
+          "viewportTurnCount": 11,
+          "groupCount": 2,
+          "contentUnitCount": 9,
+          "userAnchorCount": 0,
+          "assistantUnitCount": 9,
+          "firstTurnKey": "019f23ea-830d-7410-8437-f627ecc5b9de",
+          "lastTurnKey": "019f23f4-f091-75e2-bfc2-dc8a7cc4cb53:4:assistant",
+          "counts": {
+            "summaries": 2,
+            "activityHeaders": 3,
+            "toolDisclosures": 6,
+            "toolGroupItems": 0,
+            "fileReferences": 0,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 17,
+            "summaryButton": 2,
+            "activityHeader": 2,
+            "toolDisclosure": 4,
+            "toolGroupItem": 0,
+            "fileReference": 0,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-6",
+          "requestedScrollTop": -4884,
+          "actualScrollTop": -4884,
+          "turnCount": 47,
+          "viewportTurnCount": 13,
+          "groupCount": 1,
+          "contentUnitCount": 12,
+          "userAnchorCount": 0,
+          "assistantUnitCount": 12,
+          "firstTurnKey": "019f23ea-830d-7410-8437-f627ecc5b9de",
+          "lastTurnKey": "019f23ea-830d-7410-8437-f627ecc5b9de:13:assistant",
+          "counts": {
+            "summaries": 0,
+            "activityHeaders": 2,
+            "toolDisclosures": 4,
+            "toolGroupItems": 0,
+            "fileReferences": 0,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 17,
+            "summaryButton": 0,
+            "activityHeader": 2,
+            "toolDisclosure": 4,
+            "toolGroupItem": 0,
+            "fileReference": 0,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-7",
+          "requestedScrollTop": -5698,
+          "actualScrollTop": -5698,
+          "turnCount": 50,
+          "viewportTurnCount": 11,
+          "groupCount": 3,
+          "contentUnitCount": 8,
+          "userAnchorCount": 2,
+          "assistantUnitCount": 6,
+          "firstTurnKey": "019f23c5-82ab-7410-bd8f-b5cfd691221c",
+          "lastTurnKey": "019f23ea-830d-7410-8437-f627ecc5b9de:4:assistant",
+          "counts": {
+            "summaries": 0,
+            "activityHeaders": 2,
+            "toolDisclosures": 4,
+            "toolGroupItems": 0,
+            "fileReferences": 0,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 17,
+            "summaryButton": 0,
+            "activityHeader": 2,
+            "toolDisclosure": 4,
+            "toolGroupItem": 0,
+            "fileReference": 0,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-7-expanded",
+          "requestedScrollTop": -5698,
+          "actualScrollTop": -8189,
+          "turnCount": 23,
+          "viewportTurnCount": 5,
+          "groupCount": 2,
+          "contentUnitCount": 3,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 2,
+          "firstTurnKey": "019f23a4-de2a-7741-9bb2-0c9fc4441224",
+          "lastTurnKey": "019f23a9-c118-7113-a926-9c938b7703f1:45:assistant",
+          "counts": {
+            "summaries": 2,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 3,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 1,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 3,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-8",
+          "requestedScrollTop": -6512,
+          "actualScrollTop": -6512,
+          "turnCount": 39,
+          "viewportTurnCount": 6,
+          "groupCount": 2,
+          "contentUnitCount": 4,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 3,
+          "firstTurnKey": "019f23c1-d6c1-7b01-9be0-ad3dc5669657",
+          "lastTurnKey": "019f23c5-82ab-7410-bd8f-b5cfd691221c:1:assistant",
+          "counts": {
+            "summaries": 0,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 0,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 6,
+            "summaryButton": 0,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 0,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-8-expanded",
+          "requestedScrollTop": -6512,
+          "actualScrollTop": -8834,
+          "turnCount": 39,
+          "viewportTurnCount": 3,
+          "groupCount": 1,
+          "contentUnitCount": 2,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 1,
+          "firstTurnKey": "019f23a4-de2a-7741-9bb2-0c9fc4441224",
+          "lastTurnKey": "019f23a4-de2a-7741-9bb2-0c9fc4441224:5:assistant",
+          "counts": {
+            "summaries": 1,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 0,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 1,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 0,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-9",
+          "requestedScrollTop": -7326,
+          "actualScrollTop": -7326,
+          "turnCount": 23,
+          "viewportTurnCount": 10,
+          "groupCount": 2,
+          "contentUnitCount": 8,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 7,
+          "firstTurnKey": "019f23a9-c118-7113-a926-9c938b7703f1",
+          "lastTurnKey": "019f23c1-d6c1-7b01-9be0-ad3dc5669657:7:assistant",
+          "counts": {
+            "summaries": 1,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 3,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 6,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 3,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-9-expanded",
+          "requestedScrollTop": -7326,
+          "actualScrollTop": -9549,
+          "turnCount": 23,
+          "viewportTurnCount": 3,
+          "groupCount": 1,
+          "contentUnitCount": 2,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 1,
+          "firstTurnKey": "019f23a0-151e-7930-8abb-7aa7335638f8",
+          "lastTurnKey": "019f23a0-151e-7930-8abb-7aa7335638f8:13:assistant",
+          "counts": {
+            "summaries": 1,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 0,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 1,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 0,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-10",
+          "requestedScrollTop": -8140,
+          "actualScrollTop": -8140,
+          "turnCount": 23,
+          "viewportTurnCount": 5,
+          "groupCount": 2,
+          "contentUnitCount": 3,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 2,
+          "firstTurnKey": "019f23a4-de2a-7741-9bb2-0c9fc4441224",
+          "lastTurnKey": "019f23a9-c118-7113-a926-9c938b7703f1:45:assistant",
+          "counts": {
+            "summaries": 2,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 3,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 1,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 3,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-10-expanded",
+          "requestedScrollTop": -8140,
+          "actualScrollTop": -10419,
+          "turnCount": 23,
+          "viewportTurnCount": 3,
+          "groupCount": 1,
+          "contentUnitCount": 2,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 1,
+          "firstTurnKey": "019f238c-6b51-7750-ac8c-4d7116c94c31",
+          "lastTurnKey": "019f238c-6b51-7750-ac8c-4d7116c94c31:27:assistant",
+          "counts": {
+            "summaries": 2,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 0,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 1,
+            "summaryButton": 2,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 0,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-11",
+          "requestedScrollTop": -8954,
+          "actualScrollTop": -8954,
+          "turnCount": 23,
+          "viewportTurnCount": 5,
+          "groupCount": 2,
+          "contentUnitCount": 3,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 2,
+          "firstTurnKey": "019f23a0-151e-7930-8abb-7aa7335638f8",
+          "lastTurnKey": "019f23a4-de2a-7741-9bb2-0c9fc4441224:5:assistant",
+          "counts": {
+            "summaries": 2,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 0,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 1,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 0,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-11-expanded",
+          "requestedScrollTop": -8954,
+          "actualScrollTop": -10793,
+          "turnCount": 23,
+          "viewportTurnCount": 6,
+          "groupCount": 2,
+          "contentUnitCount": 4,
+          "userAnchorCount": 2,
+          "assistantUnitCount": 2,
+          "firstTurnKey": "019f238b-710a-7fd3-b457-b81f69aa0b46",
+          "lastTurnKey": "019f238c-6b51-7750-ac8c-4d7116c94c31:27:assistant",
+          "counts": {
+            "summaries": 3,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 0,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 1,
+            "summaryButton": 2,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 0,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-12",
+          "requestedScrollTop": -9768,
+          "actualScrollTop": -9768,
+          "turnCount": 18,
+          "viewportTurnCount": 5,
+          "groupCount": 2,
+          "contentUnitCount": 3,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 2,
+          "firstTurnKey": "019f238c-6b51-7750-ac8c-4d7116c94c31",
+          "lastTurnKey": "019f23a0-151e-7930-8abb-7aa7335638f8:13:assistant",
+          "counts": {
+            "summaries": 3,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 0,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 1,
+            "summaryButton": 2,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 0,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-12-expanded",
+          "requestedScrollTop": -9768,
+          "actualScrollTop": -11508,
+          "turnCount": 21,
+          "viewportTurnCount": 8,
+          "groupCount": 3,
+          "contentUnitCount": 5,
+          "userAnchorCount": 2,
+          "assistantUnitCount": 3,
+          "firstTurnKey": "019f2372-213c-7ad2-99cd-1dc9e689873e",
+          "lastTurnKey": "019f2387-1cef-71e1-b445-70cc24847ae2:10:assistant",
+          "counts": {
+            "summaries": 3,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 3,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 1,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 3,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-13",
+          "requestedScrollTop": -94410,
+          "actualScrollTop": -94410,
+          "turnCount": 21,
+          "viewportTurnCount": 9,
+          "groupCount": 1,
+          "contentUnitCount": 8,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 7,
+          "firstTurnKey": "019f0a07-c309-74e1-afbd-87c8c6ddfd14",
+          "lastTurnKey": "019f0a07-c309-74e1-afbd-87c8c6ddfd14:7:assistant",
+          "counts": {
+            "summaries": 1,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 6,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 7,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 6,
+            "shimmer": 0
+          },
+          "issues": []
+        }
+      ],
+      "maxCounts": {
+        "summaries": 4,
+        "activityHeaders": 3,
+        "toolDisclosures": 6,
+        "toolGroupItems": 0,
+        "fileReferences": 6,
+        "shimmers": 0,
+        "semantic.userBubble": 1,
+        "semantic.assistantMarkdown": 17,
+        "semantic.summaryButton": 2,
+        "semantic.activityHeader": 2,
+        "semantic.toolDisclosure": 4,
+        "semantic.toolGroupItem": 0,
+        "semantic.fileReference": 6,
+        "semantic.shimmer": 0
+      },
+      "total": {
+        "turns": 146,
+        "groups": 38,
+        "contentUnits": 108,
+        "userAnchors": 22,
+        "assistantUnits": 86,
+        "turnsWithStyleEvidence": 146,
+        "turnsWithSignatureEvidence": 146,
+        "turnsWithSemanticEvidence": 146,
+        "windowsWithProcessedSummaryText": 17,
+        "windowsWithFileReferences": 9,
+        "windowsWithToolDisclosures": 6,
+        "windowsWithShimmer": 0,
+        "windowsWithCommandEnhancementText": 0,
+        "windowsWithToolGroupItems": 0
+      },
+      "issues": []
+    },
+    "target": {
+      "side": "target",
+      "ok": true,
+      "reverse": false,
+      "chunkCount": 9,
+      "uniqueWindowCount": 6,
+      "maxScroll": 2096,
+      "windows": [
+        {
+          "label": "chunk-0",
+          "requestedScrollTop": 2096,
+          "actualScrollTop": 2096,
+          "turnCount": 20,
+          "viewportTurnCount": 7,
+          "groupCount": 4,
+          "contentUnitCount": 3,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 2,
+          "firstTurnKey": "3",
+          "lastTurnKey": "019f2401-7d31-73e0-a86d-c63d299fe7eb:1:assistant",
+          "counts": {
+            "summaries": 2,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 6,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 1,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 6,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-0-expanded",
+          "requestedScrollTop": 2096,
+          "actualScrollTop": 797,
+          "turnCount": 20,
+          "viewportTurnCount": 7,
+          "groupCount": 4,
+          "contentUnitCount": 3,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 2,
+          "firstTurnKey": "1",
+          "lastTurnKey": "019f23f8-a04c-7993-9c12-af1ad7cf7085:1:assistant",
+          "counts": {
+            "summaries": 1,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 6,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 3,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 6,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-1",
+          "requestedScrollTop": 1405,
+          "actualScrollTop": 1405,
+          "turnCount": 20,
+          "viewportTurnCount": 7,
+          "groupCount": 4,
+          "contentUnitCount": 3,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 2,
+          "firstTurnKey": "2",
+          "lastTurnKey": "019f23fd-476e-7bf0-894b-ec4d2297a4d6:1:assistant",
+          "counts": {
+            "summaries": 2,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 12,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 3,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 6,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-1-expanded",
+          "requestedScrollTop": 1405,
+          "actualScrollTop": 1555,
+          "turnCount": 20,
+          "viewportTurnCount": 7,
+          "groupCount": 4,
+          "contentUnitCount": 3,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 2,
+          "firstTurnKey": "2",
+          "lastTurnKey": "019f23fd-476e-7bf0-894b-ec4d2297a4d6:1:assistant",
+          "counts": {
+            "summaries": 2,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 12,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 6,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 6,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-2",
+          "requestedScrollTop": 714,
+          "actualScrollTop": 714,
+          "turnCount": 20,
+          "viewportTurnCount": 7,
+          "groupCount": 4,
+          "contentUnitCount": 3,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 2,
+          "firstTurnKey": "1",
+          "lastTurnKey": "019f23f8-a04c-7993-9c12-af1ad7cf7085:1:assistant",
+          "counts": {
+            "summaries": 1,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 6,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 3,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 6,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-2-expanded",
+          "requestedScrollTop": 714,
+          "actualScrollTop": 2402,
+          "turnCount": 20,
+          "viewportTurnCount": 7,
+          "groupCount": 4,
+          "contentUnitCount": 3,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 2,
+          "firstTurnKey": "3",
+          "lastTurnKey": "019f2401-7d31-73e0-a86d-c63d299fe7eb:1:assistant",
+          "counts": {
+            "summaries": 2,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 6,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 6,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 6,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-3",
+          "requestedScrollTop": 23,
+          "actualScrollTop": 1766,
+          "turnCount": 27,
+          "viewportTurnCount": 4,
+          "groupCount": 2,
+          "contentUnitCount": 2,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 1,
+          "firstTurnKey": "3",
+          "lastTurnKey": "019f23f4-f091-75e2-bfc2-dc8a7cc4cb53:1:assistant",
+          "counts": {
+            "summaries": 2,
+            "activityHeaders": 1,
+            "toolDisclosures": 1,
+            "toolGroupItems": 0,
+            "fileReferences": 0,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 1,
+            "summaryButton": 2,
+            "activityHeader": 1,
+            "toolDisclosure": 1,
+            "toolGroupItem": 0,
+            "fileReference": 0,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-3-expanded",
+          "requestedScrollTop": 23,
+          "actualScrollTop": 1071,
+          "turnCount": 27,
+          "viewportTurnCount": 6,
+          "groupCount": 4,
+          "contentUnitCount": 2,
+          "userAnchorCount": 1,
+          "assistantUnitCount": 1,
+          "firstTurnKey": "1",
+          "lastTurnKey": "019f23ea-830d-7410-8437-f627ecc5b9de:0:user",
+          "counts": {
+            "summaries": 1,
+            "activityHeaders": 2,
+            "toolDisclosures": 2,
+            "toolGroupItems": 0,
+            "fileReferences": 10,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 17,
+            "summaryButton": 1,
+            "activityHeader": 2,
+            "toolDisclosure": 2,
+            "toolGroupItem": 0,
+            "fileReference": 10,
+            "shimmer": 0
+          },
+          "issues": []
+        },
+        {
+          "label": "chunk-4",
+          "requestedScrollTop": 0,
+          "actualScrollTop": 2720,
+          "turnCount": 39,
+          "viewportTurnCount": 7,
+          "groupCount": 4,
+          "contentUnitCount": 3,
+          "userAnchorCount": 2,
+          "assistantUnitCount": 1,
+          "firstTurnKey": "3",
+          "lastTurnKey": "019f23e7-087b-7b73-8a8c-2a3d5d5b32b5:0:user",
+          "counts": {
+            "summaries": 1,
+            "activityHeaders": 0,
+            "toolDisclosures": 0,
+            "toolGroupItems": 0,
+            "fileReferences": 0,
+            "shimmers": 0
+          },
+          "semanticMaxCounts": {
+            "userBubble": 1,
+            "assistantMarkdown": 1,
+            "summaryButton": 1,
+            "activityHeader": 0,
+            "toolDisclosure": 0,
+            "toolGroupItem": 0,
+            "fileReference": 0,
+            "shimmer": 0
+          },
+          "issues": []
+        }
+      ],
+      "maxCounts": {
+        "summaries": 2,
+        "activityHeaders": 2,
+        "toolDisclosures": 2,
+        "toolGroupItems": 0,
+        "fileReferences": 12,
+        "shimmers": 0,
+        "semantic.userBubble": 1,
+        "semantic.assistantMarkdown": 17,
+        "semantic.summaryButton": 2,
+        "semantic.activityHeader": 2,
+        "semantic.toolDisclosure": 2,
+        "semantic.toolGroupItem": 0,
+        "semantic.fileReference": 10,
+        "semantic.shimmer": 0
+      },
+      "total": {
+        "turns": 59,
+        "groups": 34,
+        "contentUnits": 25,
+        "userAnchors": 10,
+        "assistantUnits": 15,
+        "turnsWithStyleEvidence": 59,
+        "turnsWithSignatureEvidence": 59,
+        "turnsWithSemanticEvidence": 59,
+        "windowsWithProcessedSummaryText": 9,
+        "windowsWithFileReferences": 7,
+        "windowsWithToolDisclosures": 2,
+        "windowsWithShimmer": 0,
+        "windowsWithCommandEnhancementText": 0,
+        "windowsWithToolGroupItems": 0
+      },
+      "issues": []
+    }
+  }
+}

@@ -4,16 +4,20 @@
   const IDS = {
     root: "codexWorkspaceRoot",
     panel: "codexPanel",
-    sidebarResizeHandle: "codexSidebarResizeHandle",
+    workspacePanel: "workspacePanel",
+    nodesPanel: "nodesPanel",
+    gitPanel: "gitPanel",
+    runsPanel: "runsPanel",
+    sidebarTitle: "codexSidebarTitle",
   };
 
   const activityItems = [
-    { label: "Sessions", icon: "codicon-explorer-view-icon" },
+    { label: "Workspace", icon: "codicon-explorer-view-icon", view: "workspace" },
     { label: "Search", icon: "codicon-search-view-icon" },
-    { label: "Nodes", icon: "codicon-remote-explorer" },
-    { label: "Git", icon: "codicon-source-control-view-icon" },
-    { label: "Runs", icon: "codicon-run-view-icon" },
-    { label: "Codex", iconClass: "activity-workbench-view-extension-codexSecondaryViewContainer-eba858aa00fa38501c2916b4309e17680d24d5c3 uri-icon", active: true },
+    { label: "Nodes", icon: "codicon-remote-explorer", view: "nodes" },
+    { label: "Git", icon: "codicon-source-control-view-icon", view: "git" },
+    { label: "Runs", icon: "codicon-run-view-icon", view: "runs" },
+    { label: "Codex", iconClass: "activity-workbench-view-extension-codexSecondaryViewContainer-eba858aa00fa38501c2916b4309e17680d24d5c3 uri-icon", view: "codex", active: true },
   ];
 
   const footerItems = [
@@ -53,7 +57,6 @@
         <main class="codex-workspace-main" aria-label="Codex Web workspace">
           ${renderActivityBar()}
           ${renderSidebar()}
-          <div class="monaco-sash vertical sidebar-resize-handle" id="${IDS.sidebarResizeHandle}" role="separator" aria-orientation="vertical" aria-label="Resize Codex sidebar" tabindex="0"></div>
           ${renderWorkspaceSurface()}
         </main>
         ${renderStatusbar()}
@@ -64,7 +67,6 @@
     return `
       <div class="part titlebar light" id="codexTitlebar" role="none">
         <div class="titlebar-container has-center">
-          <div class="titlebar-drag-region"></div>
           <div class="titlebar-left">
             <a class="window-appicon" aria-hidden="true"></a>
             <div class="window-controls-container"></div>
@@ -196,7 +198,7 @@
     const selected = item.active ? "true" : "false";
     const iconClass = item.iconClass || `codicon ${item.icon}`;
     return `
-      <li class="action-item icon${checked}" role="tab" draggable="${item.active ? "true" : "false"}" aria-label="${item.label}" aria-expanded="${expanded}" aria-selected="${selected}" tabindex="-1" style="--insert-border-color: #202020;">
+      <li class="action-item icon${checked}" role="tab" aria-label="${item.label}" aria-expanded="${expanded}" aria-selected="${selected}" tabindex="-1" style="--insert-border-color: #202020;"${item.view ? ` data-workspace-view="${item.view}"` : ""}>
         <a class="action-label ${iconClass}" aria-label="${item.label}"></a>
         ${item.active ? '<div class="badge" aria-hidden="true" aria-label="Codex" style="display: none;"><div class="badge-content" style="color: rgb(255, 255, 255); background-color: rgb(0, 105, 204);"></div></div>' : ""}
         <div class="active-item-indicator"></div>
@@ -215,7 +217,7 @@
     return `
       <aside class="part sidebar left pane-composite-part" id="codexSidebar" role="none">
         <div class="composite title has-actions">
-          <div class="title-label"><h2 custom-hover="true">CODEX</h2></div>
+          <div class="title-label"><h2 id="${IDS.sidebarTitle}" custom-hover="true">CODEX</h2></div>
           <div class="title-actions">
             <div class="monaco-toolbar">
               <div class="monaco-action-bar has-overflow">
@@ -229,7 +231,11 @@
           </div>
         </div>
         <div class="content codex-sidebar-content">
-          <div id="${IDS.panel}" class="codex-panel-frame" aria-label="Codex"></div>
+          <div id="${IDS.workspacePanel}" class="workspace-panel-frame codex-sidebar-view" data-workspace-panel="workspace" aria-label="Workspace" hidden></div>
+          <div id="${IDS.panel}" class="codex-panel-frame codex-sidebar-view" data-workspace-panel="codex" aria-label="Codex"></div>
+          <div id="${IDS.nodesPanel}" class="nodes-panel-frame codex-sidebar-view" data-workspace-panel="nodes" aria-label="Nodes" hidden></div>
+          <div id="${IDS.gitPanel}" class="git-panel-frame codex-sidebar-view" data-workspace-panel="git" aria-label="Git" hidden></div>
+          <div id="${IDS.runsPanel}" class="runs-panel-frame codex-sidebar-view" data-workspace-panel="runs" aria-label="Runs" hidden></div>
         </div>
       </aside>`;
   }

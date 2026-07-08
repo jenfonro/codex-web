@@ -22,6 +22,8 @@ const (
 	statusRunning = "running"
 	statusIdle    = "idle"
 	statusError   = "error"
+
+	diskRefreshMinInterval = 2 * time.Second
 )
 
 type Config struct {
@@ -37,16 +39,24 @@ type Manager struct {
 	sessions    map[string]*managedSession
 	subscribers map[int]chan model.SessionEvent
 	nextSubID   int
+
+	lastDiskRefresh time.Time
 }
 
 type managedSession struct {
 	record         model.SessionRecord
 	events         []model.SessionEvent
 	cancel         context.CancelFunc
+	activeTurnID   string
 	historyPath    string
 	historyModTime time.Time
 	historySize    int64
 	historyEvents  []historyEventRef
+}
+
+type eventBroadcast struct {
+	event       model.SessionEvent
+	subscribers []chan model.SessionEvent
 }
 
 func New(cfg Config) *Manager {
@@ -55,12 +65,12 @@ func New(cfg Config) *Manager {
 		sessions:    map[string]*managedSession{},
 		subscribers: map[int]chan model.SessionEvent{},
 	}
-	manager.refreshFromDisk()
+	manager.refreshFromDisk(true)
 	return manager
 }
 
 func (m *Manager) List() []model.SessionRecord {
-	m.refreshFromDisk()
+	m.refreshFromDisk(true)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	out := make([]model.SessionRecord, 0, len(m.sessions))
@@ -102,7 +112,7 @@ func (m *Manager) Create(ctx context.Context, req model.SessionCreateRequest) (m
 }
 
 func (m *Manager) Send(ctx context.Context, req model.SessionSendRequest) (model.SessionRecord, error) {
-	m.refreshFromDisk()
+	m.refreshFromDisk(true)
 	prompt := strings.TrimSpace(req.Prompt)
 	if prompt == "" {
 		return model.SessionRecord{}, errors.New("prompt is required")
@@ -131,19 +141,24 @@ func (m *Manager) Cancel(id string) error {
 		return errors.New("session not found")
 	}
 	cancel := session.cancel
+	wasRunning := cancel != nil || session.record.Status == statusRunning
 	session.cancel = nil
+	session.activeTurnID = ""
 	session.record.Status = statusIdle
 	session.record.UpdatedAt = time.Now().UTC()
 	m.mu.Unlock()
 	if cancel != nil {
 		cancel()
 	}
-	m.appendEvent(id, "system", "Session cancelled.", nil)
+	if wasRunning {
+		m.appendEvent(id, "turn_cancelled", "Stopped", map[string]any{"status": "cancelled"})
+	}
 	return nil
 }
 
 func (m *Manager) Events(req model.SessionEventsRequest) (model.SessionEventsPage, error) {
-	m.refreshFromDisk()
+	m.refreshFromDisk(false)
+	m.refreshKnownSessionFromDisk(req.SessionID)
 	m.mu.Lock()
 	session := m.sessions[req.SessionID]
 	if session == nil {
@@ -159,6 +174,9 @@ func (m *Manager) Events(req model.SessionEventsRequest) (model.SessionEventsPag
 		events, err := loadHistoryAndMemoryEvents(path, sessionID, refs, memoryEvents, req)
 		if err != nil {
 			return model.SessionEventsPage{}, err
+		}
+		if req.Compact {
+			events = compactSessionEvents(events, req.FileDetails)
 		}
 		return sessionEventsPage(events), nil
 	}
@@ -178,6 +196,9 @@ func (m *Manager) Events(req model.SessionEventsRequest) (model.SessionEventsPag
 		} else {
 			events = events[:req.Limit]
 		}
+	}
+	if req.Compact {
+		events = compactSessionEvents(events, req.FileDetails)
 	}
 	m.mu.Unlock()
 	return sessionEventsPage(events), nil
@@ -235,18 +256,20 @@ func (m *Manager) record(id string) (model.SessionRecord, error) {
 func (m *Manager) startTurn(parent context.Context, sessionID, codexThreadID, prompt, cwd string) {
 	_ = parent
 	ctx, cancel := context.WithCancel(context.Background())
+	turnID := newID()
 	m.mu.Lock()
 	if session := m.sessions[sessionID]; session != nil {
 		if session.cancel != nil {
 			session.cancel()
 		}
 		session.cancel = cancel
+		session.activeTurnID = turnID
 	}
 	m.mu.Unlock()
-	go m.runCodex(ctx, sessionID, codexThreadID, prompt, cwd)
+	go m.runCodex(ctx, sessionID, turnID, codexThreadID, prompt, cwd)
 }
 
-func (m *Manager) runCodex(ctx context.Context, sessionID, codexThreadID, prompt, cwd string) {
+func (m *Manager) runCodex(ctx context.Context, sessionID, turnID, codexThreadID, prompt, cwd string) {
 	startedAt := time.Now().UTC()
 	args := []string{}
 	if codexThreadID == "" {
@@ -259,60 +282,60 @@ func (m *Manager) runCodex(ctx context.Context, sessionID, codexThreadID, prompt
 	cmd.Env = append(os.Environ(), "CODEX_HOME="+m.cfg.CodexHome)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		m.finishWithError(sessionID, err)
+		m.finishWithError(sessionID, turnID, err)
 		return
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		m.finishWithError(sessionID, err)
+		m.finishWithError(sessionID, turnID, err)
 		return
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		m.finishWithError(sessionID, err)
+		m.finishWithError(sessionID, turnID, err)
 		return
 	}
 	if err := cmd.Start(); err != nil {
-		m.finishWithError(sessionID, err)
+		m.finishWithError(sessionID, turnID, err)
 		return
 	}
 	go func() {
 		_, _ = io.WriteString(stdin, prompt)
 		_ = stdin.Close()
 	}()
-	go m.scanStderr(sessionID, stderr)
-	m.scanStdout(sessionID, stdout)
+	go m.scanStderr(sessionID, turnID, stderr)
+	m.scanStdout(sessionID, turnID, stdout)
 	err = cmd.Wait()
-	m.refreshFromDisk()
-	if err != nil {
+	cancelled := errors.Is(ctx.Err(), context.Canceled)
+	m.refreshFromDisk(true)
+	if err != nil && !cancelled {
 		for attempt := 0; attempt < 6 && !m.hasAssistantMessageSince(sessionID, startedAt); attempt++ {
 			time.Sleep(500 * time.Millisecond)
-			m.refreshFromDisk()
+			m.refreshFromDisk(true)
 		}
 		if m.hasAssistantMessageSince(sessionID, startedAt) {
 			err = nil
 		}
 	}
-	m.mu.Lock()
-	session := m.sessions[sessionID]
-	if session != nil {
-		session.cancel = nil
-		if err != nil {
-			session.record.Status = statusError
-		} else {
-			session.record.Status = statusIdle
-		}
-		session.record.UpdatedAt = time.Now().UTC()
+	status := statusIdle
+	if err != nil && !cancelled {
+		status = statusError
 	}
-	m.mu.Unlock()
-	if err != nil {
-		m.appendEvent(sessionID, "error", err.Error(), nil)
-	} else if !m.hasEventKindSince(sessionID, "turn_completed", startedAt) {
-		m.appendEvent(sessionID, "turn_completed", "", map[string]any{"status": "completed"})
+	var terminal model.SessionEvent
+	var skipKind string
+	if err != nil && cancelled {
+		terminal = model.SessionEvent{Kind: "turn_cancelled", Text: "Stopped", Data: map[string]any{"status": "cancelled"}}
+		skipKind = "turn_cancelled"
+	} else if err != nil {
+		terminal = model.SessionEvent{Kind: "error", Text: err.Error()}
+	} else {
+		terminal = model.SessionEvent{Kind: "turn_completed", Data: map[string]any{"status": "completed"}}
+		skipKind = "turn_completed"
 	}
+	m.finishTurnWithTerminalEvent(sessionID, turnID, status, terminal, skipKind, startedAt)
 }
 
-func (m *Manager) scanStdout(sessionID string, reader io.Reader) {
+func (m *Manager) scanStdout(sessionID, turnID string, reader io.Reader) {
 	scanner := bufio.NewScanner(reader)
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, 2*1024*1024)
@@ -323,34 +346,38 @@ func (m *Manager) scanStdout(sessionID string, reader io.Reader) {
 		}
 		var raw map[string]any
 		if err := json.Unmarshal([]byte(line), &raw); err != nil {
-			m.appendEvent(sessionID, "stdout", line, nil)
+			m.appendEventForTurn(sessionID, turnID, "stdout", line, nil)
 			continue
 		}
-		m.handleCLIEvent(sessionID, raw)
+		m.handleCLIEventForTurn(sessionID, turnID, raw)
 	}
 	if err := scanner.Err(); err != nil {
-		m.appendEvent(sessionID, "error", err.Error(), nil)
+		m.appendEventForTurn(sessionID, turnID, "error", err.Error(), nil)
 	}
 }
 
-func (m *Manager) scanStderr(sessionID string, reader io.Reader) {
+func (m *Manager) scanStderr(sessionID, turnID string, reader io.Reader) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" {
-			m.appendEvent(sessionID, "stderr", line, nil)
+			m.appendEventForTurn(sessionID, turnID, "stderr", line, nil)
 		}
 	}
 }
 
 func (m *Manager) handleCLIEvent(sessionID string, raw map[string]any) {
+	m.handleCLIEventForTurn(sessionID, "", raw)
+}
+
+func (m *Manager) handleCLIEventForTurn(sessionID, turnID string, raw map[string]any) {
 	eventType := stringAny(raw["type"])
 	switch eventType {
 	case "session_meta":
 		entry := historyEntryFromMap(raw)
 		threadID := firstString(entry.Payload, "session_id", "id")
 		m.mu.Lock()
-		if session := m.sessions[sessionID]; session != nil && threadID != "" {
+		if session := m.sessions[sessionID]; session != nil && threadID != "" && turnMatches(session, turnID) {
 			session.record.CodexThreadID = threadID
 			if cwd := firstString(entry.Payload, "cwd"); cwd != "" {
 				session.record.CWD = cwd
@@ -361,60 +388,132 @@ func (m *Manager) handleCLIEvent(sessionID string, raw map[string]any) {
 	case "event_msg", "response_item":
 		entry := historyEntryFromMap(raw)
 		eventTime := parseTime(entry.Timestamp, time.Now().UTC())
+		if entry.Type == "event_msg" && firstString(entry.Payload, "type") == "task_complete" {
+			events := []model.SessionEvent{}
+			if summary, ok := taskCompleteSummaryEvent(eventTime, entry.Payload); ok {
+				events = append(events, summary)
+			}
+			events = append(events, model.SessionEvent{Kind: "turn_completed", Time: eventTime, Data: taskCompleteData(entry.Payload)})
+			m.setStatusAndAppendEventsForTurn(sessionID, turnID, statusIdle, events)
+			return
+		}
 		event, ok := eventFromHistoryEntry(entry, eventTime, true)
 		if !ok {
 			return
 		}
 		if event.Kind == "turn_completed" {
-			m.setStatus(sessionID, statusIdle)
+			m.setStatusAndAppendEventsForTurn(sessionID, turnID, statusIdle, []model.SessionEvent{event})
+			return
 		}
-		m.appendParsedEvent(sessionID, event)
+		m.appendParsedEventForTurn(sessionID, turnID, event)
 	case "thread.started":
 		threadID := stringAny(raw["thread_id"])
 		m.mu.Lock()
-		if session := m.sessions[sessionID]; session != nil && threadID != "" {
+		if session := m.sessions[sessionID]; session != nil && threadID != "" && turnMatches(session, turnID) {
 			session.record.CodexThreadID = threadID
 			session.record.UpdatedAt = time.Now().UTC()
 		}
 		m.mu.Unlock()
-		m.appendEvent(sessionID, "thread_started", "", raw)
+		m.appendEventForTurn(sessionID, turnID, "thread_started", "", raw)
 	case "turn.started":
-		m.appendEvent(sessionID, "turn_started", "", raw)
+		m.appendEventForTurn(sessionID, turnID, "turn_started", "", raw)
 	case "turn.completed":
-		m.appendEvent(sessionID, "turn_completed", "", raw)
+		m.setStatusAndAppendEventsForTurn(sessionID, turnID, statusIdle, []model.SessionEvent{{Kind: "turn_completed", Data: raw}})
 	case "item.completed":
 		text, kind := itemText(raw["item"])
 		if kind == "" {
 			return
 		}
-		m.appendEvent(sessionID, kind, text, raw)
+		m.appendEventForTurn(sessionID, turnID, kind, text, raw)
 	default:
-		m.appendEvent(sessionID, "cli_event", "", raw)
+		m.appendEventForTurn(sessionID, turnID, "cli_event", "", raw)
 	}
 }
 
-func (m *Manager) finishWithError(sessionID string, err error) {
+func (m *Manager) finishWithError(sessionID, turnID string, err error) {
+	m.finishTurnWithTerminalEvent(sessionID, turnID, statusError, model.SessionEvent{Kind: "error", Text: err.Error()}, "", time.Time{})
+}
+
+func (m *Manager) finishTurn(sessionID, turnID, status string) bool {
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	if session := m.sessions[sessionID]; session != nil {
+		if !turnMatches(session, turnID) {
+			return false
+		}
 		session.cancel = nil
-		session.record.Status = statusError
+		session.activeTurnID = ""
+		session.record.Status = status
 		session.record.UpdatedAt = time.Now().UTC()
+		return true
+	}
+	return false
+}
+
+func (m *Manager) finishTurnWithTerminalEvent(sessionID, turnID, status string, event model.SessionEvent, skipKind string, since time.Time) bool {
+	m.mu.Lock()
+	session := m.sessions[sessionID]
+	if session == nil || !turnMatches(session, turnID) {
+		m.mu.Unlock()
+		return false
+	}
+	session.cancel = nil
+	session.activeTurnID = ""
+	session.record.Status = status
+	session.record.UpdatedAt = time.Now().UTC()
+	var broadcasts []eventBroadcast
+	if event.Kind != "" && (skipKind == "" || !sessionHasEventKindSince(session, skipKind, since)) {
+		broadcasts = append(broadcasts, m.appendParsedEventLocked(sessionID, session, event))
 	}
 	m.mu.Unlock()
-	m.appendEvent(sessionID, "error", err.Error(), nil)
+	broadcastSessionEvents(broadcasts)
+	return true
 }
 
 func (m *Manager) setStatus(sessionID, status string) {
+	m.setStatusForTurn(sessionID, "", status)
+}
+
+func (m *Manager) setStatusForTurn(sessionID, turnID, status string) {
 	m.mu.Lock()
 	if session := m.sessions[sessionID]; session != nil {
+		if !turnMatches(session, turnID) {
+			m.mu.Unlock()
+			return
+		}
 		session.record.Status = status
 		session.record.UpdatedAt = time.Now().UTC()
 	}
 	m.mu.Unlock()
 }
 
+func (m *Manager) setStatusAndAppendEventsForTurn(sessionID, turnID, status string, events []model.SessionEvent) bool {
+	m.mu.Lock()
+	session := m.sessions[sessionID]
+	if session == nil || !turnMatches(session, turnID) {
+		m.mu.Unlock()
+		return false
+	}
+	session.record.Status = status
+	session.record.UpdatedAt = time.Now().UTC()
+	broadcasts := make([]eventBroadcast, 0, len(events))
+	for _, event := range events {
+		if event.Kind == "" {
+			continue
+		}
+		broadcasts = append(broadcasts, m.appendParsedEventLocked(sessionID, session, event))
+	}
+	m.mu.Unlock()
+	broadcastSessionEvents(broadcasts)
+	return true
+}
+
 func (m *Manager) appendEvent(sessionID, kind, text string, data map[string]any) {
-	m.appendParsedEvent(sessionID, model.SessionEvent{
+	m.appendEventForTurn(sessionID, "", kind, text, data)
+}
+
+func (m *Manager) appendEventForTurn(sessionID, turnID, kind, text string, data map[string]any) {
+	m.appendParsedEventForTurn(sessionID, turnID, model.SessionEvent{
 		Kind: kind,
 		Text: text,
 		Time: time.Now().UTC(),
@@ -423,12 +522,26 @@ func (m *Manager) appendEvent(sessionID, kind, text string, data map[string]any)
 }
 
 func (m *Manager) appendParsedEvent(sessionID string, event model.SessionEvent) {
+	m.appendParsedEventForTurn(sessionID, "", event)
+}
+
+func (m *Manager) appendParsedEventForTurn(sessionID, turnID string, event model.SessionEvent) {
 	m.mu.Lock()
 	session := m.sessions[sessionID]
 	if session == nil {
 		m.mu.Unlock()
 		return
 	}
+	if !turnMatches(session, turnID) {
+		m.mu.Unlock()
+		return
+	}
+	broadcast := m.appendParsedEventLocked(sessionID, session, event)
+	m.mu.Unlock()
+	broadcastSessionEvent(broadcast)
+}
+
+func (m *Manager) appendParsedEventLocked(sessionID string, session *managedSession, event model.SessionEvent) eventBroadcast {
 	if event.Time.IsZero() {
 		event.Time = time.Now().UTC()
 	}
@@ -442,26 +555,51 @@ func (m *Manager) appendParsedEvent(sessionID string, event model.SessionEvent) 
 	for _, ch := range m.subscribers {
 		subscribers = append(subscribers, ch)
 	}
-	m.mu.Unlock()
-	for _, ch := range subscribers {
+	return eventBroadcast{event: event, subscribers: subscribers}
+}
+
+func broadcastSessionEvents(broadcasts []eventBroadcast) {
+	for _, broadcast := range broadcasts {
+		broadcastSessionEvent(broadcast)
+	}
+}
+
+func broadcastSessionEvent(broadcast eventBroadcast) {
+	for _, ch := range broadcast.subscribers {
 		select {
-		case ch <- event:
+		case ch <- broadcast.event:
 		default:
 		}
 	}
 }
 
-func (m *Manager) refreshFromDisk() {
+func (m *Manager) refreshFromDisk(force bool) {
+	if !force {
+		m.mu.Lock()
+		lastRefresh := m.lastDiskRefresh
+		if !lastRefresh.IsZero() && time.Since(lastRefresh) < diskRefreshMinInterval {
+			m.mu.Unlock()
+			return
+		}
+		m.lastDiskRefresh = time.Now()
+		m.mu.Unlock()
+	}
+
 	files, err := listHistoryFiles(m.cfg.CodexHome)
 	if err != nil {
 		return
+	}
+	if force {
+		m.mu.Lock()
+		m.lastDiskRefresh = time.Now()
+		m.mu.Unlock()
 	}
 	m.mu.Lock()
 	pending := make([]historyFile, 0, len(files))
 	for _, file := range files {
 		if id := m.sessionIDForPathLocked(file.path); id != "" {
 			existing := m.sessions[id]
-			if existing != nil && existing.cancel != nil {
+			if existing != nil && existing.activeTurnID != "" {
 				continue
 			}
 			if existing != nil && !existing.historyModTime.IsZero() && !file.modTime.After(existing.historyModTime) && file.size == existing.historySize {
@@ -481,6 +619,34 @@ func (m *Manager) refreshFromDisk() {
 	}
 }
 
+func (m *Manager) refreshKnownSessionFromDisk(sessionID string) {
+	m.mu.Lock()
+	session := m.sessions[sessionID]
+	if session == nil || session.historyPath == "" || session.activeTurnID != "" {
+		m.mu.Unlock()
+		return
+	}
+	path := session.historyPath
+	modTime := session.historyModTime
+	size := session.historySize
+	m.mu.Unlock()
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return
+	}
+	currentModTime := info.ModTime().UTC()
+	currentSize := info.Size()
+	if !modTime.IsZero() && !currentModTime.After(modTime) && currentSize == size {
+		return
+	}
+	history, err := parseHistoryIndex(path)
+	if err != nil || history.record.ID == "" {
+		return
+	}
+	m.applyHistorySession(history)
+}
+
 func (m *Manager) applyHistorySession(history parsedSession) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -490,7 +656,7 @@ func (m *Manager) applyHistorySession(history parsedSession) {
 	}
 	existing := m.sessions[targetID]
 	if existing != nil {
-		if existing.cancel != nil {
+		if existing.activeTurnID != "" {
 			return
 		}
 		if !existing.historyModTime.IsZero() && !history.modTime.After(existing.historyModTime) && history.size == existing.historySize {
@@ -535,6 +701,10 @@ func (m *Manager) sessionIDForThreadLocked(threadID string) string {
 	return ""
 }
 
+func turnMatches(session *managedSession, turnID string) bool {
+	return turnID == "" || session.activeTurnID == turnID
+}
+
 func (m *Manager) hasAssistantMessageSince(sessionID string, since time.Time) bool {
 	return m.hasEventKindSince(sessionID, "assistant_message", since)
 }
@@ -546,6 +716,10 @@ func (m *Manager) hasEventKindSince(sessionID, kind string, since time.Time) boo
 	if session == nil {
 		return false
 	}
+	return sessionHasEventKindSince(session, kind, since)
+}
+
+func sessionHasEventKindSince(session *managedSession, kind string, since time.Time) bool {
 	for _, event := range session.events {
 		if event.Kind == kind && !event.Time.Before(since) {
 			return true

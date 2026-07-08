@@ -18,6 +18,10 @@ style_sources=(
   "assets/workbench/codicon.css"
   "assets/workbench/seti.css"
   "app/layout.css"
+  "pages/workspace/workspace.css"
+  "pages/nodes/nodes.css"
+  "pages/git/git.css"
+  "pages/runs/runs.css"
   "pages/codex/panel.css"
 )
 
@@ -26,6 +30,9 @@ for source in "${style_sources[@]}"; do
   {
     printf '\n/* %s */\n' "${source}"
     case "${source}" in
+      "assets/workbench/workbench.css")
+        sed 's#url("../../../../media/code-icon.svg")#url("../assets/workbench/workspace-icon.svg")#g' "${SCRIPT_DIR}/src/${source}"
+        ;;
       "assets/workbench/codicon.css")
         sed "s#url('./codicon.ttf')#url('../assets/workbench/codicon.ttf')#g" "${SCRIPT_DIR}/src/${source}"
         ;;
@@ -48,12 +55,16 @@ script_sources=(
   "pages/codex/config.js"
   "pages/codex/utils.js"
   "pages/codex/lifecycle.js"
+  "pages/codex/grouping.js"
   "pages/codex/activity-summary.js"
   "pages/codex/virtualizer.js"
   "pages/codex/api.js"
-  "pages/codex/fixtures.js"
   "pages/codex/renderer.js"
   "store/codex.js"
+  "pages/workspace/index.js"
+  "pages/nodes/index.js"
+  "pages/git/index.js"
+  "pages/runs/index.js"
   "pages/codex/index.js"
 )
 
@@ -67,6 +78,16 @@ for source in "${script_sources[@]}"; do
   } >> "${script_bundle}"
   rm -f "${DIST_DIR}/${source}"
 done
+
+fixture_bundle="${DIST_DIR}/app/codex-fixtures.js"
+: > "${fixture_bundle}"
+{
+  printf '"use strict";\n'
+  printf '\n;/* %s */\n' "pages/codex/fixtures.js"
+  cat "${SCRIPT_DIR}/src/pages/codex/fixtures.js"
+  printf '\n'
+} >> "${fixture_bundle}"
+rm -f "${DIST_DIR}/pages/codex/fixtures.js"
 
 for source in "${style_sources[@]}"; do
   case "${source}" in

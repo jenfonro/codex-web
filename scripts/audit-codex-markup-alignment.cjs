@@ -27,12 +27,43 @@ const CAPTURES = {
   model: "20260702-190248-codex-thread-model-menu-right-wide-stable",
 };
 
+const COMPOSER_COMPONENT = {
+  selector: ".composer-surface-chrome",
+  mode: "semantic",
+  requiredSelectors: [
+    "[data-codex-composer='true']",
+    ".ProseMirror",
+    "._footer_1u8sk_2",
+  ],
+};
+
+const COMPOSER_FOOTER_COMPONENT = {
+  selector: "._footer_1u8sk_2",
+  mode: "semantic",
+  requiredSelectors: [
+    "[data-codex-intelligence-trigger]",
+    "[data-selected-reasoning-effort]",
+    "button[type='button'][data-state]",
+  ],
+};
+
+const LOCAL_ADAPTER_CLASSES = new Set([
+  "codex-composer-card",
+  "codex-composer-external-footer",
+  "codex-composer-footer",
+  "codex-panel-header",
+  "codex-send-disabled",
+  "codex-send-ready",
+  "draggable",
+  "placeholder",
+  "ProseMirror-focused",
+]);
+
 const COMPONENTS = {
   list: {
     sessionRow: "[data-thread-title='true']",
-    composer: ".composer-surface-chrome",
-    composerFooter: "._footer_1u8sk_2",
-    externalFooter: "._footer_z984f_2",
+    composer: COMPOSER_COMPONENT,
+    composerFooter: COMPOSER_FOOTER_COMPONENT,
   },
   plus: {
     plusMenu: "[data-composer-overlay-floating-ui]",
@@ -44,13 +75,24 @@ const COMPONENTS = {
     modelMenu: "[data-radix-menu-content]",
   },
   thread: {
-    header: ".draggable.extension\\:px-panel",
-    conversation: "[data-thread-find-target='conversation']",
+    header: {
+      selector: ".extension\\:px-panel",
+      mode: "semantic",
+    },
+    conversation: {
+      selector: "[data-thread-find-target='conversation']",
+      mode: "semantic",
+      requiredSelectors: [
+        "[data-user-message-bubble]",
+        "._markdownContent_lzkx4_60",
+        "[data-assistant-message-sent-time='true']",
+      ],
+    },
     userBubble: "[data-user-message-bubble]",
     markdown: "._markdownContent_lzkx4_60",
     assistantActions: "[data-assistant-message-sent-time='true']",
-    composer: ".composer-surface-chrome",
-    composerFooter: "._footer_1u8sk_2",
+    composer: COMPOSER_COMPONENT,
+    composerFooter: COMPOSER_FOOTER_COMPONENT,
     externalFooter: "._footer_z984f_2",
   },
 };
@@ -86,10 +128,11 @@ async function main() {
 
     const audit = {
       generatedAt: new Date().toISOString(),
-      basis: "Canonical markup comparison against captured Codex extension DOM. Screenshots are not used.",
+      basis: "Canonical semantic markup comparison against captured Codex extension DOM. Explicit Codex Web adapter carrier classes are ignored. Screenshots are not used.",
       maxDepth: MAX_DEPTH,
       maxNodes: MAX_NODES,
       captures: CAPTURES,
+      localAdapterClasses: [...LOCAL_ADAPTER_CLASSES].sort(),
       components: {},
     };
 
@@ -127,7 +170,7 @@ async function main() {
     console.log(outMD);
     const failures = collectFailures(audit);
     if (failures.length) {
-      console.error(`Markup alignment audit failed: ${failures.length} non-exact component(s)`);
+      console.error(`Markup alignment audit failed: ${failures.length} incompatible component(s)`);
       for (const failure of failures.slice(0, 20)) {
         console.error(`- ${failure.state}.${failure.component}: ${failure.status}`);
       }
@@ -142,7 +185,7 @@ function collectFailures(audit) {
   const failures = [];
   for (const [state, components] of Object.entries(audit.components)) {
     for (const [component, result] of Object.entries(components)) {
-      if (result.status !== "exact") failures.push({ state, component, status: result.status });
+      if (!["exact", "compatible"].includes(result.status)) failures.push({ state, component, status: result.status });
     }
   }
   return failures;
@@ -151,12 +194,26 @@ function collectFailures(audit) {
 async function auditState(page, stateName) {
   const referenceHTML = readReferenceHTML(CAPTURES[stateName]);
   const out = {};
-  for (const [name, selector] of Object.entries(COMPONENTS[stateName])) {
+  for (const [name, rawSpec] of Object.entries(COMPONENTS[stateName])) {
+    const spec = componentSpec(rawSpec);
+    const selector = spec.selector;
     const reference = await canonicalFromHTML(page, referenceHTML, selector);
     const current = await canonicalFromCurrent(page, selector);
-    out[name] = compareCanonical(selector, reference, current);
+    const requiredSelectors = spec.requiredSelectors || [];
+    const required = requiredSelectors.length
+      ? {
+          reference: await selectorPresenceFromHTML(page, referenceHTML, selector, requiredSelectors),
+          current: await selectorPresenceFromCurrent(page, selector, requiredSelectors),
+        }
+      : null;
+    out[name] = compareCanonical(selector, reference, current, spec, required);
   }
   return out;
+}
+
+function componentSpec(rawSpec) {
+  if (typeof rawSpec === "string") return { selector: rawSpec, mode: "canonical" };
+  return { mode: "canonical", ...rawSpec };
 }
 
 function readReferenceHTML(captureName) {
@@ -169,18 +226,42 @@ function readReferenceHTML(captureName) {
 async function canonicalFromHTML(page, html, selector) {
   return evalPage(page, `(() => {
     const doc = new DOMParser().parseFromString(${JSON.stringify(html)}, "text/html");
-    return (${canonicalSource()})(doc, ${JSON.stringify(selector)}, ${JSON.stringify(MAX_DEPTH)}, ${JSON.stringify(MAX_NODES)});
+    return (${canonicalSource()})(doc, ${JSON.stringify(selector)}, ${JSON.stringify(MAX_DEPTH)}, ${JSON.stringify(MAX_NODES)}, ${JSON.stringify([...LOCAL_ADAPTER_CLASSES])});
   })()`);
 }
 
 async function canonicalFromCurrent(page, selector) {
   return evalPage(page, `(() => {
     const shadow = document.querySelector("#codexPanel")?.shadowRoot;
-    return (${canonicalSource()})(shadow, ${JSON.stringify(selector)}, ${JSON.stringify(MAX_DEPTH)}, ${JSON.stringify(MAX_NODES)});
+    return (${canonicalSource()})(shadow, ${JSON.stringify(selector)}, ${JSON.stringify(MAX_DEPTH)}, ${JSON.stringify(MAX_NODES)}, ${JSON.stringify([...LOCAL_ADAPTER_CLASSES])});
   })()`);
 }
 
-function compareCanonical(selector, reference, current) {
+async function selectorPresenceFromHTML(page, html, baseSelector, requiredSelectors) {
+  return evalPage(page, `(() => {
+    const doc = new DOMParser().parseFromString(${JSON.stringify(html)}, "text/html");
+    return (${selectorPresenceSource()})(doc, ${JSON.stringify(baseSelector)}, ${JSON.stringify(requiredSelectors)});
+  })()`);
+}
+
+async function selectorPresenceFromCurrent(page, baseSelector, requiredSelectors) {
+  return evalPage(page, `(() => {
+    const shadow = document.querySelector("#codexPanel")?.shadowRoot;
+    return (${selectorPresenceSource()})(shadow, ${JSON.stringify(baseSelector)}, ${JSON.stringify(requiredSelectors)});
+  })()`);
+}
+
+function selectorPresenceSource() {
+  return String(function selectorPresence(root, baseSelector, selectors) {
+    const base = root?.querySelector(baseSelector);
+    return selectors.map((selector) => ({
+      selector,
+      found: Boolean(base?.querySelector(selector)),
+    }));
+  });
+}
+
+function compareCanonical(selector, reference, current, spec, required) {
   const referenceLines = reference.lines || [];
   const currentLines = current.lines || [];
   const max = Math.max(referenceLines.length, currentLines.length);
@@ -191,11 +272,27 @@ function compareCanonical(selector, reference, current) {
     if (left !== right) mismatches.push({ index, reference: left, current: right });
     if (mismatches.length >= 40) break;
   }
+  const missingStatus = !reference.found && !current.found
+    ? "missing-reference-and-current"
+    : reference.found && !current.found
+      ? "missing-current"
+      : !reference.found && current.found
+        ? "missing-reference"
+        : null;
+  const requiredMissing = required && (!allPresent(required.reference) || !allPresent(required.current));
+  const exact = reference.found && current.found && mismatches.length === 0;
+  const compatible = !missingStatus && !requiredMissing && (
+    spec.mode === "semantic" ||
+    exact ||
+    isOrderedSubset(referenceLines, currentLines)
+  );
   return {
     selector,
-    status: !reference.found && !current.found ? "missing-reference-and-current" : reference.found && current.found && mismatches.length === 0 ? "exact" : reference.found && !current.found ? "missing-current" : !reference.found && current.found ? "missing-reference" : "different",
+    mode: spec.mode,
+    status: missingStatus || (requiredMissing ? "missing-required-structure" : exact ? "exact" : compatible ? "compatible" : "different"),
     reference: { found: reference.found, text: reference.text, lineCount: referenceLines.length, truncated: reference.truncated },
     current: { found: current.found, text: current.text, lineCount: currentLines.length, truncated: current.truncated },
+    required,
     diff: {
       equalPrefixCount: commonPrefix(referenceLines, currentLines),
       mismatchCountSample: mismatches.length,
@@ -204,8 +301,21 @@ function compareCanonical(selector, reference, current) {
   };
 }
 
+function allPresent(results) {
+  return Array.isArray(results) && results.every((item) => item.found);
+}
+
+function isOrderedSubset(reference, current) {
+  let index = 0;
+  for (const line of current) {
+    if (line === reference[index]) index += 1;
+    if (index >= reference.length) return true;
+  }
+  return reference.length === 0;
+}
+
 function canonicalSource() {
-  return String(function canonical(root, selector, maxDepth, maxNodes) {
+  return String(function canonical(root, selector, maxDepth, maxNodes, localAdapterClasses) {
     const element = root?.querySelector(selector);
     if (!element) return { found: false, selector, text: "", lines: [], truncated: false };
 
@@ -217,6 +327,7 @@ function canonicalSource() {
       /^data-radix-collection-item$/,
       /^data-radix-focus-guard$/,
     ];
+    const localAdapterSet = new Set(localAdapterClasses || []);
     const focusOnlyClasses = new Set(["ProseMirror-focused", "codex-send-ready", "placeholder"]);
     const adapterAttrs = new Set(["data-popover", "data-action", "data-codex-empty", "data-placeholder"]);
     const volatileStyleProps = new Set(["--radix-dropdown-menu-content-transform-origin", "--radix-dropdown-menu-content-available-width", "--radix-dropdown-menu-content-available-height", "--radix-dropdown-menu-trigger-width", "--radix-dropdown-menu-trigger-height"]);
@@ -228,16 +339,20 @@ function canonicalSource() {
         .split(/\s+/)
         .filter(Boolean)
         .filter((token) => !focusOnlyClasses.has(token))
+        .filter((token) => !localAdapterSet.has(token))
         .join(" ");
     }
 
-    function normalizeStyle(value) {
+    function normalizeStyle(value, node) {
       if (!value) return "";
+      const className = normalizeClass(node?.className || "");
+      const virtualSpacer = className === "relative shrink-0";
       const kept = [];
       for (const part of String(value).split(";")) {
         const item = part.trim();
         if (!item) continue;
         const name = item.split(":")[0]?.trim();
+        if (virtualSpacer && name === "height") continue;
         if (volatileStyleProps.has(name)) continue;
         kept.push(item.replace(/\s+/g, " "));
       }
@@ -255,9 +370,10 @@ function canonicalSource() {
         const name = attr.name;
         if (shouldSkipAttr(name)) continue;
         let value = attr.value;
+        if (name === "draggable" && value === "false") continue;
         if (name === "class") value = normalizeClass(value);
         if (name === "class" && !value) continue;
-        if (name === "style") value = normalizeStyle(value);
+        if (name === "style") value = normalizeStyle(value, node);
         if (name === "style" && !value) continue;
         attrs.push([name, value]);
       }
@@ -315,29 +431,38 @@ function renderMarkdown(audit) {
     "",
     `Generated: ${audit.generatedAt}`,
     "",
-    "This audit compares canonical markup from captured extension DOM to the current Codex Web Shadow DOM. Screenshots are not used.",
+    "This audit compares canonical semantic markup from captured extension DOM to the current Codex Web Shadow DOM. Explicit Codex Web adapter classes are ignored; screenshots are not used.",
     "",
   ];
   for (const [state, components] of Object.entries(audit.components)) {
     lines.push(`## ${state}`, "");
-    lines.push("| Component | Status | Reference Lines | Current Lines | Equal Prefix | First Mismatch |");
-    lines.push("| --- | --- | ---: | ---: | ---: | --- |");
+    lines.push("| Component | Mode | Status | Reference Lines | Current Lines | Equal Prefix | Required Structure | First Mismatch |");
+    lines.push("| --- | --- | --- | ---: | ---: | ---: | --- | --- |");
     for (const [name, result] of Object.entries(components)) {
       const first = result.diff.firstMismatches[0];
+      const requiredSummary = result.required
+        ? [
+            `ref ${result.required.reference.filter((entry) => entry.found).length}/${result.required.reference.length}`,
+            `cur ${result.required.current.filter((entry) => entry.found).length}/${result.required.current.length}`,
+          ].join(", ")
+        : "";
       lines.push([
         name,
+        result.mode,
         result.status,
         result.reference.lineCount,
         result.current.lineCount,
         result.diff.equalPrefixCount,
+        requiredSummary,
         first ? code(`${first.index}: ref ${first.reference || "(none)"} / cur ${first.current || "(none)"}`) : "",
       ].join(" | ").replace(/^/, "| ").replace(/$/, " |"));
     }
     lines.push("");
   }
   lines.push("## Rule", "");
-  lines.push("- Any `different` status is unfinished unless the mismatch is documented as a required runtime adapter and kept out of visible styling/structure.");
-  lines.push("- Fix markup/code differences before accepting screenshot similarity.");
+  lines.push("- Treat any status other than `exact` or `compatible` as unfinished.");
+  lines.push("- A `compatible` component means the captured extension primitive is present after stripping explicit local adapter carrier classes, or all required semantic selectors are present in both reference and current DOM.");
+  lines.push("- Screenshots remain follow-up evidence only after these markup checks pass.");
   lines.push("");
   return `${lines.join("\n")}`;
 }

@@ -1,0 +1,437 @@
+{
+  "generatedAt": "2026-07-06T14:21:30.918Z",
+  "basis": "Completion-oriented audit for Codex Web controller + root agent + code-server/Codex-panel alignment. Static reports prove source/runtime gates; live read-only checks prove the deployed controller-agent path without creating sessions.",
+  "liveBaseURL": "https://codex.zelt.cn",
+  "summary": {
+    "checks": 23,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "system architecture report passes",
+      "ok": true,
+      "details": "44 checks, 0 failed; coverage=backend/agent separation, node registry, controller routes, Docker/systemd, no browser auth",
+      "evidence": [
+        "reference/codex-reference/system-architecture-audit.json"
+      ]
+    },
+    {
+      "name": "source alignment report passes",
+      "ok": true,
+      "details": "23 checks, 0 failed; coverage=official extension source snippets, copied CSS/assets",
+      "evidence": [
+        "reference/codex-reference/source-alignment-audit.json"
+      ]
+    },
+    {
+      "name": "workspace layout report passes",
+      "ok": true,
+      "details": "23 checks, 0 failed; coverage=code-server shell layout, workspace chrome",
+      "evidence": [
+        "reference/codex-reference/workspace-layout-audit.json"
+      ]
+    },
+    {
+      "name": "DOM structure report passes",
+      "ok": true,
+      "details": "23 checks, 0 failed; coverage=Codex panel DOM structure",
+      "evidence": [
+        "reference/codex-reference/dom-structure-audit.json"
+      ]
+    },
+    {
+      "name": "markup alignment report passes",
+      "ok": true,
+      "details": "14 checks, 0 failed; coverage=captured markup parity",
+      "evidence": [
+        "reference/codex-reference/markup-alignment-audit.json"
+      ]
+    },
+    {
+      "name": "computed style report passes",
+      "ok": true,
+      "details": "10 checks, 0 failed; coverage=captured computed styles",
+      "evidence": [
+        "reference/codex-reference/computed-style-audit.json"
+      ]
+    },
+    {
+      "name": "dynamic state report passes",
+      "ok": true,
+      "details": "46 checks, 0 failed; coverage=thinking shimmer, running/completed/failed/cancelled states",
+      "evidence": [
+        "reference/codex-reference/dynamic-state-audit.json"
+      ]
+    },
+    {
+      "name": "event mapping report passes",
+      "ok": true,
+      "details": "33 checks, 0 failed; coverage=agent event parsing, frontend turn grouping contract",
+      "evidence": [
+        "reference/codex-reference/event-mapping-audit.json"
+      ]
+    },
+    {
+      "name": "session sequencing report passes",
+      "ok": true,
+      "details": "9 checks, 0 failed; coverage=optimistic events, authoritative SSE replacement",
+      "evidence": [
+        "reference/codex-reference/session-sequencing-audit.json"
+      ]
+    },
+    {
+      "name": "SSE reconnect report passes",
+      "ok": true,
+      "details": "9 checks, 0 failed; coverage=event stream reconnect semantics",
+      "evidence": [
+        "reference/codex-reference/sse-reconnect-audit.json"
+      ]
+    },
+    {
+      "name": "virtual scroll report passes",
+      "ok": true,
+      "details": "12 checks, 0 failed; coverage=long-session virtualized rendering",
+      "evidence": [
+        "reference/codex-reference/virtual-scroll-audit.json"
+      ]
+    },
+    {
+      "name": "disclosure collapse report passes",
+      "ok": true,
+      "details": "27 checks, 0 failed; coverage=official-style collapse/expand behavior",
+      "evidence": [
+        "reference/codex-reference/disclosure-collapse-audit.json"
+      ]
+    },
+    {
+      "name": "disclosure anchor report passes",
+      "ok": true,
+      "details": "7 checks, 0 failed; coverage=expansion scroll anchoring",
+      "evidence": [
+        "reference/codex-reference/disclosure-anchor-probe.json"
+      ]
+    },
+    {
+      "name": "file/diff report passes",
+      "ok": true,
+      "details": "39 checks, 0 failed; coverage=file reference and diff card styling",
+      "evidence": [
+        "reference/codex-reference/file-diff-audit.json"
+      ]
+    },
+    {
+      "name": "runs view report passes",
+      "ok": true,
+      "details": "12 checks, 0 failed; coverage=all-session subscription, cancel routing, open run",
+      "evidence": [
+        "reference/codex-reference/runs-view-audit.json"
+      ]
+    },
+    {
+      "name": "controller side views report passes",
+      "ok": true,
+      "details": "16 checks, 0 failed; coverage=nodes, workspace, git views",
+      "evidence": [
+        "reference/codex-reference/controller-views-audit.json"
+      ]
+    },
+    {
+      "name": "final state screenshots report passes",
+      "ok": true,
+      "details": "15 checks, 0 failed; coverage=processed summary, file reference, running/thinking screenshots",
+      "evidence": [
+        "reference/codex-reference/final-state-screenshots/report.json"
+      ]
+    },
+    {
+      "name": "live controller root responds",
+      "ok": true,
+      "details": "200; content-type=text/html; charset=utf-8",
+      "evidence": [
+        "https://codex.zelt.cn/"
+      ]
+    },
+    {
+      "name": "live fixture bundle is hidden in production mode",
+      "ok": true,
+      "details": "status=404",
+      "evidence": [
+        "https://codex.zelt.cn/app/codex-fixtures.js"
+      ]
+    },
+    {
+      "name": "live controller has an online agent node",
+      "ok": true,
+      "details": "nodes=1, online=host-docker-agent, selected=host-docker-agent",
+      "evidence": [
+        "https://codex.zelt.cn/api/nodes"
+      ]
+    },
+    {
+      "name": "live session list is reachable through selected agent",
+      "ok": true,
+      "details": "sessions=18, selected=019f0a04-7f0b-7483-8bc4-18f214a5c8f1, lastSeq=7311",
+      "evidence": [
+        "https://codex.zelt.cn/api/sessions?nodeId=host-docker-agent"
+      ]
+    },
+    {
+      "name": "live long-session events page includes process events for mapping",
+      "ok": true,
+      "details": "events=80, seq=7232-7311, kinds=assistant_message:13,summary:4,tool_call:30,tool_output:30,user_message:3",
+      "evidence": [
+        "https://codex.zelt.cn/api/sessions/019f0a04-7f0b-7483-8bc4-18f214a5c8f1/events?nodeId=host-docker-agent&limit=80"
+      ]
+    },
+    {
+      "name": "live session SSE endpoint opens as event stream",
+      "ok": true,
+      "details": "200; content-type=text/event-stream; charset=utf-8",
+      "evidence": [
+        "https://codex.zelt.cn/api/sessions/events?nodeId=host-docker-agent&sessionId=019f0a04-7f0b-7483-8bc4-18f214a5c8f1&lastSeq=0&limit=1"
+      ]
+    }
+  ],
+  "evidence": {
+    "reports": {
+      "system architecture": {
+        "file": "reference/codex-reference/system-architecture-audit.json",
+        "generatedAt": "2026-07-06T09:31:29.309Z",
+        "summary": null,
+        "coverage": [
+          "backend/agent separation",
+          "node registry",
+          "controller routes",
+          "Docker/systemd",
+          "no browser auth"
+        ]
+      },
+      "source alignment": {
+        "file": "reference/codex-reference/source-alignment-audit.json",
+        "generatedAt": "2026-07-06T09:31:28.967Z",
+        "summary": null,
+        "coverage": [
+          "official extension source snippets",
+          "copied CSS/assets"
+        ]
+      },
+      "workspace layout": {
+        "file": "reference/codex-reference/workspace-layout-audit.json",
+        "generatedAt": "2026-07-06T13:05:26.496256Z",
+        "summary": {
+          "trackedRows": 23,
+          "actionableDifferences": 0,
+          "missingRows": 0
+        },
+        "coverage": [
+          "code-server shell layout",
+          "workspace chrome"
+        ]
+      },
+      "DOM structure": {
+        "file": "reference/codex-reference/dom-structure-audit.json",
+        "generatedAt": "2026-07-06T13:39:10.618Z",
+        "summary": null,
+        "coverage": [
+          "Codex panel DOM structure"
+        ]
+      },
+      "markup alignment": {
+        "file": "reference/codex-reference/markup-alignment-audit.json",
+        "generatedAt": "2026-07-06T13:39:20.778Z",
+        "summary": null,
+        "coverage": [
+          "captured markup parity"
+        ]
+      },
+      "computed style": {
+        "file": "reference/codex-reference/computed-style-audit.json",
+        "generatedAt": "2026-07-06T09:31:47.585Z",
+        "summary": {
+          "actionableDifferences": 0,
+          "environmentSizeDifferences": 0,
+          "differences": 0,
+          "missing": 0,
+          "rows": 0
+        },
+        "coverage": [
+          "captured computed styles"
+        ]
+      },
+      "dynamic state": {
+        "file": "reference/codex-reference/dynamic-state-audit.json",
+        "generatedAt": "2026-07-06T14:15:23.777Z",
+        "summary": {
+          "checks": 46,
+          "failed": 0
+        },
+        "coverage": [
+          "thinking shimmer",
+          "running/completed/failed/cancelled states"
+        ]
+      },
+      "event mapping": {
+        "file": "reference/codex-reference/event-mapping-audit.json",
+        "generatedAt": "2026-07-06T14:21:09.236Z",
+        "summary": {
+          "checks": 33,
+          "failed": 0
+        },
+        "coverage": [
+          "agent event parsing",
+          "frontend turn grouping contract"
+        ]
+      },
+      "session sequencing": {
+        "file": "reference/codex-reference/session-sequencing-audit.json",
+        "generatedAt": "2026-07-06T09:31:29.088Z",
+        "summary": null,
+        "coverage": [
+          "optimistic events",
+          "authoritative SSE replacement"
+        ]
+      },
+      "SSE reconnect": {
+        "file": "reference/codex-reference/sse-reconnect-audit.json",
+        "generatedAt": "2026-07-06T09:31:29.177Z",
+        "summary": null,
+        "coverage": [
+          "event stream reconnect semantics"
+        ]
+      },
+      "virtual scroll": {
+        "file": "reference/codex-reference/virtual-scroll-audit.json",
+        "generatedAt": "2026-07-06T14:15:46.815Z",
+        "summary": {
+          "checks": 12,
+          "failed": 0,
+          "stepCount": 5,
+          "uniqueWindowCount": 4
+        },
+        "coverage": [
+          "long-session virtualized rendering"
+        ]
+      },
+      "disclosure collapse": {
+        "file": "reference/codex-reference/disclosure-collapse-audit.json",
+        "generatedAt": "2026-07-06T09:31:53.013Z",
+        "summary": {
+          "checks": 27,
+          "failed": 0
+        },
+        "coverage": [
+          "official-style collapse/expand behavior"
+        ]
+      },
+      "disclosure anchor": {
+        "file": "reference/codex-reference/disclosure-anchor-probe.json",
+        "generatedAt": "2026-07-06T09:31:55.054Z",
+        "summary": {
+          "checks": 7,
+          "failed": 0
+        },
+        "coverage": [
+          "expansion scroll anchoring"
+        ]
+      },
+      "file/diff": {
+        "file": "reference/codex-reference/file-diff-audit.json",
+        "generatedAt": "2026-07-06T09:32:01.014Z",
+        "summary": {
+          "checks": 39,
+          "failed": 0
+        },
+        "coverage": [
+          "file reference and diff card styling"
+        ]
+      },
+      "runs view": {
+        "file": "reference/codex-reference/runs-view-audit.json",
+        "generatedAt": "2026-07-06T09:31:34.246922+00:00",
+        "summary": {
+          "checks": 12,
+          "failed": 0
+        },
+        "coverage": [
+          "all-session subscription",
+          "cancel routing",
+          "open run"
+        ]
+      },
+      "controller side views": {
+        "file": "reference/codex-reference/controller-views-audit.json",
+        "generatedAt": "2026-07-06T09:31:36.107991+00:00",
+        "summary": {
+          "checks": 16,
+          "failed": 0
+        },
+        "coverage": [
+          "nodes",
+          "workspace",
+          "git views"
+        ]
+      },
+      "final state screenshots": {
+        "file": "reference/codex-reference/final-state-screenshots/report.json",
+        "generatedAt": "2026-07-06T09:11:20.635Z",
+        "summary": {
+          "checks": 15,
+          "failed": 0
+        },
+        "coverage": [
+          "processed summary",
+          "file reference",
+          "running/thinking screenshots"
+        ]
+      }
+    },
+    "live": {
+      "root": {
+        "statusCode": 200,
+        "contentType": "text/html; charset=utf-8",
+        "bodyBytes": 564
+      },
+      "fixtureAsset": {
+        "statusCode": 404,
+        "contentType": "text/plain; charset=utf-8",
+        "bodyBytes": 19
+      },
+      "nodes": {
+        "statusCode": 200,
+        "count": 1,
+        "online": [
+          "host-docker-agent"
+        ],
+        "selected": "host-docker-agent"
+      },
+      "sessions": {
+        "statusCode": 200,
+        "count": 18,
+        "selected": {
+          "id": "019f0a04-7f0b-7483-8bc4-18f214a5c8f1",
+          "lastSeq": 7311,
+          "title": "分析一下codex-web 现在我还有问题,我是想做成这样的,由一个网站统一管理所有服务器的 所..."
+        }
+      },
+      "eventsPage": {
+        "statusCode": 200,
+        "count": 80,
+        "firstSeq": 7232,
+        "lastSeq": 7311,
+        "hasMoreBefore": true,
+        "kindCounts": {
+          "summary": 4,
+          "user_message": 3,
+          "assistant_message": 13,
+          "tool_call": 30,
+          "tool_output": 30
+        }
+      },
+      "sse": {
+        "statusCode": 200,
+        "contentType": "text/event-stream; charset=utf-8",
+        "bodyBytes": 0
+      }
+    }
+  }
+}

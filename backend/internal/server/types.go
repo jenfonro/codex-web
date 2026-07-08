@@ -9,4 +9,5 @@ type appConfig struct {
 	DataDir             string
 	AgentToken          string
 	AgentTokenGenerated bool
+	EnableFixtures      bool
 }

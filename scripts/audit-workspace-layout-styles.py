@@ -149,42 +149,15 @@ def collect_current() -> dict:
         )
         local_rules = page.evaluate(
             """(selector) => {
-                const element = document.querySelector(selector);
-                if (!element) return { present: false };
-                const base = getComputedStyle(element);
-                const baseBefore = getComputedStyle(element, "::before");
+                const elements = Array.from(document.querySelectorAll(selector));
                 return {
-                    present: true,
-                    baseBackgroundColor: base.backgroundColor,
-                    baseBeforeBackgroundColor: baseBefore.backgroundColor,
+                    present: elements.length > 0,
+                    count: elements.length,
+                    classNames: elements.map((element) => String(element.className || "")),
                 };
             }""",
             SIDEBAR_RESIZE_HANDLE_SELECTOR,
         )
-        if local_rules.get("present"):
-            page.evaluate(
-                """(selector) => {
-                    document.querySelector(selector)?.classList.add("resizing");
-                }""",
-                SIDEBAR_RESIZE_HANDLE_SELECTOR,
-            )
-            page.wait_for_timeout(150)
-            resizing_before_background = page.evaluate(
-                """(selector) => {
-                    const element = document.querySelector(selector);
-                    return element ? getComputedStyle(element, "::before").backgroundColor : "";
-                }""",
-                SIDEBAR_RESIZE_HANDLE_SELECTOR,
-            )
-            page.evaluate(
-                """(selector) => {
-                    document.querySelector(selector)?.classList.remove("resizing");
-                }""",
-                SIDEBAR_RESIZE_HANDLE_SELECTOR,
-            )
-            local_rules["resizingBeforeBackgroundColor"] = resizing_before_background
-        else:
-            local_rules["resizingBeforeBackgroundColor"] = ""
         platform_rule = page.evaluate(
             """() => {
                 const workbench = document.querySelector(".monaco-workbench");
@@ -264,21 +237,10 @@ def build_local_rule_rows(local_rules: dict) -> list[dict]:
 
 def build_sidebar_resize_rule(sash: dict) -> dict:
     differences = []
-    if not sash.get("present"):
-        differences.append({"property": "presence", "expected": "present", "actual": "missing"})
-    else:
-        transparent = "rgba(0, 0, 0, 0)"
-        blue = "rgb(0, 105, 204)"
-        checks = [
-            ("baseBackgroundColor", transparent, sash.get("baseBackgroundColor")),
-            ("baseBeforeBackgroundColor", transparent, sash.get("baseBeforeBackgroundColor")),
-            ("resizingBeforeBackgroundColor", blue, sash.get("resizingBeforeBackgroundColor")),
-        ]
-        for prop, expected, actual in checks:
-            if normalize_style_value(actual) != expected:
-                differences.append({"property": prop, "expected": expected, "actual": normalize_style_value(actual)})
+    if sash.get("present"):
+        differences.append({"property": "presence", "expected": "absent", "actual": f"present x{sash.get('count', 1)}"})
     return {
-        "name": "sidebarResizeHandle",
+        "name": "noSidebarResizeHandle",
         "selector": SIDEBAR_RESIZE_HANDLE_SELECTOR,
         "status": "exact" if not differences else "different",
         "differences": differences,

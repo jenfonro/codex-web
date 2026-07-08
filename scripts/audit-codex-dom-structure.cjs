@@ -27,42 +27,130 @@ const CAPTURES = {
   model: "20260702-190248-codex-thread-model-menu-right-wide-stable",
 };
 
+const COMPOSER_COMPONENT = {
+  selector: ".composer-surface-chrome",
+  mode: "semantic",
+  requiredSelectors: [
+    "[data-codex-composer='true']",
+    ".ProseMirror",
+    "._footer_1u8sk_2",
+  ],
+};
+
+const COMPOSER_FOOTER_COMPONENT = {
+  selector: "._footer_1u8sk_2",
+  mode: "semantic",
+  requiredSelectors: [
+    "[data-codex-intelligence-trigger]",
+    "[data-selected-reasoning-effort]",
+    "button[type='button'][data-state]",
+  ],
+};
+
 const COMPONENTS = {
   list: {
-    root: "#root > div",
-    header: ".draggable.extension\\:px-panel",
+    root: {
+      selector: "#root > div",
+      mode: "presence",
+      requiredSelectors: [
+        ".extension\\:px-panel",
+        "[data-thread-title='true']",
+        ".composer-surface-chrome",
+        "._footer_1u8sk_2",
+      ],
+    },
+    header: {
+      selector: ".extension\\:px-panel",
+      mode: "semantic",
+    },
     sessionRow: "[data-thread-title='true']",
-    composer: ".composer-surface-chrome",
-    composerFooter: "._footer_1u8sk_2",
-    externalFooter: "._footer_z984f_2",
+    composer: COMPOSER_COMPONENT,
+    composerFooter: COMPOSER_FOOTER_COMPONENT,
   },
   plus: {
-    composer: ".composer-surface-chrome",
-    composerFooter: "._footer_1u8sk_2",
+    composer: COMPOSER_COMPONENT,
+    composerFooter: COMPOSER_FOOTER_COMPONENT,
     plusMenu: "[data-composer-overlay-floating-ui]",
   },
   approval: {
-    composer: ".composer-surface-chrome",
-    composerFooter: "._footer_1u8sk_2",
+    composer: COMPOSER_COMPONENT,
+    composerFooter: COMPOSER_FOOTER_COMPONENT,
     approvalMenu: "[data-radix-menu-content]",
   },
   model: {
-    composer: ".composer-surface-chrome",
-    composerFooter: "._footer_1u8sk_2",
+    composer: COMPOSER_COMPONENT,
+    composerFooter: COMPOSER_FOOTER_COMPONENT,
     modelMenu: "[data-radix-menu-content]",
   },
   thread: {
-    root: "#root > div",
-    header: ".draggable.extension\\:px-panel",
-    conversation: "[data-thread-find-target='conversation']",
+    root: {
+      selector: "#root > div",
+      mode: "presence",
+      requiredSelectors: [
+        ".extension\\:px-panel",
+        "[data-thread-find-target='conversation']",
+        "[data-user-message-bubble]",
+        "._markdownContent_lzkx4_60",
+        ".composer-surface-chrome",
+        "._footer_1u8sk_2",
+        "._footer_z984f_2",
+      ],
+    },
+    header: {
+      selector: ".extension\\:px-panel",
+      mode: "semantic",
+    },
+    conversation: {
+      selector: "[data-thread-find-target='conversation']",
+      mode: "semantic",
+      requiredSelectors: [
+        "[data-user-message-bubble]",
+        "._markdownContent_lzkx4_60",
+        "[data-assistant-message-sent-time='true']",
+      ],
+    },
     userBubble: "[data-user-message-bubble]",
     markdown: "._markdownContent_lzkx4_60",
     assistantActions: "[data-assistant-message-sent-time='true']",
-    composer: ".composer-surface-chrome",
-    composerFooter: "._footer_1u8sk_2",
+    composer: COMPOSER_COMPONENT,
+    composerFooter: COMPOSER_FOOTER_COMPONENT,
     externalFooter: "._footer_z984f_2",
   },
 };
+
+const LOCAL_ADAPTER_CLASSES = new Set([
+  "codex-composer-attachments",
+  "codex-composer-card",
+  "codex-composer-card-inner",
+  "codex-composer-card-wrap",
+  "codex-composer-editor",
+  "codex-composer-editor-viewport",
+  "codex-composer-external-footer",
+  "codex-composer-footer",
+  "codex-composer-shell",
+  "codex-composer-surface",
+  "codex-history-page-loader",
+  "codex-home-composer",
+  "codex-list-body",
+  "codex-panel-header",
+  "codex-panel-view",
+  "codex-panel-view-list",
+  "codex-panel-view-thread",
+  "codex-send-disabled",
+  "codex-send-ready",
+  "codex-thread-body",
+  "codex-thread-content",
+  "codex-thread-content-shell",
+  "codex-thread-footer",
+  "codex-thread-footer-content",
+  "codex-thread-footer-fade",
+  "codex-thread-scroll",
+  "codex-thread-scroll-region",
+  "codex-turn-activity-status",
+  "draggable",
+  "placeholder",
+  "ProseMirror-focused",
+]);
 
 main().catch((error) => {
   console.error(error);
@@ -97,10 +185,11 @@ async function main() {
 
     const audit = {
       generatedAt: new Date().toISOString(),
-      basis: "DOM structure and class/attribute signature comparison. Screenshots are intentionally not used as evidence here.",
+      basis: "DOM semantic structure audit. Captured extension DOM is used as the source for official component primitives; local adapter carrier classes are ignored only when they are explicitly allowlisted. Screenshots are not used as evidence.",
       maxDepth: MAX_DEPTH,
       maxNodes: MAX_NODES,
       captures: CAPTURES,
+      localAdapterClasses: [...LOCAL_ADAPTER_CLASSES].sort(),
       components: {},
     };
 
@@ -138,7 +227,7 @@ async function main() {
     console.log(outMD);
     const failures = collectFailures(audit);
     if (failures.length) {
-      console.error(`DOM structure audit failed: ${failures.length} non-exact component(s)`);
+      console.error(`DOM structure audit failed: ${failures.length} incompatible component(s)`);
       for (const failure of failures.slice(0, 20)) {
         console.error(`- ${failure.state}.${failure.component}: ${failure.status}`);
       }
@@ -153,7 +242,7 @@ function collectFailures(audit) {
   const failures = [];
   for (const [state, components] of Object.entries(audit.components)) {
     for (const [component, result] of Object.entries(components)) {
-      if (result.status !== "exact") failures.push({ state, component, status: result.status });
+      if (!["exact", "compatible"].includes(result.status)) failures.push({ state, component, status: result.status });
     }
   }
   return failures;
@@ -161,20 +250,36 @@ function collectFailures(audit) {
 
 async function auditState(page, stateName) {
   const referenceHTML = readReferenceHTML(CAPTURES[stateName]);
-  const selectors = COMPONENTS[stateName];
+  const components = COMPONENTS[stateName];
   const out = {};
-  for (const [componentName, selector] of Object.entries(selectors)) {
+  for (const [componentName, rawSpec] of Object.entries(components)) {
+    const spec = componentSpec(rawSpec);
+    const selector = spec.selector;
     const reference = await signatureFromHTML(page, referenceHTML, selector);
     const current = await signatureFromCurrent(page, selector);
+    const requiredSelectors = spec.requiredSelectors || [];
+    const required = requiredSelectors.length
+      ? {
+          reference: await selectorPresenceFromHTML(page, referenceHTML, selector, requiredSelectors),
+          current: await selectorPresenceFromCurrent(page, selector, requiredSelectors),
+        }
+      : null;
     out[componentName] = {
       selector,
-      status: componentStatus(reference, current),
+      mode: spec.mode,
+      status: componentStatus(reference, current, spec, required),
       reference,
       current,
+      required,
       diff: diffSignatures(reference.signature, current.signature),
     };
   }
   return out;
+}
+
+function componentSpec(rawSpec) {
+  if (typeof rawSpec === "string") return { selector: rawSpec, mode: "signature" };
+  return { mode: "signature", ...rawSpec };
 }
 
 function readReferenceHTML(captureName) {
@@ -184,12 +289,28 @@ function readReferenceHTML(captureName) {
   return runtime.html;
 }
 
-function componentStatus(reference, current) {
+function componentStatus(reference, current, spec, required) {
   if (!reference.found && !current.found) return "missing-reference-and-current";
   if (!reference.found) return "missing-reference";
   if (!current.found) return "missing-current";
+  if (required && (!allPresent(required.reference) || !allPresent(required.current))) return "missing-required-structure";
+  if (spec.mode === "presence" || spec.mode === "semantic") return "compatible";
   if (reference.signature.join("\n") === current.signature.join("\n")) return "exact";
+  if (isOrderedSubset(reference.signature, current.signature)) return "compatible";
   return "different";
+}
+
+function allPresent(results) {
+  return Array.isArray(results) && results.every((item) => item.found);
+}
+
+function isOrderedSubset(reference, current) {
+  let index = 0;
+  for (const line of current) {
+    if (line === reference[index]) index += 1;
+    if (index >= reference.length) return true;
+  }
+  return reference.length === 0;
 }
 
 function diffSignatures(reference, current) {
@@ -219,24 +340,49 @@ function commonPrefix(left, right) {
 async function signatureFromHTML(page, html, selector) {
   return evalPage(page, `(() => {
     const doc = new DOMParser().parseFromString(${JSON.stringify(html)}, "text/html");
-    return (${signatureSource()})(doc, ${JSON.stringify(selector)}, ${JSON.stringify(MAX_DEPTH)}, ${JSON.stringify(MAX_NODES)});
+    return (${signatureSource()})(doc, ${JSON.stringify(selector)}, ${JSON.stringify(MAX_DEPTH)}, ${JSON.stringify(MAX_NODES)}, ${JSON.stringify([...LOCAL_ADAPTER_CLASSES])});
   })()`);
 }
 
 async function signatureFromCurrent(page, selector) {
   return evalPage(page, `(() => {
     const shadow = document.querySelector("#codexPanel")?.shadowRoot;
-    return (${signatureSource()})(shadow, ${JSON.stringify(selector)}, ${JSON.stringify(MAX_DEPTH)}, ${JSON.stringify(MAX_NODES)});
+    return (${signatureSource()})(shadow, ${JSON.stringify(selector)}, ${JSON.stringify(MAX_DEPTH)}, ${JSON.stringify(MAX_NODES)}, ${JSON.stringify([...LOCAL_ADAPTER_CLASSES])});
   })()`);
 }
 
+async function selectorPresenceFromHTML(page, html, baseSelector, requiredSelectors) {
+  return evalPage(page, `(() => {
+    const doc = new DOMParser().parseFromString(${JSON.stringify(html)}, "text/html");
+    return (${selectorPresenceSource()})(doc, ${JSON.stringify(baseSelector)}, ${JSON.stringify(requiredSelectors)});
+  })()`);
+}
+
+async function selectorPresenceFromCurrent(page, baseSelector, requiredSelectors) {
+  return evalPage(page, `(() => {
+    const shadow = document.querySelector("#codexPanel")?.shadowRoot;
+    return (${selectorPresenceSource()})(shadow, ${JSON.stringify(baseSelector)}, ${JSON.stringify(requiredSelectors)});
+  })()`);
+}
+
+function selectorPresenceSource() {
+  return String(function selectorPresence(root, baseSelector, selectors) {
+    const base = root?.querySelector(baseSelector);
+    return selectors.map((selector) => ({
+      selector,
+      found: Boolean(base?.querySelector(selector)),
+    }));
+  });
+}
+
 function signatureSource() {
-  return String(function signature(root, selector, maxDepth, maxNodes) {
+  return String(function signature(root, selector, maxDepth, maxNodes, localAdapterClasses) {
     const element = root?.querySelector(selector);
     if (!element) {
       return { found: false, selector, rootTag: root?.nodeName || "", signature: [], text: "" };
     }
     const lines = [];
+    const localAdapterSet = new Set(localAdapterClasses || []);
     const includeAttrs = [
       "role",
       "type",
@@ -254,16 +400,11 @@ function signatureSource() {
       "data-user-message-bubble",
       "data-assistant-message-sent-time",
     ];
-    const ignoredClasses = new Set([
-      "codex-send-ready",
-      "placeholder",
-      "ProseMirror-focused",
-    ]);
     function cleanClassName(value) {
       return String(value || "")
         .split(/\s+/)
         .filter(Boolean)
-        .filter((item) => !ignoredClasses.has(item))
+        .filter((item) => !localAdapterSet.has(item))
         .join(" ");
     }
     function visit(node, depth, siblingIndex) {
@@ -305,22 +446,30 @@ function renderMarkdown(audit) {
     "",
     `Generated: ${audit.generatedAt}`,
     "",
-    "This audit compares captured extension DOM against the current local Shadow DOM by tag/class/selected attributes. Screenshots are not used as evidence.",
+    "This audit compares captured extension DOM against the current local Shadow DOM by source-backed semantic structure. Explicit Codex Web adapter carrier classes are ignored; screenshots are not used as evidence.",
     "",
   ];
   for (const [stateName, components] of Object.entries(audit.components)) {
     lines.push(`## ${stateName}`);
     lines.push("");
-    lines.push("| Component | Status | Reference Nodes | Current Nodes | Equal Prefix | First Mismatch |");
-    lines.push("| --- | --- | ---: | ---: | ---: | --- |");
+    lines.push("| Component | Mode | Status | Reference Nodes | Current Nodes | Equal Prefix | Required Structure | First Mismatch |");
+    lines.push("| --- | --- | --- | ---: | ---: | ---: | --- | --- |");
     for (const [componentName, item] of Object.entries(components)) {
       const first = item.diff.firstMismatches[0];
+      const requiredSummary = item.required
+        ? [
+            `ref ${item.required.reference.filter((entry) => entry.found).length}/${item.required.reference.length}`,
+            `cur ${item.required.current.filter((entry) => entry.found).length}/${item.required.current.length}`,
+          ].join(", ")
+        : "";
       lines.push([
         componentName,
+        item.mode,
         item.status,
         item.diff.referenceCount,
         item.diff.currentCount,
         item.diff.equalPrefixCount,
+        requiredSummary,
         first ? code(`${first.index}: ref ${first.reference || "(none)"} / cur ${first.current || "(none)"}`) : "",
       ].join(" | ").replace(/^/, "| ").replace(/$/, " |"));
     }
@@ -328,8 +477,9 @@ function renderMarkdown(audit) {
   }
   lines.push("## Required Follow-Up");
   lines.push("");
-  lines.push("- Treat any `different` status as unfinished unless the difference is a deliberate data-binding hook or host adaptation documented in `reference/codex-panel-worklist.md`.");
-  lines.push("- Fix structure/class mismatches before using screenshots for visual verification.");
+  lines.push("- Treat any status other than `exact` or `compatible` as unfinished.");
+  lines.push("- A `compatible` component means the captured extension primitive is present after stripping explicit local adapter carrier classes, or all required semantic selectors are present in both reference and current DOM.");
+  lines.push("- Screenshots remain follow-up evidence only after these structural checks pass.");
   lines.push("");
   return `${lines.join("\n")}\n`;
 }

@@ -1,0 +1,433 @@
+{
+  "generatedAt": "2026-07-06T18:19:23.399Z",
+  "fixtureURL": "http://127.0.0.1:58888/?codexFixture=reference&auditRun=20260706181917496",
+  "basis": "File/diff audit. Source snippets are read from the official extension JS/CSS bundles; DOM evidence is collected from the local Codex Web reference fixture.",
+  "sourceEvidence": {
+    "files": {
+      "official": {
+        "path": "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\extension-source\\openai.chatgpt-26.5623.31443\\webview\\assets\\local-conversation-turn-BZInUTC2.js",
+        "exists": true,
+        "bytes": 676101
+      },
+      "markdownCSS": {
+        "path": "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\extension-source\\openai.chatgpt-26.5623.31443\\webview\\assets\\markdown-DmSBSKzD.css",
+        "exists": true,
+        "bytes": 8450
+      },
+      "appCSS": {
+        "path": "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\extension-source\\openai.chatgpt-26.5623.31443\\webview\\assets\\app-main-DH0Qggoi.css",
+        "exists": true,
+        "bytes": 549858
+      }
+    },
+    "checks": [
+      {
+        "name": "official local conversation turn asset present",
+        "ok": true,
+        "details": "676054 bytes"
+      },
+      {
+        "name": "official source contains: group/turn-diff-header relative focus-within:[&_.turn-diff-default-subtitle]:hidden hover:[&_.turn-diff-default-subtitle]:hidden focus-within:[&_.turn-diff-hover-subtitle]:inline-flex hover:[&_.turn-diff-hover-subtitle]:inline-flex",
+        "ok": true,
+        "details": "group/turn-diff-header relative focus-within:[&_.turn-diff-default-subtitle]:hidden hover:[&_.turn-diff-default-subtitle]:hidden focus-within:[&_.turn-diff-hover-subtitle]:inline-flex hover:[&_.turn-diff-hover-subtitle]:inline-flex"
+      },
+      {
+        "name": "official source contains: absolute inset-0 cursor-interaction bg-transparent group-hover/turn-diff-header:bg-token-list-hover-background/30 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset",
+        "ok": true,
+        "details": "absolute inset-0 cursor-interaction bg-transparent group-hover/turn-diff-header:bg-token-list-hover-background/30 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset"
+      },
+      {
+        "name": "official source contains: flex size-10 shrink-0 items-center justify-center rounded-lg bg-token-bg-secondary text-token-text-secondary",
+        "ok": true,
+        "details": "flex size-10 shrink-0 items-center justify-center rounded-lg bg-token-bg-secondary text-token-text-secondary"
+      },
+      {
+        "name": "official source contains: turn-diff-default-subtitle inline-flex",
+        "ok": true,
+        "details": "turn-diff-default-subtitle inline-flex"
+      },
+      {
+        "name": "official source contains: turn-diff-hover-subtitle hidden items-center gap-1",
+        "ok": true,
+        "details": "turn-diff-hover-subtitle hidden items-center gap-1"
+      },
+      {
+        "name": "official source contains: flex flex-col border-t border-token-border [--codex-diffs-header-padding-x:var(--thread-resource-card-row-padding-x)] [--codex-diffs-header-padding-y:var(--turn-diff-row-padding-y)]",
+        "ok": true,
+        "details": "flex flex-col border-t border-token-border [--codex-diffs-header-padding-x:var(--thread-resource-card-row-padding-x)] [--codex-diffs-header-padding-y:var(--turn-diff-row-padding-y)]"
+      },
+      {
+        "name": "official source contains: thread-diff-virtualized",
+        "ok": true,
+        "details": "thread-diff-virtualized"
+      },
+      {
+        "name": "official source contains: text-size-chat flex h-9 w-full cursor-interaction items-center gap-2 bg-token-main-surface-primary/70 px-[var(--thread-resource-card-row-padding-x)] py-[var(--turn-diff-row-padding-y)] text-left hover:bg-token-list-hover-background/60 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset extension:bg-token-input-background/70 extension:hover:bg-token-list-hover-background/60",
+        "ok": true,
+        "details": "text-size-chat flex h-9 w-full cursor-interaction items-center gap-2 bg-token-main-surface-primary/70 px-[var(--thread-resource-card-row-padding-x)] py-[var(--turn-diff-row-padding-y)] text-left hover:bg-token-list-hover-background/60 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset extension:bg-token-input-background/70 extension:hover:bg-token-list-hover-background/60"
+      },
+      {
+        "name": "official source contains: min-w-0 truncate text-token-description-foreground",
+        "ok": true,
+        "details": "min-w-0 truncate text-token-description-foreground"
+      },
+      {
+        "name": "official source contains: max-w-full shrink-0 truncate text-token-foreground",
+        "ok": true,
+        "details": "max-w-full shrink-0 truncate text-token-foreground"
+      },
+      {
+        "name": "official source contains: Show # more file",
+        "ok": true,
+        "details": "Show # more file"
+      },
+      {
+        "name": "official source contains: Collapse files",
+        "ok": true,
+        "details": "Collapse files"
+      },
+      {
+        "name": "official markdown CSS asset present",
+        "ok": true,
+        "details": "8450 bytes"
+      },
+      {
+        "name": "official app CSS asset present",
+        "ok": true,
+        "details": "549854 bytes"
+      },
+      {
+        "name": "official CSS contains: _tableCellFileLink_lzkx4_413",
+        "ok": true,
+        "details": "_tableCellFileLink_lzkx4_413"
+      },
+      {
+        "name": "official CSS contains: inline-mention-brand-aware",
+        "ok": true,
+        "details": "inline-mention-brand-aware"
+      },
+      {
+        "name": "official CSS contains: text-\\[color\\:var\\(--inline-mention-color\\)\\]",
+        "ok": true,
+        "details": "text-\\[color\\:var\\(--inline-mention-color\\)\\]"
+      },
+      {
+        "name": "official CSS contains: group-hover\\/inline-mention\\:decoration-dashed",
+        "ok": true,
+        "details": "group-hover\\/inline-mention\\:decoration-dashed"
+      }
+    ]
+  },
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "sidebarWidth": 611,
+  "summary": {
+    "checks": 39,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "official local conversation turn asset present",
+      "ok": true,
+      "details": "676054 bytes"
+    },
+    {
+      "name": "official source contains: group/turn-diff-header relative focus-within:[&_.turn-diff-default-subtitle]:hidden hover:[&_.turn-diff-default-subtitle]:hidden focus-within:[&_.turn-diff-hover-subtitle]:inline-flex hover:[&_.turn-diff-hover-subtitle]:inline-flex",
+      "ok": true,
+      "details": "group/turn-diff-header relative focus-within:[&_.turn-diff-default-subtitle]:hidden hover:[&_.turn-diff-default-subtitle]:hidden focus-within:[&_.turn-diff-hover-subtitle]:inline-flex hover:[&_.turn-diff-hover-subtitle]:inline-flex"
+    },
+    {
+      "name": "official source contains: absolute inset-0 cursor-interaction bg-transparent group-hover/turn-diff-header:bg-token-list-hover-background/30 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset",
+      "ok": true,
+      "details": "absolute inset-0 cursor-interaction bg-transparent group-hover/turn-diff-header:bg-token-list-hover-background/30 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset"
+    },
+    {
+      "name": "official source contains: flex size-10 shrink-0 items-center justify-center rounded-lg bg-token-bg-secondary text-token-text-secondary",
+      "ok": true,
+      "details": "flex size-10 shrink-0 items-center justify-center rounded-lg bg-token-bg-secondary text-token-text-secondary"
+    },
+    {
+      "name": "official source contains: turn-diff-default-subtitle inline-flex",
+      "ok": true,
+      "details": "turn-diff-default-subtitle inline-flex"
+    },
+    {
+      "name": "official source contains: turn-diff-hover-subtitle hidden items-center gap-1",
+      "ok": true,
+      "details": "turn-diff-hover-subtitle hidden items-center gap-1"
+    },
+    {
+      "name": "official source contains: flex flex-col border-t border-token-border [--codex-diffs-header-padding-x:var(--thread-resource-card-row-padding-x)] [--codex-diffs-header-padding-y:var(--turn-diff-row-padding-y)]",
+      "ok": true,
+      "details": "flex flex-col border-t border-token-border [--codex-diffs-header-padding-x:var(--thread-resource-card-row-padding-x)] [--codex-diffs-header-padding-y:var(--turn-diff-row-padding-y)]"
+    },
+    {
+      "name": "official source contains: thread-diff-virtualized",
+      "ok": true,
+      "details": "thread-diff-virtualized"
+    },
+    {
+      "name": "official source contains: text-size-chat flex h-9 w-full cursor-interaction items-center gap-2 bg-token-main-surface-primary/70 px-[var(--thread-resource-card-row-padding-x)] py-[var(--turn-diff-row-padding-y)] text-left hover:bg-token-list-hover-background/60 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset extension:bg-token-input-background/70 extension:hover:bg-token-list-hover-background/60",
+      "ok": true,
+      "details": "text-size-chat flex h-9 w-full cursor-interaction items-center gap-2 bg-token-main-surface-primary/70 px-[var(--thread-resource-card-row-padding-x)] py-[var(--turn-diff-row-padding-y)] text-left hover:bg-token-list-hover-background/60 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset extension:bg-token-input-background/70 extension:hover:bg-token-list-hover-background/60"
+    },
+    {
+      "name": "official source contains: min-w-0 truncate text-token-description-foreground",
+      "ok": true,
+      "details": "min-w-0 truncate text-token-description-foreground"
+    },
+    {
+      "name": "official source contains: max-w-full shrink-0 truncate text-token-foreground",
+      "ok": true,
+      "details": "max-w-full shrink-0 truncate text-token-foreground"
+    },
+    {
+      "name": "official source contains: Show # more file",
+      "ok": true,
+      "details": "Show # more file"
+    },
+    {
+      "name": "official source contains: Collapse files",
+      "ok": true,
+      "details": "Collapse files"
+    },
+    {
+      "name": "official markdown CSS asset present",
+      "ok": true,
+      "details": "8450 bytes"
+    },
+    {
+      "name": "official app CSS asset present",
+      "ok": true,
+      "details": "549854 bytes"
+    },
+    {
+      "name": "official CSS contains: _tableCellFileLink_lzkx4_413",
+      "ok": true,
+      "details": "_tableCellFileLink_lzkx4_413"
+    },
+    {
+      "name": "official CSS contains: inline-mention-brand-aware",
+      "ok": true,
+      "details": "inline-mention-brand-aware"
+    },
+    {
+      "name": "official CSS contains: text-\\[color\\:var\\(--inline-mention-color\\)\\]",
+      "ok": true,
+      "details": "text-\\[color\\:var\\(--inline-mention-color\\)\\]"
+    },
+    {
+      "name": "official CSS contains: group-hover\\/inline-mention\\:decoration-dashed",
+      "ok": true,
+      "details": "group-hover\\/inline-mention\\:decoration-dashed"
+    },
+    {
+      "name": "viewport is 1920x1080 or larger",
+      "ok": true,
+      "details": "1920x1080"
+    },
+    {
+      "name": "sidebar target is wide enough",
+      "ok": true,
+      "details": "611px"
+    },
+    {
+      "name": "diff card found in fixture",
+      "ok": true,
+      "details": "已编辑 4 个文件 +1,198 -2 撤销 审核 再显示 1 个文件"
+    },
+    {
+      "name": "diff card root uses official resource classes",
+      "ok": true,
+      "details": "flex max-w-full flex-col overflow-hidden rounded-lg bg-token-dropdown-background/50 text-token-foreground [--thread-resource-card-row-padding-x:0.75rem] electron:elevation-stroke extension:border extension:border-token-border extension:bg-token-input-background/50 extension:shadow-sm mb-2 text-base [--turn-diff-row-padding-y:0.25rem]"
+    },
+    {
+      "name": "diff header uses official group class",
+      "ok": true,
+      "details": "group/turn-diff-header relative focus-within:[&_.turn-diff-default-subtitle]:hidden hover:[&_.turn-diff-default-subtitle]:hidden focus-within:[&_.turn-diff-hover-subtitle]:inline-flex hover:[&_.turn-diff-hover-subtitle]:inline-flex"
+    },
+    {
+      "name": "diff header overlay button exists",
+      "ok": true,
+      "details": "absolute inset-0 cursor-interaction bg-transparent group-hover/turn-diff-header:bg-token-list-hover-background/30 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset"
+    },
+    {
+      "name": "diff icon block uses official size/background",
+      "ok": true,
+      "details": "flex size-10 shrink-0 items-center justify-center rounded-lg bg-token-bg-secondary text-token-text-secondary"
+    },
+    {
+      "name": "diff default subtitle exists",
+      "ok": true,
+      "details": "+1,198 -2"
+    },
+    {
+      "name": "diff hover subtitle exists",
+      "ok": true,
+      "details": "查看更改"
+    },
+    {
+      "name": "diff file list surface uses official border/classes",
+      "ok": true,
+      "details": "flex flex-col border-t border-token-border [--codex-diffs-header-padding-x:var(--thread-resource-card-row-padding-x)] [--codex-diffs-header-padding-y:var(--turn-diff-row-padding-y)] [--codex-diffs-surface-override:color-mix(in_oklab,var(--color-token-dropdown-background)_50%,transparent)] extension:[--codex-diffs-surface-override:color-mix(in_oklab,var(--color-token-input-background)_50%,transparent)]"
+    },
+    {
+      "name": "diff virtualized file rows exist",
+      "ok": true,
+      "details": "3"
+    },
+    {
+      "name": "first file row button uses official classes",
+      "ok": true,
+      "details": "text-size-chat flex h-9 w-full cursor-interaction items-center gap-2 bg-token-main-surface-primary/70 px-[var(--thread-resource-card-row-padding-x)] py-[var(--turn-diff-row-padding-y)] text-left hover:bg-token-list-hover-background/60 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset extension:bg-token-input-background/70 extension:hover:bg-token-list-hover-background/60"
+    },
+    {
+      "name": "first file row has sr-only full path",
+      "ok": true,
+      "details": "frontend/src/app/bootstrap.js"
+    },
+    {
+      "name": "first file row splits directory and filename",
+      "ok": true,
+      "details": "frontend/src/app/bootstrap.js"
+    },
+    {
+      "name": "first file row has additions/deletions counters",
+      "ok": true,
+      "details": "+1 -0"
+    },
+    {
+      "name": "show-more/collapse row exists",
+      "ok": true,
+      "details": "再显示 1 个文件"
+    },
+    {
+      "name": "show-more row uses official disclosure button classes",
+      "ok": true,
+      "details": "text-size-chat flex h-9 w-full cursor-interaction items-center px-[var(--thread-resource-card-row-padding-x)] py-[var(--turn-diff-row-padding-y)] text-left text-token-text-primary hover:bg-token-list-hover-background/30 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset"
+    },
+    {
+      "name": "inline file mention exists",
+      "ok": true,
+      "details": "/tmp/codex-web-upload.Gzq21b"
+    },
+    {
+      "name": "inline file mention uses captured table cell link class",
+      "ok": true,
+      "details": "px-0.5 inline-mention-brand-aware font-medium text-[color:var(--inline-mention-color)] [--inline-mention-color:var(--inline-mention-resolved-base-color,var(--inline-mention-base-color))] [--inline-mention-base-color:color-mix(in_srgb,var(--color-token-text-link-foreground)_80%,var(--color-token-foreground)_20%)] group-hover/inline-mention:underline group-hover/inline-mention:decoration-current group-hover/inline-mention:decoration-dashed group-hover/inline-mention:decoration-[0.5px] group-hover/inline-mention:underline-offset-2 _tableCellFileLink_lzkx4_413"
+    },
+    {
+      "name": "inline file mention uses button wrapper",
+      "ok": true,
+      "details": "button group/inline-mention cursor-pointer"
+    }
+  ],
+  "dom": {
+    "ok": true,
+    "scrollTop": 1989,
+    "diffCard": {
+      "found": true,
+      "className": "flex max-w-full flex-col overflow-hidden rounded-lg bg-token-dropdown-background/50 text-token-foreground [--thread-resource-card-row-padding-x:0.75rem] electron:elevation-stroke extension:border extension:border-token-border extension:bg-token-input-background/50 extension:shadow-sm mb-2 text-base [--turn-diff-row-padding-y:0.25rem]",
+      "text": "已编辑 4 个文件 +1,198 -2 撤销 审核 再显示 1 个文件",
+      "rect": {
+        "x": 64,
+        "y": -1247,
+        "width": 563,
+        "height": 211
+      }
+    },
+    "header": {
+      "found": true,
+      "className": "group/turn-diff-header relative focus-within:[&_.turn-diff-default-subtitle]:hidden hover:[&_.turn-diff-default-subtitle]:hidden focus-within:[&_.turn-diff-hover-subtitle]:inline-flex hover:[&_.turn-diff-hover-subtitle]:inline-flex",
+      "text": "已编辑 4 个文件 +1,198 -2 撤销 审核",
+      "rect": {
+        "x": 65,
+        "y": -1246,
+        "width": 561,
+        "height": 64
+      }
+    },
+    "headerOverlay": {
+      "found": true,
+      "className": "absolute inset-0 cursor-interaction bg-transparent group-hover/turn-diff-header:bg-token-list-hover-background/30 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset",
+      "ariaLabel": "审查已更改的文件"
+    },
+    "iconBlock": {
+      "found": true,
+      "className": "flex size-10 shrink-0 items-center justify-center rounded-lg bg-token-bg-secondary text-token-text-secondary"
+    },
+    "defaultSubtitle": {
+      "found": true,
+      "className": "turn-diff-default-subtitle inline-flex",
+      "text": "+1,198 -2"
+    },
+    "hoverSubtitle": {
+      "found": true,
+      "className": "turn-diff-hover-subtitle hidden items-center gap-1",
+      "text": "查看更改"
+    },
+    "fileList": {
+      "found": true,
+      "className": "flex flex-col border-t border-token-border [--codex-diffs-header-padding-x:var(--thread-resource-card-row-padding-x)] [--codex-diffs-header-padding-y:var(--turn-diff-row-padding-y)] [--codex-diffs-surface-override:color-mix(in_oklab,var(--color-token-dropdown-background)_50%,transparent)] extension:[--codex-diffs-surface-override:color-mix(in_oklab,var(--color-token-input-background)_50%,transparent)]"
+    },
+    "fileRows": [
+      {
+        "index": 0,
+        "className": "thread-diff-virtualized",
+        "text": "frontend/src/app/bootstrap.js frontend/src/app/ bootstrap.js +1 -0",
+        "rect": {
+          "x": 65,
+          "y": -1181,
+          "width": 561,
+          "height": 36
+        }
+      },
+      {
+        "index": 1,
+        "className": "thread-diff-virtualized",
+        "text": "frontend/src/app/layout.css frontend/src/app/ layout.css +1 -0",
+        "rect": {
+          "x": 65,
+          "y": -1145,
+          "width": 561,
+          "height": 36
+        }
+      },
+      {
+        "index": 2,
+        "className": "thread-diff-virtualized",
+        "text": "frontend/src/pages/codex/index.js frontend/src/pages/codex/ index.js +1 -0",
+        "rect": {
+          "x": 65,
+          "y": -1109,
+          "width": 561,
+          "height": 36
+        }
+      }
+    ],
+    "firstFileRow": {
+      "found": true,
+      "buttonClassName": "text-size-chat flex h-9 w-full cursor-interaction items-center gap-2 bg-token-main-surface-primary/70 px-[var(--thread-resource-card-row-padding-x)] py-[var(--turn-diff-row-padding-y)] text-left hover:bg-token-list-hover-background/60 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset extension:bg-token-input-background/70 extension:hover:bg-token-list-hover-background/60",
+      "srOnlyText": "frontend/src/app/bootstrap.js",
+      "dirText": "frontend/src/app/",
+      "nameText": "bootstrap.js",
+      "additionsText": "+1",
+      "deletionsText": "-0"
+    },
+    "showMore": {
+      "found": true,
+      "className": "text-size-chat flex h-9 w-full cursor-interaction items-center px-[var(--thread-resource-card-row-padding-x)] py-[var(--turn-diff-row-padding-y)] text-left text-token-text-primary hover:bg-token-list-hover-background/30 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset",
+      "text": "再显示 1 个文件",
+      "ariaExpanded": "false"
+    },
+    "inlineMention": {
+      "found": true,
+      "text": "/tmp/codex-web-upload.Gzq21b",
+      "linkClassName": "px-0.5 inline-mention-brand-aware font-medium text-[color:var(--inline-mention-color)] [--inline-mention-color:var(--inline-mention-resolved-base-color,var(--inline-mention-base-color))] [--inline-mention-base-color:color-mix(in_srgb,var(--color-token-text-link-foreground)_80%,var(--color-token-foreground)_20%)] group-hover/inline-mention:underline group-hover/inline-mention:decoration-current group-hover/inline-mention:decoration-dashed group-hover/inline-mention:decoration-[0.5px] group-hover/inline-mention:underline-offset-2 _tableCellFileLink_lzkx4_413",
+      "wrapperClassName": "group/inline-mention cursor-pointer",
+      "role": "button"
+    }
+  }
+}

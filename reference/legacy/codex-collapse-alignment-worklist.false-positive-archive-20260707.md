@@ -1,0 +1,928 @@
+# Codex Collapse Alignment Worklist
+
+## Goal
+- Align Codex Web conversation collapse/disclosure behavior with the real code-server ChatGPT/Codex extension for the same long session.
+- Target session anchor: the long multi-server-controller discussion that starts with `analyze codex-web / manage all servers from one website`.
+- Scope is conversation rendering only: turn grouping, processed-time summaries, tool call/output disclosure, file/diff references, thinking/running states, icons, spacing, and collapsed/expanded styles.
+- Do not rework unrelated workspace chrome, authentication, node routing, or agent transport while doing this pass.
+
+## Non-Negotiable Boundaries
+- Do not invent a close-looking collapse UI. Use captured extension DOM/classes/computed styles and extension source assets first.
+- Compare code-server (`https://code-tx.zelt.cn/?folder=/root`) and Codex Web (`https://codex.zelt.cn/`) in Windows Chrome/CDP or Playwright, not Linux VNC screenshots.
+- Capture and compare at `1920x1080` or larger. A small browser window is invalid because it changes sidebar width, overflow, virtualized ranges, menu layout, and text wrapping.
+- The code-server ChatGPT/Codex extension must be opened from the left Activity Bar icon. Do not use the Codex tab inside the right chat/auxiliary sidebar as the reference.
+- Before every reference capture, verify the right chat/auxiliary sidebar is closed and the left Codex activity view is the visible conversation surface.
+- Reconfirmed on `2026-07-06`: no small-window captures, and no right-chat-sidebar Codex tab captures are valid for future alignment work.
+- For visual matching captures, the source code-server Codex side view must not be left at the default narrow `300px` width. A narrow source panel is acceptable only for structural/scroll smoke checks, not for final visual alignment.
+- Capture automation must fail fast if the viewport is too small, the Codex view is not in the left Activity Bar, the right chat/auxiliary sidebar is visible, or the current view is Explorer/welcome instead of the Codex conversation UI.
+- Use the same real session on both sides. Do not validate collapse behavior only with fixtures unless the fixture is built from captured real DOM.
+- Compare by virtualized chunks/turn windows, not only the current viewport screenshot.
+- Screenshots are evidence after structural comparison, not the source of truth.
+- Source-code checks and static audits are not enough for approval. Every grouping/style fix must also be verified in a real browser view against code-server and Codex Web running pages.
+- Browser verification must confirm the rendered result, not only that matching classes/functions exist in source. If official code-server renders a state as an edited-files/diff card but Codex Web renders the same state as plain text/code markdown, the check fails even if the source contains card-rendering code elsewhere.
+- Visual comparison may miss tiny pixel-level differences, so pair screenshots with DOM/computed-style/semantic evidence. Large structural differences such as plain text vs file-list card, missing collapse header, wrong parent/child grouping, or broken scrolling are always blockers.
+- Final acceptance must compare the real long conversation by matching visible text anchors, not by comparing unrelated scroll positions. Use code-server as source, find the same anchor text in Codex Web, then compare that matched window.
+- Final acceptance must cover the whole long conversation by anchor-matched reverse-scroll windows. Do not stop after a few matching screenshots or assume the rest is correct.
+- First alignment pass must match the official extension exactly. Remove/hide the previous Codex Web `exec_command xN` command-display enhancement from the visible conversation until official grouping, collapse, and style rules are fully aligned.
+- While fixing each mismatch, audit the current code that was added by previous alignment attempts. Keep only source-backed code that is required for official parity; remove or rewrite stale compatibility code, invented local UI, and enhancement paths that now conflict with the official model.
+- If extension source and live DOM disagree, live DOM/computed style for the same runtime state wins; record the disagreement before changing code.
+- Keep all findings and progress in this file so context compaction does not lose the edge cases.
+
+## Current Pass Status
+- 2026-07-06 processed-summary disclosure audit gap, open:
+  - User reported that `已处理` rows cannot be clicked to expand text in the live conversation.
+  - Fresh audit review confirmed the previous interaction audit was too broad: `reference/codex-reference/workspace-native-interactions-audit.json` clicked `exec_command exit 1 failed`, not a processed-summary row.
+  - Current renderer/code review shows many processed summary rows render a chevron and `aria-expanded=false` without `data-disclosure-toggle` because `split.detailEvents` is empty, so the row is not actually interactive.
+  - New required standard: a processed-summary audit must target `已处理`/`Processed` specifically, use real browser mouse input, verify `aria-expanded` changes, verify a disclosure body exists and becomes visible with non-zero height/text, and compare the same text-anchored state against code-server before marking this fixed.
+  - Product correction under local test: processed/reasoning summary text is separated from the processed-time label; command/tool rows remain hidden from the official-alignment processed body; static processed rows without body no longer pretend to be disclosure buttons.
+  - Fresh local evidence:
+    - `reference/codex-reference/disclosure-collapse-audit.json`: `27` checks, `0` failed. It targeted `已处理 22s`, verified real expand/collapse, non-zero expanded body height, visible text, and no command rows in the expanded body.
+    - `reference/codex-reference/virtual-scroll-audit.json`: `13` checks, `0` failed. It verifies long-thread focus/scroll windows still expose processed-summary text without command enhancements.
+    - `powershell -ExecutionPolicy Bypass -File scripts\run-codex-panel-audits.ps1`: completed with no failed audit step; live/collapse captures were intentionally skipped by script defaults.
+    - `go test ./...` passed in both `backend` and `agent`.
+    - Local controller restored to normal mode after fixture audits: `GET /` returned `200`; `/app/codex-fixtures.js` returned `404`.
+  - Status: local fixture/browser verified only. Do not mark complete until deployed Codex Web passes fresh real long-conversation browser evidence.
+- 2026-07-06 interaction correction:
+  - User clarified that the current issue is not a desired draggable/resizable sidebar. The bug is long-conversation scrolling/click interaction plus an unintended native drag preview that can pull out a translucent page image.
+  - Workspace chrome must not render native `draggable="true"` activity items and must not render a sidebar resize sash/handle for this Codex Web surface.
+  - Clicking official-style disclosure rows such as processed/activity summaries must be verified with real browser mouse input, not only by calling `element.click()` in source.
+  - Added `scripts/audit-workspace-native-interactions.cjs` to check the runtime boundary: no sidebar resize handle, no native draggable elements, activity drag gesture emits no `dragstart`, long-thread wheel scrolling changes `scrollTop`, and a visible disclosure toggles under a real mouse click.
+  - Deployed interaction fix `91c98d7` and confirmed server active. Local CDP fixture audit passed `8/8`: no resize handle, no native draggable elements, no `dragstart`, virtual long-session wheel scrolling works, and a real mouse click toggles a disclosure.
+  - Live target smoke on `https://codex.zelt.cn/?nodeId=host-docker-agent` for session `019f0a04-7f0b-7483-8bc4-18f214a5c8f1` confirmed the same shell-level drag/scroll boundary against real data: no resize handle, no `draggable=true`, no activity dragstart, real long session max scroll > 27000px, and wheel changes `scrollTop`.
+  - Follow-up root cause: live focus at seq `7289` had no overlay blocking disclosures; it had no disclosure toggles because processed summaries currently render as static rows, and the loaded page began mid-turn with orphan `tool_output` rows.
+  - Deployed `efbce9c` to keep focusSeq windows aligned with wider history context and to stop grouping multiple adjacent user messages into one terminal summary run.
+  - Deployed `0f4b5d8` to hide incomplete leading non-user history turns when a paged/focused window still has earlier records. Live smoke for seq `7289` changed from `hasChunkID=true` to `hasChunkID=false`; loaded range stayed `6412-7311`, rendered virtual turns dropped to `15`, and the target window no longer starts with raw `Chunk ID / Output`.
+  - Remaining parity question: processed `已处理` rows in this window are still static summary rows (`toggleCount=0`). Do not treat this as an overlay/drag blocker; next pass must compare official code-server behavior for processed summary expandability before adding a body or removing chevrons.
+- 2026-07-06 native drag preview correction:
+  - User screenshot confirmed the current bug is a browser native drag ghost of the whole page, not a desired resize/drag interaction.
+  - Removed the workspace titlebar drag region and the remaining explicit `draggable` attributes in the activity/session chrome.
+  - Disabled `-webkit-user-drag` across the app-owned workbench and Codex panel ShadowRoot, with only an explicit `[data-allow-native-drag="true"]` opt-in left for future intentional native drags.
+  - Hardened the global drag guard to use `event.composedPath()` so Shadow DOM content is covered and accidental `dragstart`/`dragenter`/`dragover`/`drop` events are blocked.
+  - Expanded `scripts/audit-workspace-native-interactions.cjs` to check no explicit `[draggable]` elements, user-drag computed style, activity/header/thread-content drag gestures, long-thread wheel scrolling, and real disclosure clicks.
+  - Local fixture audit passed after rebuild: `workspace-native-interactions-audit.json` reports `13` checks and `0 failed`. Local `codex-web.exe` was restarted in normal mode afterward.
+  - Re-verified on 2026-07-06 after user challenged memory-only status:
+    - First audit attempt failed because the controller intentionally hid `/app/codex-fixtures.js` without `CODEX_WEB_ENABLE_FIXTURES=1`; this was treated as an invalid verification environment, not as a pass.
+    - Rebuilt with `./build-all.sh`, restarted local `build/codex-web.exe` with `CODEX_WEB_ENABLE_FIXTURES=1`, confirmed `/app/codex-fixtures.js` returned `200`, then ran `node scripts/audit-workspace-native-interactions.cjs`.
+    - Latest browser audit evidence: `reference/codex-reference/workspace-native-interactions-audit.json`, `13` checks, `0` failed. Covered no sidebar resize handle, no explicit `[draggable]`, workbench/ShadowRoot `-webkit-user-drag: none`, activity/header/thread-content drag gestures emitting `0` `dragstart`, long-thread wheel scrolling changing `scrollTop`, and a real mouse click expanding a disclosure without overlay blockage.
+  - Deployed commit `608058c` to `https://codex.zelt.cn/` and restarted `codex-web.service`.
+  - Live CDP smoke at `https://codex.zelt.cn/?nodeId=host-docker-agent` passed `9/9`: no sidebar resize handle, no titlebar drag region, no explicit `[draggable]`, workbench/ShadowRoot `-webkit-user-drag: none`, and activity/header/content drag gestures emitted `0` `dragstart` events.
+- 2026-07-06 long-session focus/virtual-window correction, in progress:
+  - User clarified that fixes must not be marked complete from memory. Every status change in this pass must be tied to a fresh command/browser report.
+  - Latest failing live report before this correction: `reference/live-anchor-alignment/20260706-150829/summary.json` had `1` failed check. Target API found the requested event at `seq=5643`, but the rendered virtual window showed unrelated turns, so the product focus path was drifting after loading the right history range.
+  - Product-side correction:
+    - Removed the guessed `restoreScrollTop = start * 192` focus positioning.
+    - Added rendered turn seq metadata and a one-shot `data-codex-focus-turn` marker.
+    - During thread scroll sync, Codex Web now uses the actual focused turn DOM rectangle to center the target in the scroll container, then clears the pending focus marker.
+  - Audit-side correction:
+    - Extended `scripts/audit-codex-virtual-scroll.cjs` with a real browser focusSeq check. It dispatches `codex-web:open-session` for fixture seq `133` and requires `Virtual scroll turn 45` to render in the viewport.
+  - Fresh local verification passed after rebuild:
+    - `node --check frontend/src/pages/codex/index.js`
+    - `node --check frontend/src/pages/codex/renderer.js`
+    - `node --check scripts/audit-codex-live-anchor-alignment.cjs`
+    - `node --check scripts/audit-codex-virtual-scroll.cjs`
+    - `./build-all.sh`
+    - `node scripts/audit-codex-virtual-scroll.cjs`: `13` checks, `0` failed; focus seq `133` rendered `Virtual scroll turn 45`, centered at `top=403`, `bottom=610` inside viewport `100..914`.
+    - `node scripts/audit-codex-disclosure-collapse.cjs`: `0` failed.
+    - `node scripts/audit-workspace-native-interactions.cjs`: `0` failed.
+    - `go test ./...` in `backend`: passed.
+    - `go test ./...` in `agent`: passed.
+  - Local service was returned to normal mode after fixture audits: `GET /` returned `200`, `/app/codex-fixtures.js` returned `404`.
+  - Status: not complete yet. Required next evidence is post-deploy live anchor verification on the real long conversation, starting with the previously failing `seq=5643` anchor and then the full 12-anchor reverse-scroll audit.
+  - Post-deploy evidence for `2acf8dc`:
+    - Previously failing single anchor `seq=5643` passed: `reference/live-anchor-alignment/20260706-152119/summary.json`, `0` failed.
+    - Full 12-anchor reverse-scroll audit still failed once: `reference/live-anchor-alignment/20260706-152208/summary.json`, `1` failed.
+    - Failure was not the focus-window bug. Anchor 7 matched user message `图1是项目的 图2是我现在显示的...`; source window exposed `1` file reference while Codex Web exposed `0`.
+    - Root cause: backticked nested relative file paths such as `build/topbar-ref-now-stable-1400x220.png` stayed as inline code. Official code-server promotes these to file mentions. Existing protection for command-like `./build-all.sh` remains required.
+  - Local correction after the full-audit failure:
+    - Updated inline-code file-reference parsing to accept nested relative file paths like `build/foo.png`.
+    - Added markdown-reference audit coverage for backticked `build/topbar-*.png` paths while keeping `./build-all.sh` as inline code.
+    - Fresh local verification passed:
+      - `node --check frontend/src/pages/codex/utils.js`
+      - `node --check scripts/audit-codex-markdown-reference-rules.cjs`
+      - `node scripts/audit-codex-markdown-reference-rules.cjs`
+      - `./build-all.sh`
+      - `node scripts/audit-codex-virtual-scroll.cjs`: `0` failed.
+      - `node scripts/audit-codex-disclosure-collapse.cjs`: `0` failed.
+      - `node scripts/audit-workspace-native-interactions.cjs`: `0` failed.
+    - Deployed `4b34183` to `/root/code/codex-web`, rebuilt on the server, restarted `codex-web.service`, and confirmed:
+      - `systemctl is-active codex-web.service`: `active`.
+      - `GET https://codex.zelt.cn/`: `200`.
+      - `GET https://codex.zelt.cn/api/nodes`: `host-docker-agent` online.
+    - Post-deploy live verification passed:
+      - Failed anchor-7 file-reference regression check rerun: `reference/live-anchor-alignment/20260706-152841/summary.json`, `9` checks, `0` failed.
+      - Full reverse-scroll 12-anchor check rerun: `reference/live-anchor-alignment/20260706-152936/summary.json`, `76` checks, `12` anchors, `0` failed.
+    - Status: complete for this pass. Do not reopen this item without a new failing browser/report evidence file.
+- 2026-07-06 cancelled status-row regression correction:
+  - Root cause: `splitSettledProcessFollowups` treated `turn_cancelled` as a settled process signal, so a cancelled-only turn collapsed into a processed summary and dropped the visible `Stopped` activity row.
+  - Fixed `frontend/src/pages/codex/activity-summary.js` so standalone terminal activity events such as `turn_cancelled` stay in stream followups instead of being folded into processed summaries.
+  - Added `scripts/audit-codex-activity-summary-rules.cjs` coverage: cancelled turns must not collapse into a processed summary and must keep the stopped status row visible.
+  - Local fixture verification passed after rebuild: dynamic-state audit `46` checks/`0` failed, virtual-scroll audit `12` checks/`0` failed, workspace-native-interactions audit `13` checks/`0` failed, grouping rules audit `4` checks/`0` failed, and activity summary rules passed.
+- 2026-07-06 reset of the alignment target: the earlier `exec_command xN`/child-command display is now classified as a deferred Codex Web enhancement, not official parity.
+- Any earlier checklist item or report that says the grouped command enhancement is intentionally retained is superseded by this section.
+- Current first-pass output must not visibly render `exec_command xN`, `[data-codex-tool-group-item]`, child command rows, or `write_stdin ...` in the official-alignment conversation view unless the live code-server extension shows the same row at the same text-anchored location.
+- Removed stale validation assets from the active audit path:
+  - `scripts/audit-codex-tool-shell.cjs`
+  - `reference/codex-reference/tool-shell-audit.json`
+  - `reference/codex-reference/tool-shell-audit.md`
+  - `reference/codex-reference/final-state-screenshots/collapsed-exec-command.png`
+  - `reference/codex-reference/final-state-screenshots/expanded-exec-command.png`
+- Updated active audit direction:
+  - disclosure collapse probes official-style rows (`已处理`/`Processed`/file activity/running state), not `exec_command xN`.
+  - virtual-scroll audit fails on grouped command child rows and command-enhancement text.
+  - completion audit no longer requires tool-shell evidence.
+- Next required evidence: live anchor-matched comparison for `https://code-tx.zelt.cn/?folder=/root` and `https://codex.zelt.cn/` at `1920x1080+`, starting with anchors `./build-all.sh`, `systemctl restart codex-web.service`, `GET / 返回 200`, and `GET /api/nodes 正常返回在线 agent: host-docker-agent`.
+- 2026-07-06 current pass update:
+  - Fixed a real thread-rendering correctness issue: thread view now renders events for `state.activeSessionId` even when the session list has not yet materialized that ID. Before this, external audit/open-session flows could fall back to `sessions[0]` and compare the wrong conversation.
+  - Hardened `scripts/audit-codex-live-anchor-alignment.cjs`:
+    - target pages are fresh by default and use an `anchorRun` URL parameter, then close after the run.
+    - CDP command timeout defaults to 30s for long-history anchor searches.
+    - scroll container selection is score-based and rejects stale/detached `0x0` scroll nodes.
+    - target/source comparison uses the matched anchor turn counts before viewport-wide counts.
+    - top-level turn selectors are preferred over nested `data-content-search-unit-key` nodes.
+    - when duplicate matching text exists, viewport-visible matches win over offscreen DOM-order matches.
+  - Verification passed locally:
+    - `node --check scripts/audit-codex-live-anchor-alignment.cjs`
+    - `node --check frontend/src/pages/codex/renderer.js`
+    - `./build-all.sh`
+    - `go test ./...` in `backend`
+    - `go test ./...` in `agent`
+    - fresh-target default live anchor audit `reference/live-anchor-alignment/20260706-104133/summary.json`: `0 failed`.
+  - Automatic source-discovered coverage is improved but not yet a final acceptance gate:
+    - latest report `reference/live-anchor-alignment/20260706-104147/summary.json`: `3 failed` out of `63` checks.
+    - remaining failures are target locating/timeouts for older source-discovered anchors, not confirmed UI/style diffs.
+    - important boundary: some source-discovered anchors from code-server were not found by direct `/api/sessions/.../events` scans across current target agent sessions, so future full-conversation acceptance must add a target API anchor preflight before treating a browser mismatch as a rendering failure.
+- 2026-07-06 settled process-turn correction:
+  - Added target API preflight to `scripts/audit-codex-live-anchor-alignment.cjs` so live anchor mismatches can distinguish missing target history from rendering failures.
+  - Confirmed report `reference/live-anchor-alignment/20260706-104813/summary.json`: default 4 live anchors passed with `0 failed`.
+  - Confirmed report `reference/live-anchor-alignment/20260706-104900/summary.json`: auto-discovered 12-anchor pass still had `3 failed`.
+    - Two failures were anchor-locating stability issues.
+    - One failure was a real parity issue: the source had one processed summary for anchor `现在首先,你先对浏览器截图,并进行下载,也就是下载网站html与css之类的`, while Codex Web rendered completed `exec_command` rows inline and had no processed summary in the matched turn.
+  - Fixed `frontend/src/pages/codex/activity-summary.js` so settled process turns without an explicit `final_answer` still collapse into the official processed-summary model.
+    - Completed tool/process events are counted as process events.
+    - Same-turn assistant commentary is merged into one assistant body.
+    - Running tool/process events still remain live and are not collapsed early.
+    - The official-alignment view no longer exposes completed raw `exec_command` rows for this turn shape.
+  - Added `scripts/audit-codex-activity-summary-rules.cjs` and wired it into `scripts/run-codex-panel-audits.ps1`.
+  - Local verification passed:
+    - `node --check frontend/src/pages/codex/activity-summary.js`
+    - `node --check scripts/audit-codex-activity-summary-rules.cjs`
+    - `node scripts/audit-codex-activity-summary-rules.cjs`
+    - `node --check scripts/audit-codex-live-anchor-alignment.cjs`
+    - `./build-all.sh`
+    - `go test ./...` in `backend`
+    - `go test ./...` in `agent`
+    - `node --check backend/public/dist/app/codex-web.js`
+  - Deployed UI commit `b751b94 fix: align settled codex process summaries` to the server and restarted `codex-web.service`.
+  - Live verification after deployment:
+    - default live anchor audit `reference/live-anchor-alignment/20260706-110138/summary.json`: `0 failed`.
+    - auto-discovered 12-anchor audit `reference/live-anchor-alignment/20260706-110258/summary.json`: reduced from `3 failed` to `2 failed`; the real processed-summary mismatch was gone, leaving only anchor-locating issues.
+  - Stabilized live anchor locating:
+    - raised CDP command timeout default to 60s for long-session scroll/search passes.
+    - after centering a matched anchor, the audit now re-searches near the current scroll position if virtualization moved the match out of view.
+    - latest auto-discovered 12-anchor audit `reference/live-anchor-alignment/20260706-110537/summary.json`: `0 failed`.
+- 2026-07-06 live anchor audit hardening and file-line reference correction:
+  - Found that broad file anchors such as `frontend/src/app.js` can match a different visible historical occurrence. Future evidence must prefer source-discovered windows or stable surrounding text, not generic filenames alone.
+  - Updated `scripts/audit-codex-live-anchor-alignment.cjs` so rendered anchor matching uses visible text only. Hidden collapsed tool output no longer counts as a matched UI anchor.
+  - Updated the target API preflight to accept generated labels such as `docs/file.md (line 61)` when the raw session text contains the markdown target path, while still requiring the rendered target to expose the visible label.
+  - Updated comparable semantic counts to use the visible matched window before the single matched turn, because the acceptance target is the browser-visible window.
+  - Added an internal evaluate time budget so long searches return structured failure instead of CDP timeout.
+  - Confirmed a real rendering gap: assistant text contains `[docs/chatgpt-extension-ui-parity-checklist.md](/root/code/codex-web/docs/chatgpt-extension-ui-parity-checklist.md:61)`, while Codex Web did not expose the official-style visible `docs/chatgpt-extension-ui-parity-checklist.md (line 61)` label.
+  - Fixed `frontend/src/pages/codex/utils.js` to derive visible `(line N)` labels from file-reference markdown targets ending in `:N` or `#LN`, matching the source code-server extension display.
+  - Added `scripts/audit-codex-markdown-reference-rules.cjs` and wired it into `scripts/run-codex-panel-audits.ps1`.
+  - Added `focusSeq` support to the internal `codex-web:open-session` event and exposed `data-history-last-seq` on the thread scroll container so live audits can load the history page containing a specific API-matched event before doing DOM/visual anchor matching.
+  - Updated the live anchor audit to derive a target event seq from API preflight matches and focus the Codex Web page on that seq before locating the rendered target anchor. This avoids treating old mid-history anchors as missing just because the default thread view opened at the latest messages.
+  - Updated the `focusSeq` frontend path to set the virtualized turn window around the grouped turn containing the target seq, so old anchors are rendered near the viewport before DOM matching starts.
+  - Updated the `focusSeq` frontend path to fetch a nearby history page with `beforeSeq=focusSeq+1` and a larger audit-sized limit before falling back to incremental older-page loading. This avoids requiring dozens of 100-event history pages for mid-session anchors.
+  - Corrected the nearby history fetch to include events after the focused assistant message as well as before it. This is required because official-style processed summaries commonly arrive immediately after the final assistant event.
+  - Confirmed another real visible mismatch from anchor `现在首先,你先对浏览器截图...`: code-server renders local file paths in assistant text as inline file mentions, while Codex Web left them as plain text. Fixed `frontend/src/pages/codex/utils.js` so plain local file paths with extensions render through the same file-reference UI. Directory paths remain plain text.
+  - Extended `scripts/audit-codex-markdown-reference-rules.cjs` to cover plain local file paths and directory non-promotion.
+  - Removed swallowed focus errors in the live anchor audit. If Codex Web cannot load a history range containing the target API seq, the report now fails on that focus condition instead of continuing into a misleading scroll search.
+  - Local verification passed:
+    - `node --check frontend/src/pages/codex/utils.js`
+    - `node --check frontend/src/pages/codex/index.js`
+    - `node --check frontend/src/pages/codex/renderer.js`
+    - `node --check scripts/audit-codex-live-anchor-alignment.cjs`
+    - `node --check scripts/audit-codex-markdown-reference-rules.cjs`
+    - `node scripts/audit-codex-grouping-rules.cjs`
+    - `node scripts/audit-codex-activity-summary-rules.cjs`
+    - `node scripts/audit-codex-markdown-reference-rules.cjs`
+    - PowerShell parse check for `scripts/run-codex-panel-audits.ps1`
+    - `./build-all.sh`
+    - `go test ./...` in `backend`
+    - `go test ./...` in `agent`
+    - `node --check backend/public/dist/app/codex-web.js`
+- 2026-07-06 inline-code file mention correction:
+  - Re-ran the 12-anchor live report investigation for `reference/live-anchor-alignment/20260706-122940/summary.json`.
+  - Confirmed the remaining failure was not stale stored HTML. The matching target event `seq=6753` has `kind=assistant_message`, `htmlLen=0`, and file paths only in `text`.
+  - Root cause: the official source renders backticked absolute local file paths such as `` `/root/codex-web-browser/captures/.../screenshot.png` `` as inline file mentions, while Codex Web rendered all backticked content as plain inline code before file-reference parsing could run.
+  - Updated `frontend/src/pages/codex/utils.js` so backticked file paths render through the existing official-style `data-file-reference` inline mention UI.
+  - Guarded against over-promotion: single-segment relative executable paths such as `` `./build-all.sh` `` and directory paths remain inline code, not file mentions.
+  - Extended `scripts/audit-codex-markdown-reference-rules.cjs` to cover backticked absolute file paths, backticked directories, and backticked command paths.
+  - Local verification passed:
+    - `node --check frontend/src/pages/codex/utils.js`
+    - `node --check frontend/src/pages/codex/index.js`
+    - `node --check frontend/src/pages/codex/renderer.js`
+    - `node --check scripts/audit-codex-live-anchor-alignment.cjs`
+    - `node scripts/audit-codex-markdown-reference-rules.cjs`
+    - `node scripts/audit-codex-grouping-rules.cjs`
+    - `node scripts/audit-codex-activity-summary-rules.cjs`
+    - `go test ./...` in `backend`
+    - `go test ./...` in `agent`
+    - `C:\Program Files\Git\bin\bash.exe ./build-all.sh`
+    - `node --check backend/public/dist/app/codex-web.js`
+    - `git diff --check`
+  - Next required evidence after deployment: rerun `DISCOVER_SOURCE_ANCHORS=1 DISCOVER_MAX_ANCHORS=12 TARGET_FRESH=1 node scripts/audit-codex-live-anchor-alignment.cjs` and confirm the previous `source=3,target=0` file-reference failure is gone.
+- 2026-07-06 deployed inline-code file mention correction and reran live evidence:
+  - Pushed and deployed `bc0d62b fix: render backticked file references` to `/root/code/codex-web`.
+  - Server build and restart succeeded: `codex-web.service` active at commit `bc0d62b`.
+  - Confirmed the deployed app JS contains `parseInlineCodeFileReference`.
+  - First post-deploy 12-anchor report `reference/live-anchor-alignment/20260706-123918/summary.json` proved the original file-reference bug was fixed:
+    - old failure for anchor `现在首先,你先对浏览器截图...`: `source=3,target=0`
+    - new result for the same anchor: `source=3,target=8`
+  - Hardened `scripts/audit-codex-live-anchor-alignment.cjs` after post-fix evidence:
+    - `matchingTurn(true)` now returns only currently visible matches instead of falling back to an offscreen match.
+    - centering uses `scrollIntoView({ block: "center" })` before manual scroll deltas.
+    - `inViewport` now rejects detached/zero-size virtualized nodes.
+    - if centering causes virtualization to detach the matched node, the audit reruns the scroll-position search and uses a fresh DOM node.
+    - file-reference parity checks now require source-window file mentions only when they are relevant to the matched anchor: the anchor scope has file mentions, or the matched source/target text itself contains a local file path.
+  - Final 12-anchor live audit passed:
+    - `DISCOVER_SOURCE_ANCHORS=1 DISCOVER_MAX_ANCHORS=12 CAPTURE_SCREENSHOT=0 TARGET_FRESH=1 node scripts/audit-codex-live-anchor-alignment.cjs`
+    - report: `reference/live-anchor-alignment/20260706-124706/summary.json`
+    - result: `76 checks`, `12 anchors`, `0 failed`
+
+## Reference Sources
+- Live code-server extension UI: `https://code-tx.zelt.cn/?folder=/root`
+- Live Codex Web UI: `https://codex.zelt.cn/`
+- Server-side extension source/assets:
+  - `/root/code/codex-web/reference/extension-source/openai.chatgpt-26.5623.31443`
+  - mirrored repo path: `reference/extension-source/openai.chatgpt-26.5623.31443`
+- Current implementation areas:
+  - `frontend/src/pages/codex/renderer.js`
+  - `frontend/src/pages/codex/activity-summary.js`
+  - `frontend/src/pages/codex/lifecycle.js`
+  - `frontend/src/pages/codex/virtualizer.js`
+  - `frontend/src/pages/codex/panel-shadow.css`
+  - `agent/internal/session/history.go`
+
+## Capture Plan
+- [x] Open code-server in Windows Chrome at `1920x1080` or larger, with ChatGPT/Codex extension moved to/opened from the left Activity Bar icon and the same long session selected.
+- [x] Confirm the right chat/auxiliary sidebar is closed before capture. If the Codex UI is still only available as a right-side chat tab, fix the UI placement first and do not capture.
+- [x] Run a preflight validation before saving reference data: viewport >= `1920x1080`, right auxiliary/sidebar hidden, left Activity Bar Codex icon selected, visible panel is Codex conversation/session UI, not Explorer/welcome.
+- [x] Open Codex Web in a separate tab/window with the same long session selected.
+- [x] Attach CDP/Playwright to both pages and identify the actual scroll container and rendered virtual turn nodes.
+- [x] For each visible virtual window, capture:
+  - DOM subtree HTML for each rendered turn/disclosure.
+  - class names and data attributes.
+  - computed styles for summary rows, tool rows, file references, assistant messages, user bubbles, icons, details body, and code/output blocks.
+  - bounding boxes, spacing, font family/size/line-height, color, border radius, border, background, and box-shadow.
+  - open/closed state, hover state, and running/thinking state if available.
+- [x] Scroll through the whole long session by virtual page boundaries:
+  - capture first visible seq/turn key and last visible seq/turn key per chunk.
+  - avoid duplicate chunks.
+  - wait for virtualization settle before each capture.
+- [x] Save raw capture output under a new timestamped folder, for example:
+  - `reference/collapse-alignment/YYYYMMDD-HHMMSS/source-code-server/`
+  - `reference/collapse-alignment/YYYYMMDD-HHMMSS/target-codex-web/`
+  - `reference/collapse-alignment/YYYYMMDD-HHMMSS/diff/`
+
+## Final Acceptance Protocol
+- [ ] Open `https://code-tx.zelt.cn/?folder=/root`, enter the same long Codex conversation, and verify the Codex extension is shown from the left Activity Bar with the right chat/auxiliary sidebar closed.
+- [ ] Open `https://codex.zelt.cn/` on node `host-docker-agent`, enter the same long conversation, and keep the viewport at `1920x1080` or larger.
+- [ ] Compare in reverse chronological order because both products initially show the latest part of the conversation. Scroll upward window by window from the latest content.
+- [ ] For every sampled source window, record stable text anchors and locate the same window in Codex Web using those anchors. Example anchors from the current failing region:
+  - `./build-all.sh`
+  - `systemctl restart codex-web.service`
+  - `GET / 返回 200`
+  - `GET /api/nodes 正常返回在线 agent: host-docker-agent`
+- [ ] Treat anchor matching as the first gate. If Codex Web is not showing the same conversation region as code-server, do not compare screenshots yet.
+- [ ] Once the same region is matched, compare rendered grouping and style:
+  - user bubble placement and spacing.
+  - assistant markdown layout and inline code styling.
+  - processed/worked collapse header placement.
+  - changed-files/diff/resource cards.
+  - file rows, counters, show-more rows, icons, and action buttons.
+  - collapsed and expanded state for every visible `已处理` or other disclosure.
+- [ ] For each `已处理`/collapsible row in the source window, expand the corresponding code-server control, expand the corresponding Codex Web control, and compare the inside body style and grouping as well as the collapsed state.
+- [ ] The previous Codex Web-only command rows such as `exec_command x3`, child command rows, and `write_stdin ...` must not appear as visible conversation content for this first official-alignment pass unless the official extension shows the same rows in the same position.
+- [ ] Save final evidence for each matched window: source screenshot, target screenshot, source DOM/computed-style sample, target DOM/computed-style sample, anchor text list, and pass/fail notes.
+- [ ] Final pass covers the whole long conversation by reverse scroll windows, not only the current latest viewport.
+- [ ] Maintain a coverage manifest for the full long-conversation pass. Each entry must include source anchor text, target anchor text, source scroll/window identity, target scroll/window identity, collapsed-state result, expanded-state result when applicable, and code paths touched or confirmed.
+- [ ] Do not mark final acceptance complete until every reachable source window in the long conversation has either a matched passing target window or a documented blocker still open.
+
+## Rules To Reverse-Engineer
+- [x] Turn grouping: which events belong under one user turn, and when a new user turn starts.
+- [x] Process summary row:
+  - when `processed XXs/m` appears.
+  - whether it appears for completed turns only.
+  - how final assistant content is separated from process details.
+  - whether explicit reasoning summaries override generated duration labels.
+- [x] Tool aggregation:
+  - whether repeated tool calls show as `exec_command xN`, separate rows, or nested rows.
+  - how tool outputs attach to corresponding calls via call id.
+  - default collapsed/open state for tool details.
+  - which output fields are hidden, previewed, truncated visually, or expanded.
+- [x] File/reference display:
+  - file icon, filename/path styling, changed-file rows, diff cards, created/edited/deleted labels.
+  - inline file link style in assistant markdown.
+- [x] Running states:
+  - [x] thinking shimmer/spinner style and animation.
+  - [x] currently running command row style.
+  - [x] transition from running to completed turn.
+- [x] Error/cancel states:
+  - [x] error color, row label, disclosure behavior.
+  - [x] cancelled/interrupted turn display.
+- [x] Virtualization interaction:
+  - whether collapsed heights are estimated differently from expanded heights.
+  - scroll anchoring when older history loads.
+  - no overlay/overlap between long collapsed content and following turns.
+
+## Implementation Mapping
+- [x] Map captured extension event/state concepts to our agent events:
+  - `summary`
+  - `tool_call`
+  - `tool_output`
+  - `assistant_message`
+  - `user_message`
+  - `turn_started`
+  - `turn_completed`
+  - `turn_cancelled`
+  - `stderr/stdout/error`
+- [x] Agent tool-call status mapping:
+  - live `response_item:function_call` events are emitted as `tool_call` with `data.status=running`.
+  - history-replayed `response_item:function_call` events remain `data.status=completed`.
+  - `tool_output` carries terminal status such as `completed` or `failed` and binds to calls by `call_id`.
+  - raw CLI `status` and `exit_code` metadata are preserved when present.
+- [x] Decide whether missing metadata should be added in agent parsing rather than faked in frontend.
+- [x] Update `activity-summary.js` only after source-backed grouping rules are known.
+- [x] Update completed-turn summary and tool-call disclosure markup away from native `details/summary` to the official-style `group/activity-header` + animated body structure from extension source.
+- [x] Continue updating `renderer.js` markup/classes only by copying/adapting captured patterns for visible summary/activity/file rows.
+- [x] Update `panel-shadow.css` only for adapter gaps not covered by official CSS/captured assets.
+- [x] Update `virtualizer.js` estimates if real collapsed/expanded heights require it.
+
+## Verification Gates
+- [x] `node --check` on touched frontend JS files and final built `backend/public/dist/app/codex-web.js`.
+- [x] Superseded: grouped command shell audit is removed from the active official-alignment gate.
+  - Completed-turn `exec_command xN`, child command rows, and `write_stdin ...` are not an official-parity requirement for this pass.
+  - The old `tool-shell` audit and final screenshots that validated that enhancement were deleted from the active path.
+  - Any future command-display enhancement must be separately gated and must not affect official-alignment screenshots or audits.
+- [x] Disclosure collapse audit:
+  - official `ToolActivityDisclosure` source snippets present.
+  - collapsed bodies keep DOM text but expose no visible text or visible descendants.
+  - collapsed bodies use `aria-hidden=true`, `inert`, `height:0`, `opacity:0`, `pointer-events:none`, and `overflow-hidden`.
+  - expanded bodies switch back to visible height/text with `aria-hidden=false`, no `inert`, and `overflow-visible`.
+- [x] File/diff audit:
+  - official local conversation turn source snippets present for diff card header, row, show-more, and collapse labels.
+  - official markdown/app CSS snippets present for inline file mention classes.
+  - local reference fixture contains official-style diff card, file rows, path split, counters, show-more row, and inline file mention.
+- [x] Dynamic state audit:
+  - official thinking-shimmer and activity-header source snippets present.
+  - thinking shimmer uses the captured cadenced shimmer sweep/highlight classes.
+  - running file activity keeps the official shimmer header/body behavior.
+  - running `exec_command` with shell args renders the official shell block, visible command text, preserved `running` status, and in-progress footer.
+  - completed transition command rows are hidden in the official-alignment view.
+  - failed shell output preserves `failed` status and renders `Exit code 1`.
+  - error events render as non-shimmer official-style activity disclosures with error-tone icon/label/status and collapsed details.
+  - cancelled turns render a non-shimmer `Stopped` status row and hide stale running activity from the cancelled turn.
+- [x] `go test ./...` in `agent` if event parsing changes.
+- [x] `go test ./...` in `backend` if API/session behavior changes.
+- [x] `./build-all.sh`.
+- [x] Playwright/CDP comparison report for the long session:
+  - code-server chunks captured.
+  - Codex Web chunks captured.
+  - mismatches grouped by rule category, not just screenshot symptom.
+- [x] Collapse capture validity audit:
+  - source and target viewport are at least `1920x1080`.
+  - code-server source has Codex selected in the left Activity Bar.
+  - right chat/auxiliary sidebar is closed.
+  - source and target selected frames expose conversation, composer, user bubbles, and assistant markdown.
+  - source and target virtual scroll captures have multiple nonblank windows.
+  - target real-agent capture includes processed summaries, activity headers, tool disclosures, file references, and the history prepend path.
+- [x] Collapse window rules audit:
+  - every captured visible turn has computed-style evidence.
+  - every captured visible turn has DOM signature evidence.
+  - every captured visible turn has semantic selector counts/samples.
+  - turn grouping validates parent/content/user/assistant relationships.
+  - processed-summary and file-reference windows are present on both source and target.
+  - target activity headers and tool disclosures are present and consistently covered per window.
+- [x] Final screenshots for at least:
+  - completed turn with processed-time summary.
+  - file/diff reference styling.
+  - running/thinking state if reproducible.
+- [ ] Live anchor alignment after deployment:
+  - code-server and Codex Web resolve the same text anchors in the long session.
+  - target windows contain no visible Codex Web-only command enhancement rows.
+  - target windows expose processed summaries and file references whenever the source window does.
+
+## Initial Known Problems
+- [x] Completed turns no longer convert normal assistant process text into tool/activity rows.
+- [x] Superseded: `exec_command xN` grouping was previously retained as a Codex Web enhancement, but the 2026-07-06 first-pass official parity target now removes it from visible output and removed the `tool-shell` audit path.
+- [x] File/reference styling inside conversation matches the captured `_tableCellFileLink_lzkx4_413` inline mention structure for the current long-session window.
+- [x] Changed-file diff card rows now have a repeatable source-backed audit for header, file rows, show-more/collapse affordance, and inline file references.
+- [x] Collapsed rows preserve the captured visible summary text for the current long-session window.
+- [x] Generated `已处理 <duration>` rows are restored for completed turns with real process/tool signals and a final assistant message, so live agent history without explicit summary events still matches the code-server processed-summary row.
+- [x] Superseded: Codex Web-specific command-detail markup is no longer an active official-alignment path. Command display may return only as a separately gated enhancement after official parity is proven.
+- [x] Fixed a real 100-event pagination trigger bug: older pages are now requested even when the first scroll event only changes the virtualized window.
+- [x] Capture text/count sampling now treats collapsed official-style disclosure bodies as hidden instead of counting their retained DOM text as visible content.
+
+## Reopened Issues From User Visual Review
+- [ ] Official turn model grouping is still not proven against the failing real windows.
+  - Source of truth is the official extension model in `local-conversation-turn-*.js`: a turn is not plain chronological rendering. It separates user items, activity/process items, worked/processed collapse header, final assistant item, and post-assistant items.
+  - Expected order for completed process turns: user message, processed/worked collapse header, collapsible process details, then the final assistant body.
+  - Intermediate assistant/process narration must not appear as normal assistant body above the `已处理 <duration>` row.
+  - Final assistant body must come from explicit final-answer semantics such as `phase=final_answer`; fallback logic must not promote process narration or leave process text in the main stream when a final answer exists.
+  - The previous Codex Web `exec_command xN` enhancement is no longer allowed during the first official-alignment pass. It can be reconsidered only after exact source parity is proven and documented.
+- [ ] Changed-file and diff/resource cards are not aligned with the official extension.
+  - User screenshot shows Codex Web rendering CSS/code/file-change text as plain assistant markdown.
+  - Official extension renders the equivalent state as a block card like `已编辑 N 个文件`, with file rows, additions/deletions counters, show-more/collapse affordance, and review/open actions.
+  - Right-side diff viewer/open-file behavior is deferred, but the conversation card style and grouping must be source-backed and visible in the left conversation pane.
+  - Do not parse arbitrary markdown into a fake card as a shortcut. First inspect the CLI/agent events and official extension source/DOM to identify the real file/diff resource model or the closest stable metadata boundary.
+- [ ] Remove the Codex Web-only command display from visible official-alignment output.
+  - Rows such as `exec_command xN`, child command rows, and `write_stdin ...` must not be rendered as visible conversation content unless the official code-server extension renders the same row in the same source window.
+  - Do not keep the command rows inside `已处理` for now. The goal of this pass is exact official extension grouping, collapse, and style behavior.
+  - If command-display enhancement is reintroduced later, it must be behind a separate explicit enhancement mode and must not affect official-alignment screenshots or audits.
+- [ ] Audit and clean up previous alignment implementation code while fixing mismatches.
+  - Review `frontend/src/pages/codex/renderer.js`, `activity-summary.js`, `lifecycle.js`, `virtualizer.js`, `panel-shadow.css`, fixtures, and alignment audit scripts for earlier invented or now-invalid logic.
+  - Classify each suspect path as: official-source-backed and required, adapter glue required for our data shape, enhancement deferred, or wrong/obsolete.
+  - Remove or rewrite wrong/obsolete paths in the current tree. Do not preserve incorrect behavior for backward compatibility because this project is still in development.
+  - Do not delete commits or rewrite history for this cleanup. The cleanup happens as normal code changes on top of the current branch.
+  - Every cleanup decision must be tied back to browser evidence, official extension source/DOM, or actual agent event data.
+- [ ] Long-session scrolling still has a live user-visible instability.
+  - User reports that scrolling upward in the large real session flashes and becomes hard or impossible to continue scrolling.
+  - Reproduce on `https://codex.zelt.cn/` with node `host-docker-agent` and session `019f0a04-7f0b-7483-8bc4-18f214a5c8f1` at `1920x1080` or larger.
+  - Capture manual/CDP evidence: console errors, scroll container, `scrollTop`, rendered virtual window, pending history request state, anchor restoration state, and whether the same window is repeatedly re-rendering.
+  - Fix root cause in virtualization/pagination/anchor restoration. Do not solve this by trimming message content, clipping history, or hiding real turn content.
+- [ ] Existing audits must be tightened because previous passing reports missed these visual/semantic failures.
+  - Add a window-level rule that fails if visible process narration appears before the processed/worked collapse header for a completed turn with a final assistant message.
+  - Add a rule that fails when source shows an edited-files/diff card but target shows the same region as plain code/text.
+  - Add a rule that fails when Codex Web-only command rows such as `exec_command xN`, child command rows, or `write_stdin ...` appear in the official-alignment target window while the source extension does not show them.
+  - Add an anchor-matched reverse-scroll rule: the source and target screenshots must be from the same text-anchored conversation region, for example the window anchored by `./build-all.sh`.
+  - Add a full-coverage rule: the report must prove the reverse-scroll pass reached every source window in the long conversation, not just representative samples.
+  - Add a code-cleanup rule: every touched renderer/grouping/virtualization path must be classified as source-backed required code, adapter glue, deferred enhancement, or removed obsolete code.
+  - Add a scroll stability rule that detects oscillating scroll restoration, repeated identical virtual windows during upward scrolling, and excessive re-render flashes.
+  - Add a browser-runtime gate for every fixed rule: open both real pages, navigate to the same turn/window, and record screenshot plus DOM/computed-style evidence showing the grouping and visible style are actually correct.
+  - Final approval requires browser screenshots plus DOM/computed-style evidence from the exact failing windows, not code-only proof and not fixture-only proof.
+
+## Progress Log
+- 2026-07-06:
+  - Started the first official-parity cleanup pass after user review reopened the command grouping issue.
+    - Removed the active `exec_command xN` grouping render path from `frontend/src/pages/codex/activity-summary.js` and `frontend/src/pages/codex/renderer.js`.
+    - Removed stale `tool-shell` audit assets and screenshots that validated the now-deferred command enhancement.
+    - Reworked disclosure/virtual-scroll/dynamic/event-mapping audits so completed command output is hidden for official alignment, while running-state evidence remains covered separately.
+    - Added `scripts/audit-codex-live-anchor-alignment.cjs` for source/target text-anchor comparison against the real code-server extension and Codex Web.
+    - Fixed live-anchor probe stability: CDP command timeouts, no `requestAnimationFrame` dependency inside code-server webviews, and per-anchor failure capture.
+    - Local fixture audit passed with `scripts/run-codex-panel-audits.ps1` on `http://127.0.0.1:58889/?codexFixture=reference`.
+    - Live anchor precheck: `reference/live-anchor-alignment/20260706-092650/summary.json`.
+      - Source code-server found all four anchors.
+      - Target Codex Web found all four anchors but failed all four `no command enhancement rows` checks because live `https://codex.zelt.cn/` still serves the old build with visible `exec_command` text.
+      - Next step before final live visual comparison: deploy current local build to `codex.zelt.cn`, then rerun live-anchor audit with screenshots enabled and continue full reverse-scroll coverage.
+  - Historical log boundary: entries below this point may mention the now-deferred `tool-shell` audit, grouped `exec_command xN` enhancement, and old final screenshots. They are retained as history only and must not be used as the current official-alignment target.
+  - Added and deployed a completion-oriented read-only audit for the full controller + agent + UI evidence chain.
+    - Found a real live deployment gap while writing the audit: direct `http://127.0.0.1:58888/api/sessions/events?...` streamed immediately, but public `https://codex.zelt.cn/api/sessions/events?...` returned no bytes through nginx until timeout.
+    - Fixed the controller SSE response by setting `X-Accel-Buffering: no` in `backend/internal/server/sessions.go`; `backend/internal/server/sessions_test.go` now locks this header, and `scripts/audit-codex-system-architecture.cjs` includes it as a system architecture gate.
+    - Deployed `523c2f6` to `/root/code/codex-web`; server-side `./build-all.sh` passed and `codex-web.service` restarted active.
+    - Public SSE verification now returns headers/body immediately for `https://codex.zelt.cn/api/sessions/events?nodeId=host-docker-agent&sessionId=019f0a04-7f0b-7483-8bc4-18f214a5c8f1&lastSeq=0&limit=1`.
+    - New script `scripts/audit-codex-completion.cjs` passed with `26` checks and `0` failed, covering static reports plus live controller root, hidden fixture asset, online `host-docker-agent`, long-session event paging, tool activity, and SSE stream response.
+    - `scripts/run-codex-panel-audits.ps1` now syntax-checks the completion audit script; `README.md` documents the post-deploy completion audit command.
+- 2026-07-06:
+  - Continuation audit after agent history parser support for newer `response_item` payloads.
+    - Reconfirmed the reference capture boundary remains mandatory for future UI work: Windows Chrome/CDP, at least `1920x1080`, Codex opened from the left Activity Bar icon, and the right chat/auxiliary sidebar closed.
+    - Updated `scripts/audit-codex-event-mapping.cjs` so it validates both `function_call/function_call_output` and `tool_call/tool_call_output` response-item payload names.
+    - Updated the same audit to validate the current active-turn-safe manager path: stdout/stderr/turn_started go through `appendEventForTurn(sessionID, turnID, ...)`, and `turn_completed` is appended atomically through `setStatusAndAppendEventsForTurn`.
+    - Verification passed: `node --check scripts/audit-codex-event-mapping.cjs`, `node scripts/audit-codex-event-mapping.cjs`, and `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-codex-panel-audits.ps1` with local codex-web running in fixture audit mode.
+    - Added `__pycache__/` to `.gitignore` because the Python audit helpers create local bytecode caches.
+- 2026-07-06:
+  - Real long-session capture at `1920x1080` with source Codex selected in the left Activity Bar and the right auxiliary/chat sidebar closed:
+    - API confirmed session `019f0a04-7f0b-7483-8bc4-18f214a5c8f1` returns the latest `100` events with `hasMoreBefore=true` (`firstSeq=7212`, `lastSeq=7311`).
+    - Initial capture using the default `30s` CDP timeout failed during target scroll chunk collection; rerunning with a longer timeout captured source and target surfaces successfully.
+    - Target page reached the top of the loaded window, but no `/api/sessions/.../events?beforeSeq=...` request was observed and no history loader appeared, so the long-session prepend path was not proven.
+    - Implemented render-after-scroll-edge notification in `frontend/src/pages/codex/renderer.js` so top-edge pagination is checked again after virtualizer re-renders or scroll restoration.
+    - Updated `scripts/capture-collapse-alignment.cjs` so real long-session capture has a timeout budget proportional to scroll windows and does not mark history stable before delayed loader work can start.
+    - Updated `scripts/audit-codex-collapse-capture.cjs` so the history-prepend gate accepts virtualized evidence via scroll-height growth, not only raw DOM turn-count growth.
+    - Follow-up fixes after live capture showed the top-edge path still depended on foreground-tab timing:
+      - History pagination now derives loadability from loaded `firstSeq > 1` as well as `hasMoreBefore`, with `exhaustedBefore` preventing retry loops.
+      - Thread history edge detection now has observer and lightweight polling fallbacks.
+      - Programmatic scroll suppression and scroll restoration no longer depend only on `requestAnimationFrame`, which is unreliable in background/CDP tabs.
+      - Virtualizer empty-window correction moves the scroll position to the nearest rendered turn if prepend height estimates leave the viewport blank.
+    - Verified on live `https://codex.zelt.cn/` against session `019f0a04-7f0b-7483-8bc4-18f214a5c8f1`:
+      - `reference/collapse-alignment/20260706-013819` captured source and target at `1920x1080` with the source Codex view in the left Activity Bar and the right auxiliary/chat sidebar closed.
+      - `collapse-capture-audit` passed `31/31`; target history prepend was exercised with `turnCount 72 -> 118`, `scrollHeight 29506 -> 81799`, and `firstSeq 7212 -> 7112`.
+      - `collapse-window-rules-audit` passed `25/25`; no blank target windows remained and every visible target turn had style, DOM signature, and semantic selector evidence.
+- 2026-07-06:
+  - Continuation verification after `364297e test: add root go test wrapper`:
+    - Local worktree started clean on `main...origin/main`.
+    - Local controller was running at `http://127.0.0.1:58888`; it intentionally had no local agent nodes in this Windows development state.
+    - Server check over `tencent-cloud` confirmed `/root/code/codex-web` at `364297e`, `codex-web.service` active, and `/api/nodes` returning online `host-docker-agent`.
+    - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-codex-panel-audits.ps1` passed end-to-end. This now covers source alignment, session sequencing, SSE reconnect, system architecture, workspace layout, DOM structure, markup, computed styles, dynamic states, event mapping, tool shell, disclosure collapse, disclosure anchor, file/diff, and the latest collapse capture/window-rule audits.
+    - Latest generated reports from that run include: session sequencing `7/7`, SSE reconnect `9/9`, system architecture `32/32`, dynamic state `46` checks/`0` failed, event mapping `32` checks/`0` failed, tool shell `23` checks/`0` failed, disclosure collapse `27` checks/`0` failed, disclosure anchor `7` checks/`0` failed, file/diff `39` checks/`0` failed, collapse capture `31` checks/`0` failed, and collapse window rules `25` checks/`0` failed.
+    - The current DOM/markup gates accept `exact` or source-backed `compatible` rows. `compatible` is not a failure; it means the captured primitive or required semantic selectors survive after stripping explicit Codex Web adapter carrier classes.
+  - Re-verified the deployed disclosure-anchor fix with a fresh full live source/target capture.
+    - Deployed commit under test: `2a1df0d fix: keep disclosure expansion anchored`.
+    - `scripts/capture-collapse-alignment.cjs` now syncs each captured page record to the actual post-navigation `location.href`, so reports no longer mix the stale target tab URL with the fresh `captureRun` URL.
+    - Fresh capture `reference/collapse-alignment/20260705-231753` used Windows Chrome/CDP at `1920x1080`; source code-server had Codex selected from the left Activity Bar, source sidebar width `611px`, and right auxiliary/chat sidebar closed.
+    - Target actual URL was `https://codex.zelt.cn/?captureRun=20260705-231753&nodeId=host-docker-agent`; it opened the real long session from `host-docker-agent`.
+    - `scripts/audit-codex-collapse-capture.cjs`: `31` checks, `0` failed. Evidence includes source unique windows `13`, target unique windows `8`, target activity headers `9`, target tool disclosures `20`, target file references `6`, and target history prepend exercised.
+    - `scripts/audit-codex-collapse-window-rules.cjs`: `25` checks, `0` failed. Evidence includes source style/signature/semantic evidence `72/72`, target style/signature/semantic evidence `83/83`, source processed-summary windows `14`, target processed-summary windows `2`, and no turn-grouping rule violations.
+  - Fixed disclosure expansion scroll anchoring for long virtualized conversations.
+    - Live CDP probe on `https://codex.zelt.cn/` showed `exec_command x3` expanded correctly but the clicked disclosure could be pushed off-screen after render because the old restore path preserved `scrollHeight` delta instead of the clicked row.
+    - `frontend/src/pages/codex/index.js` now preserves the clicked `data-disclosure-toggle` row position relative to the thread scroll container after disclosure re-render.
+    - `scripts/audit-codex-disclosure-collapse.cjs` now verifies that an in-viewport disclosure remains anchored after expansion; latest local fixture evidence kept the toggle at `top=199` with `expandDeltaTop=0`.
+    - `scripts/run-codex-panel-audits.ps1` now defaults to explicit `?codexFixture=reference`, because production no longer falls back to fake sessions when the local controller has no agent.
+    - Verification passed: `node --check frontend/src/pages/codex/index.js`, `node --check scripts/audit-codex-disclosure-collapse.cjs`, `./build-all.sh`, local service restart, `node scripts/audit-codex-disclosure-collapse.cjs` (`0` failed), and `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-codex-panel-audits.ps1`.
+  - Hardened the collapse-alignment capture guard for the user's latest reference constraints.
+    - `scripts/capture-collapse-alignment.cjs` now only collects selected activity items from the left Activity Bar, not arbitrary `[role=tab]` elements elsewhere in code-server.
+    - Capture preflight now requires the selected left Activity Bar item itself to look like Codex/ChatGPT/OpenAI; sidebar/editor text can no longer accidentally satisfy this condition.
+    - `scripts/audit-codex-collapse-capture.cjs` now audits the same structured selected-activity evidence.
+    - Verification passed: `node --check scripts/capture-collapse-alignment.cjs`, `node --check scripts/audit-codex-collapse-capture.cjs`, and `node scripts/audit-codex-collapse-capture.cjs` against the latest `1920x1080` capture.
+  - Re-captured the real code-server/Codex Web long-session alignment after the stricter guard.
+    - Server repository `/root/code/codex-web` was fast-forwarded to `6ac6440`; running `codex-web.service` stayed active and the `codex-web-agent` container stayed up.
+    - Fresh capture `reference/collapse-alignment/20260705-221356` succeeded with Windows Chrome/CDP at `1920x1080`, source left Activity Bar selected item `Codex`, source sidebar width `611px`, and right auxiliary/chat sidebar closed.
+    - `scripts/audit-codex-collapse-capture.cjs`: `31` checks, `0` failed. Evidence includes source unique windows `14`, target unique windows `8`, target activity headers `19`, target tool disclosures `40`, and target history prepend exercised.
+    - `scripts/audit-codex-collapse-window-rules.cjs`: `25` checks, `0` failed. Evidence includes source style/signature/semantic evidence `99/99`, target style/signature/semantic evidence `83/83`, source processed-summary windows `11`, target processed-summary windows `2`, and no turn-grouping rule violations.
+  - Tightened scroll-window semantic coverage so it measures the current viewport instead of the whole rendered DOM.
+    - `scripts/capture-collapse-alignment.cjs` now records per-window `counts` from the visible turn nodes only; whole-document selector totals are kept separately as `documentCounts` for debugging.
+    - Viewport selector counts are de-duplicated by DOM node so nested turn wrappers cannot count the same activity, tool disclosure, or file reference multiple times.
+    - This prevents repeated global activity/tool totals from making every scroll window look covered when only one part of the rendered DOM contains those rows.
+    - Verification capture `reference/collapse-alignment/20260705-222049` passed `collapse-capture-audit` (`31` checks, `0` failed) and `collapse-window-rules-audit` (`25` checks, `0` failed) with de-duplicated viewport-scoped counts.
+  - Deployed latest `main` to the live server and verified the real controller/agent path after long-connection reliability fixes.
+    - Server repository `/root/code/codex-web` fast-forwarded from `009ff13` to `c7f8306`.
+    - Server-side `./build-all.sh` succeeded and emitted `build/codex-web` plus `build/codex-agent`.
+    - Server-side `./scripts/build-agent-image.sh` rebuilt `codex-web-agent:local` from the lightweight proxy Alpine base.
+    - `codex-web.service` restarted and reported `active`; `codex-web-agent` was recreated and reported `Up`.
+    - Public `GET https://codex.zelt.cn/api/nodes` returned online node `host-docker-agent`.
+    - Public `GET https://codex.zelt.cn/api/sessions?nodeId=host-docker-agent` returned the persisted real session list, including long session `019f0a04-7f0b-7483-8bc4-18f214a5c8f1` with `lastSeq=7207`.
+    - Public controller-to-agent-to-Codex CLI smoke passed: created session `session-1783288504159556467`, prompt `Reply exactly DEPLOY_OK_C7F8306. Do not use tools.`, assistant response `DEPLOY_OK_C7F8306`, events `2`, lastSeq `2`.
+    - Public SSE smoke passed on the same session: opened `/api/sessions/events?nodeId=host-docker-agent&sessionId=session-1783288504159556467&lastSeq=2`, sent prompt `Reply exactly SSE_OK_C7F8306. Do not use tools.`, received streamed assistant response `SSE_OK_C7F8306`, events seen `4`, seq `6`.
+  - Re-ran the post-deployment live source/target collapse capture after commit `009ff13`.
+    - Required reference boundaries were satisfied and remain non-negotiable: Windows Chrome/CDP viewport `1920x1080`, code-server Codex selected from the left Activity Bar, right auxiliary/chat sidebar closed, and source sidebar width `611px`.
+    - Initial live capture `reference/collapse-alignment/20260705-202325` failed only because target scroll-window sampling exceeded the CDP command timeout on the long session; it did not fail the reference placement constraints.
+    - Optimized `scripts/capture-collapse-alignment.cjs` so scroll-window collection first uses lightweight rect/key data and only captures full computed-style, DOM-signature, semantic, and text evidence for the current viewport turns. This keeps the same evidence required by the audits without deep-walking every rendered turn for every scroll chunk.
+    - Fresh live capture `reference/collapse-alignment/20260705-202715` succeeded against `https://codex.zelt.cn/?nodeId=host-docker-agent` and session `019f0a04-7f0b-7483-8bc4-18f214a5c8f1`.
+    - `scripts/audit-codex-collapse-capture.cjs`: `31` checks, `0` failed. Evidence includes source/target viewports `1920x1080`, source left Activity Bar Codex selected, right auxiliary/sidebar closed, target node id present, source scroll chunks `14` / unique `13`, target scroll chunks `14` / unique `8`, target max activity headers `19`, target max tool disclosures `40`, and target history prepend exercised.
+    - `scripts/audit-codex-collapse-window-rules.cjs`: `25` checks, `0` failed. Evidence includes source style/signature/semantic evidence `72/72`, target style/signature/semantic evidence `83/83`, source user anchors `13`, target user anchors `6`, target processed-summary windows `2`, target file-reference windows `14`, and no turn-grouping rule violations.
+  - Added final state screenshot evidence.
+    - New script: `scripts/capture-codex-final-states.cjs`.
+    - Output: `reference/codex-reference/final-state-screenshots/`.
+    - Captures are generated at `1920x1080` with sidebar width `611px`.
+    - Screenshot states covered: completed processed summary, file/diff reference styling, collapsed `exec_command x3`, expanded command details with shell command/output, and running/thinking state.
+    - Latest report: `reference/codex-reference/final-state-screenshots/report.json`, `24` checks, `0` failed.
+    - Manually inspected generated screenshots after the report passed; `expanded-exec-command.png` shows the parent `exec_command x3`, expanded child command, shell block, output, and `Success` footer; `collapsed-exec-command.png` shows the parent row collapsed; `running-thinking.png` shows stopped/error/running-thinking states and the running shell block.
+    - Wired `scripts/run-codex-panel-audits.ps1` to syntax-check the screenshot script on every run and optionally regenerate PNG evidence when `CAPTURE_FINAL_STATE_SCREENSHOTS=1`.
+  - Added event mapping audit evidence.
+    - New script: `scripts/audit-codex-event-mapping.cjs`.
+    - Latest report: `reference/codex-reference/event-mapping-audit.json`, `32` checks, `0` failed.
+    - The audit locks the agent/frontend contract for `user_message`, `assistant_message`, `summary`, `tool_call`, `tool_output`, `turn_started`, `turn_completed`, `turn_cancelled`, `stdout`, `stderr`, and `error` display behavior.
+    - Metadata decision is now explicit: `call_id`, parsed `args`, raw `arguments`, `output`, `status`, and `exit_code` are preserved in the agent/session parsing layer; frontend grouping/status/rendering consumes those fields instead of inventing terminal state.
+    - Wired `scripts/run-codex-panel-audits.ps1` to syntax-check and run this mapping audit by default.
+  - Closed remaining collapse-rule parent items with audit evidence rather than screenshots alone.
+    - Turn grouping is covered by `collapse-window-rules-audit` plus `event-mapping-audit`: user messages start visual groups, user anchors/assistant units are validated per captured window, and no grouping rule violations remain.
+    - Process summary rows are covered by `activity-summary.js`, `collapse-capture-audit`, `collapse-window-rules-audit`, `dynamic-state-audit`, and `final-state-screenshots`: explicit `summary` text wins; otherwise completed turns with process/tool signals generate `已处理 <duration>`; final assistant content remains separate.
+    - Tool aggregation is covered by `event-mapping-audit`, `tool-shell-audit`, `disclosure-collapse-audit`, and final screenshots: repeated adjacent `exec_command` calls group as `exec_command xN`; `tool_output` binds by `call_id`; parent and child disclosures default collapsed unless running; command/output/status/exit code stay source-backed.
+    - Running states are covered by `dynamic-state-audit` and `running-thinking.png`: pending reasoning/turn activity shimmers, running shell calls render expanded shell blocks, running-to-completed stays visible after output, cancelled turns settle to `Stopped`, and failed/error states use error-tone disclosures.
+    - Virtualization interaction is covered by `virtual-scroll-audit`, live `collapse-capture-audit`, live `collapse-window-rules-audit`, and final screenshots: long sessions render multiple unique windows, no blank viewport windows, no visible turn overlap, history prepend path is exercised, and collapsed/expanded screenshots remain visible without overlay.
+    - `panel-shadow.css` and `virtualizer.js` do not need additional changes for the current source-backed states; audits and screenshots now prove the required surfaces without adding adapter-only CSS patches or estimate changes.
+    - Verification passed: `go test ./...` in `backend`, `go test ./...` in `agent`, `node scripts/audit-codex-event-mapping.cjs`, and `powershell -ExecutionPolicy Bypass -File scripts/run-codex-panel-audits.ps1`.
+  - Implemented running-to-completed and failed/error dynamic state handling.
+    - `frontend/src/pages/codex/lifecycle.js` now keeps a pending `tool_call` visible after a turn settles when the same turn has a matching `tool_output`, so live `running -> completed` transitions do not drop the command detail before history replay refreshes it.
+    - `frontend/src/pages/codex/activity-summary.js` now derives tool detail status from the matching output event, preserving `failed`/`error` instead of forcing every output-backed tool call to `completed`.
+    - `frontend/src/pages/codex/renderer.js` now renders failed tool disclosures and generic `error` events with the official-style activity header structure and `text-token-editor-error-foreground` error tone; generic errors use collapsed disclosure details instead of a plain assistant error paragraph.
+    - The dynamic fixture now includes four distinct states in one thread: cancelled stale command, running-to-completed `echo done`, failed `exit 1`, and a still-running command/file activity.
+    - `scripts/audit-codex-dynamic-states.cjs` now verifies completed transition visibility, absence of stale running status/shimmer, success footer, failed exit-code footer, error-tone disclosure, collapsed error details, and the previous running/cancelled/composer checks.
+    - Verification passed: `node --check` for touched frontend/audit files, `build-all.sh`, local `codex-web` restart with HTTP `200`, `node scripts/audit-codex-dynamic-states.cjs` (`46` checks, `0` failed), `powershell -ExecutionPolicy Bypass -File scripts\run-codex-panel-audits.ps1`, and `node scripts\audit-codex-virtual-scroll.cjs` (`0` failed).
+  - Ran a fresh real source/live-target capture after this pass, using the required Windows Chrome/CDP constraints: source `1920x1080`, Codex selected from the left Activity Bar, right auxiliary/chat sidebar closed, and source sidebar width `611px`.
+    - Local fixture capture `reference/collapse-alignment/20260705-201103` was structurally valid but intentionally failed `collapse-capture-audit` because the fixture has only `43` raw turns and cannot exercise the history prepend path.
+    - Live target capture with extended CDP timeout `reference/collapse-alignment/20260705-201417` reached `captured` with no capture failures and `collapse-capture-audit` passed (`31` checks, `0` failed).
+    - The same live capture failed `collapse-window-rules-audit` because target scroll chunks contained no user-anchor windows and no per-window processed-summary text, even though frame-level preflight found user bubbles and target-level summary counts. Treat this as diagnostic only; do not use that live capture as final visual/window-rule evidence until the latest code is deployed and the target long-session sampling covers user turns.
+  - Implemented cancellation as a first-class turn state.
+    - `agent/internal/session/manager.go` now emits `turn_cancelled` with `data.status=cancelled` instead of a generic `system` text event, and cancelled Codex processes no longer overwrite the session with an error after `CommandContext` exits.
+    - Added `TestCancelRunningSessionBroadcastsTurnCancelled`.
+    - `frontend/src/pages/codex/lifecycle.js` treats `turn_cancelled` as a terminal/settling event so pending activity in the same turn is hidden.
+    - `frontend/src/pages/codex/utils.js` labels the cancelled row as `Stopped`.
+    - The dynamic fixture now includes a cancelled turn with a hidden stale `sleep 600` command followed by a still-running turn.
+    - `scripts/audit-codex-dynamic-states.cjs` now verifies the `Stopped` row, confirms it is not shimmer, and confirms stale cancelled-turn running command text is not visible.
+    - Verification passed: `go test ./...` in `agent`, `node --check` for touched frontend/audit files, `build-all.sh`, local `codex-web` restart with HTTP `200`, `node scripts/audit-codex-dynamic-states.cjs`, and `powershell -ExecutionPolicy Bypass -File scripts\run-codex-panel-audits.ps1`.
+  - Implemented running shell command rendering for live tool calls.
+    - `frontend/src/pages/codex/renderer.js` now keeps generic running activity shimmer for non-shell activity, but renders running `tool_call` events with shell args through the existing official-style shell disclosure.
+    - Running shell disclosures default to expanded while completed tool disclosures remain collapsed by default.
+    - Added a dynamic fixture `exec_command` with `data.status=running` and `npm run build` args.
+    - Extended `scripts/audit-codex-dynamic-states.cjs` to verify the running shell command block, `$ npm run build` command text, preserved `running` status, and in-progress footer.
+    - Verification passed: `node --check` for touched frontend/audit files, `build-all.sh`, local `codex-web` restart with HTTP `200`, `node scripts/audit-codex-dynamic-states.cjs`, and `powershell -ExecutionPolicy Bypass -File scripts\run-codex-panel-audits.ps1`.
+  - Tightened agent event metadata mapping for running tool calls.
+    - `agent/internal/session/history.go` now maps live `response_item:function_call` events to `tool_call` with `data.status=running`, while history replay still maps the same records to `data.status=completed`.
+    - Preserved raw CLI `status` and `exit_code` metadata in compact event data instead of forcing the frontend to infer those fields.
+    - Added `TestLiveFunctionCallStartsRunningAndHistoryCompletes` and extended `TestParseHistoryFile` so the live/history split is locked in tests.
+    - Verification passed: `go test ./...` in `agent`.
+  - Enhanced `scripts/capture-collapse-alignment.cjs` scroll-window output.
+    - Each visible turn now records tag/class, selected attributes, computed styles, DOM signature, and semantic selector counts/samples for user bubbles, assistant markdown, summary buttons, activity headers, tool disclosures, grouped tool items, file references, and shimmer nodes.
+    - Re-captured live source/target at `reference/collapse-alignment/20260705-192605` using Windows Chrome/CDP at `1920x1080`, code-server Codex in the left Activity Bar, right auxiliary/chat sidebar closed, and target `nodeId=host-docker-agent`.
+  - Added `scripts/audit-codex-collapse-window-rules.cjs`.
+    - Emits `reference/codex-reference/collapse-window-rules-audit.json` plus `.md`.
+    - Latest report: `reference/codex-reference/collapse-window-rules-audit.json`.
+    - Result: `25` checks, `0` failed.
+    - Evidence: source `14` chunks / `14` unique windows / `99` visible turns; target `14` chunks / `8` unique windows / `86` visible turns; source style/signature/semantic evidence `99/99`; target style/signature/semantic evidence `86/86`; source groups `29`, content units `70`, user anchors `16`, assistant units `54`, issues `0`; target groups `44`, content units `42`, user anchors `7`, assistant units `35`, issues `0`; target max activity headers `27`, target max tool disclosures `56`.
+    - Wired into `scripts/run-codex-panel-audits.ps1` as a syntax gate and optional runtime gate next to the collapse capture audit.
+    - Verification passed: `powershell -ExecutionPolicy Bypass -File scripts/run-codex-panel-audits.ps1`, including the new collapse window rules gate.
+  - Added `scripts/audit-codex-collapse-capture.cjs`.
+    - Reads the latest `reference/collapse-alignment/latest.txt` capture and emits `reference/codex-reference/collapse-capture-audit.json` plus `.md`.
+    - Latest report: `reference/codex-reference/collapse-capture-audit.json`.
+    - Result: `31` checks, `0` failed.
+    - Evidence includes source viewport `1920x1080`, source Activity Bar `Codex` selected, source sidebar `611px`, right auxiliary/chat sidebar closed, target URL `https://codex.zelt.cn/?nodeId=host-docker-agent&captureRun=20260705-182903`, source selected frame score `23`, target selected frame score `25`, source scroll chunks `14` with `13` unique windows, target scroll chunks `14` with `8` unique windows, target max activity headers `27`, target max tool disclosures `56`, and target history prepend `max raw turnCount=118` from initial `80`.
+    - Wired the script into `scripts/run-codex-panel-audits.ps1` as a syntax gate and optional runtime gate. It runs when local raw capture data exists and skips explicitly when `reference/collapse-alignment/latest.txt` or its `summary.json` is missing, so clean clones do not need the large raw capture tree.
+    - This closes capture validity and semantic coverage only; the checklist item for full per-window DOM/computed-style rule diff remains open.
+  - Resolved the stale combined-audit blocker from the older exact DOM snapshot gate.
+    - `scripts/audit-codex-dom-structure.cjs` and `scripts/audit-codex-markup-alignment.cjs` now validate source-backed semantic primitives instead of requiring Codex Web adapter/carrier DOM to be byte-for-byte identical to code-server's full extension tree.
+    - Root, conversation, composer, and footer checks now require the official selectors/primitives to exist while allowing explicit local carrier classes that are part of Codex Web's cleaned frontend shell.
+  - Narrowed `scripts/audit-codex-computed-styles.cjs` to stable Codex primitives and source-backed semantic variants:
+    - tracked composer surface, ProseMirror editor, user message bubbles, composer footers, markdown content, popover/menu content, task rows, and shimmer/running primitives.
+    - removed broad root/button/thread selector comparisons that were catching intended adapter/runtime structure instead of extension UI primitives.
+    - changed `[data-user-message-bubble]` comparison from virtual-list index matching to `plain`/`editable` semantic variant matching, so different scroll windows or live session data do not produce false failures.
+  - Verified the existing user-message bubble renderer behavior against captured extension states:
+    - normal user bubbles keep the captured extension class list and `cursor:auto`.
+    - editable user bubbles add `cursor-interaction`, matching the captured `role="button" aria-label="编辑用户消息"` state.
+    - the computed-style failure was caused by index-matching different virtualized messages, so the audit now compares these two semantic states directly.
+  - Verification passed after rebuild/restart:
+    - `node --check frontend/src/pages/codex/renderer.js`
+    - `node --check scripts/audit-codex-computed-styles.cjs`
+    - `./build-all.sh` via `C:\Program Files\Git\bin\bash.exe`
+    - restarted local `build/codex-web.exe`, `http://127.0.0.1:58888/` returned `200`
+    - `node scripts/audit-codex-computed-styles.cjs`
+    - `powershell -ExecutionPolicy Bypass -File scripts/run-codex-panel-audits.ps1`
+    - Combined panel audit completed with exit code `0`, including source alignment, workspace layout, DOM structure, markup alignment, computed styles, dynamic state, tool shell, disclosure collapse, file diff, and virtual scroll.
+  - Reconfirmed capture boundary from user reminder: reference/browser viewport must not be small, and the code-server ChatGPT/Codex extension must be moved/opened from the left Activity Bar icon, not the right chat/auxiliary sidebar Codex tab.
+  - Replaced the remaining enhanced `exec_command xN` child detail markup with official extension shell/output primitives from `worktree-init-tool-activities-B1o2n3Qp.js`:
+    - `group flex flex-col overflow-hidden rounded-lg border`
+    - `border-token-input-background bg-token-text-code-block-background`
+    - `vertical-scroll-fade-mask max-h-[140px]`
+    - official footer status text (`Success`, `Exit code`, `Stopped`)
+  - Removed legacy `.codex-tool-call-field`, `.codex-tool-call-output`, and `.codex-tool-call-preview` adapter CSS and renderer paths.
+  - Fixed a runtime regression from this pass: `renderShellCommandBlock()` referenced an unexported `lifecycle` variable. It now uses a local shell-status helper, so tool groups no longer abort first render.
+  - Added `scripts/audit-codex-tool-shell.cjs` and wired it into `scripts/run-codex-panel-audits.ps1`.
+    - Latest report: `reference/codex-reference/tool-shell-audit.json`.
+    - Viewport: `1920x1080`; sidebar width: `611px`.
+    - Result: `23` checks, `0` failed.
+    - Evidence confirms no native `details/summary`, no legacy tool classes, parent `exec_command 脳3` expansion, nested child command disclosure expansion, official shell block class, `vertical-scroll-fade-mask`, footer `Success`, visible command, and visible output.
+  - Verification passed:
+    - `node --check frontend/src/pages/codex/renderer.js`
+    - `node --check scripts/audit-codex-tool-shell.cjs`
+    - `node --check backend/public/dist/app/codex-web.js`
+    - `./build-all.sh` via `C:\Program Files\Git\bin\bash.exe`
+    - restarted local `build/codex-web.exe`
+    - `node scripts/audit-codex-tool-shell.cjs` (`23` checks, `0` failed)
+    - `node scripts/audit-codex-dynamic-states.cjs`
+    - `node scripts/audit-codex-virtual-scroll.cjs` (`0` failed)
+    - local structural capture `reference/collapse-alignment/20260705-180747/summary.json`: status `captured`, failures `[]`, source viewport `1920x1080`, source sidebar `611px`, right auxiliary/sidebar hidden, left Activity Bar Codex selected, target local fixture scroll chunks `7`, blank windows `0`.
+  - Deployed commit under test: `41e37f1 fix: align codex tool shell disclosure`.
+    - Server pull/build/restart succeeded; `codex-web.service` returned `active`.
+    - Live structural capture: `reference/collapse-alignment/20260705-181141/summary.json`.
+    - Status: `captured`, failures: `[]`.
+    - Source code-server viewport is `1920x1080`, source sidebar is `611px`, right auxiliary/sidebar is hidden, and the left Activity Bar `Codex` view is selected.
+    - Target URL: `https://codex.zelt.cn/`, real long session `019f0a04-7f0b-7483-8bc4-18f214a5c8f1` from `host-docker-agent`.
+    - Target real-session scroll chunks: `chunkCount=14`, `uniqueWindowCount=8`, blank windows `0`; older-page prepend path was exercised at final chunk with `turnCount=118`, `viewportTurnCount=10`, and visible turns `77..78`.
+  - 2026-07-06 collapsed visibility/capture-sampling pass:
+    - Confirmed the official extension disclosure source keeps collapsed bodies mounted and hides them with measured height/opacity/ARIA/inert instead of `display:none`: `reference/extension-source/openai.chatgpt-26.5623.31443/webview/assets/tool-activity-disclosure-BLOD7VGb.js`.
+    - Updated `scripts/capture-collapse-alignment.cjs` so visible selectors and scroll-window text ignore elements hidden by `aria-hidden=true`, `inert`, `display:none`, `visibility:hidden`, `opacity:0`, or zero-sized overflow-hidden ancestors.
+    - Added `scripts/audit-codex-disclosure-collapse.cjs` and wired it into `scripts/run-codex-panel-audits.ps1`.
+      - Latest report: `reference/codex-reference/disclosure-collapse-audit.json`.
+      - Viewport: `1920x1080`; sidebar width: `611px`.
+      - Result: `26` checks, `0` failed.
+      - Evidence: collapsed `exec_command 脳3` body retains DOM text length `350`, but has `aria-hidden=true`, `inert=true`, `height=0`, `opacity=0`, `pointer-events=none`, visible text empty, and visible descendants `0`; expanding exposes visible command text and height `87px`, then re-collapsing hides it again.
+    - Local structural capture after the sampling fix: `reference/collapse-alignment/20260705-182134/summary.json`.
+      - Status: `captured`, failures `[]`.
+      - Source code-server viewport is `1920x1080`, source sidebar is `611px`, right auxiliary/sidebar is hidden, and the left Activity Bar `Codex` view is selected.
+      - Target fixture capture now reports collapsed enhanced command children as hidden: `toolGroupItems=0` in visible counts, replacing the earlier misleading count from retained hidden DOM.
+    - Added `TARGET_NODE_ID` support to `scripts/capture-collapse-alignment.cjs`; the script sets `codex-web:node-id` before target navigation and adds `nodeId` to fresh target URLs, so live captures can reliably select `host-docker-agent` without hand-written query strings.
+    - Live structural capture after the sampling fix: `reference/collapse-alignment/20260705-182903/summary.json`.
+      - Command env: `TARGET_URL_PATTERN='codex\\.zelt\\.cn'`, `TARGET_NODE_ID='host-docker-agent'`, `TARGET_SESSION_ID='019f0a04-7f0b-7483-8bc4-18f214a5c8f1'`.
+      - Status: `captured`, failures `[]`.
+      - Source code-server viewport is `1920x1080`, source sidebar is `611px`, right auxiliary/sidebar is hidden, and the left Activity Bar `Codex` view is selected.
+      - Target URL includes `nodeId=host-docker-agent`; real long-session scroll chunks `14`, unique windows `8`, blank windows `0`, max scroll `40783`.
+      - Target visible counts now exclude collapsed child command rows: `toolGroupItems=0`, while visible tool disclosures remain present (`max=56`).
+    - Verification passed:
+      - `node --check scripts/capture-collapse-alignment.cjs`
+      - `node --check scripts/audit-codex-disclosure-collapse.cjs`
+      - `node scripts/audit-codex-disclosure-collapse.cjs` (`26` checks, `0` failed)
+      - `node scripts/audit-codex-tool-shell.cjs` (`0` failed)
+      - `node scripts/audit-codex-virtual-scroll.cjs` (`0` failed)
+      - local structural capture `reference/collapse-alignment/20260705-182134/summary.json`: status `captured`, failures `[]`.
+      - live structural capture `reference/collapse-alignment/20260705-182903/summary.json`: status `captured`, failures `[]`.
+  - 2026-07-06 file/diff source-backed audit pass:
+    - Reconfirmed the user boundary for future captures: use `1920x1080` or larger, keep the code-server Codex extension in the left Activity Bar, and close the right chat/auxiliary sidebar before treating any capture as valid.
+    - Added `scripts/audit-codex-file-diff.cjs` and wired it into `scripts/run-codex-panel-audits.ps1`.
+    - The audit reads official diff-card evidence from `reference/extension-source/openai.chatgpt-26.5623.31443/webview/assets/local-conversation-turn-BZInUTC2.js`.
+    - The audit reads inline file mention CSS evidence from official `app-main-DH0Qggoi.css` and `markdown-DmSBSKzD.css`.
+    - The audit opens the local `codexFixture=reference` fixture at `1920x1080`, applies a `611px` sidebar width, selects `thread-reference`, and preferentially locates a changed-file card with the show-more/collapse affordance.
+    - Latest report: `reference/codex-reference/file-diff-audit.json`.
+      - Result: `38` checks, `0` failed.
+      - Evidence confirms official-style diff root/header classes, overlay button, icon block, default/hover subtitles, border file list surface, virtualized file rows, sr-only full path, directory/name split, additions/deletions counters, show-more row, `_tableCellFileLink_lzkx4_413`, and `group/inline-mention cursor-pointer`.
+    - While wiring the audit into the combined panel audit, fixed one real workspace-layout regression instead of allowlisting it: `.sidebar .content` now uses `overflow: visible`, matching the captured code-server workspace reference; `#codexPanel` still owns its internal clipping.
+    - Updated `scripts/audit-codex-source-alignment.cjs` allowlists for explicit local adapter/behavior classes and data attributes used by the Codex Web shell (`codex-composer-*`, `codex-thread-*`, `data-disclosure-toggle`, `data-codex-tool-group-item`). These are local carrier elements, not copied extension UI.
+    - Verification passed after rebuild/restart:
+      - `node --check scripts/audit-codex-source-alignment.cjs`
+      - `node --check scripts/audit-codex-file-diff.cjs`
+      - `node --check frontend/src/pages/codex/renderer.js`
+      - `node --check frontend/src/components/workspace/layout.js`
+      - `node --check frontend/src/app/bootstrap.js`
+      - `node scripts/audit-codex-source-alignment.cjs`
+      - `python scripts/audit-workspace-layout-styles.py`
+      - `node scripts/audit-codex-file-diff.cjs` (`38` checks, `0` failed)
+      - `node scripts/audit-codex-disclosure-collapse.cjs` (`0` failed)
+      - `node scripts/audit-codex-tool-shell.cjs` (`0` failed)
+      - `node scripts/audit-codex-virtual-scroll.cjs` (`0` failed)
+      - `node scripts/audit-codex-dynamic-states.cjs`
+      - `./build-all.sh` via `C:\Program Files\Git\bin\bash.exe`
+      - restarted local `build/codex-web.exe`
+    - Superseded by the later source-backed DOM/markup audit rewrite: `scripts/run-codex-panel-audits.ps1` now passes as a combined gate. DOM/markup rows must be `exact` or source-backed `compatible`; anything else remains unfinished.
+- 2026-07-05:
+  - Added `scripts/capture-collapse-alignment.cjs`.
+  - The script now fails fast when the reference browser is too small, right auxiliary/sidebar is visible, Codex is not opened from the left Activity Bar, or the visible code-server page is Explorer/welcome instead of the Codex conversation surface.
+  - Latest reference preflight result: `reference/collapse-alignment/20260705-135643/summary.json`.
+    - Source code-server is intentionally rejected: viewport is `1904x985`, current page is welcome/Explorer, and no Codex conversation frame is detectable.
+    - Target Codex Web is detectable: `turns=27`, `summaries=7`, `activityHeaders=19`, `toolDisclosures=30`, `toolGroupItems=3`, `fileReferences=3`.
+  - Replaced native `details/summary` completed-turn and tool-call disclosure rendering with official-style disclosure buttons and body containers.
+  - Replaced runtime inline file references with the official-style inline mention structure using `_tableCellFileLink_lzkx4_413`; removed the legacy `.codex-file-reference` styles.
+  - Added consecutive same-tool aggregation in `activity-summary.js`: a run like three `exec_command` calls becomes one `exec_command ×3` disclosure.
+  - Added reference fixture coverage for grouped commands and verified via CDP:
+    - parent row exists with text `exec_command ×3`.
+    - parent row defaults to `aria-expanded=false`.
+    - click changes it to `aria-expanded=true`.
+    - expanded body contains three `[data-codex-tool-group-item]` blocks with command and output text.
+  - Added persistent disclosure state in `frontend/src/store/codex.js` and delegated toggles via `data-disclosure-toggle`.
+  - Local DOM check after restarting `build/codex-web.exe`: `details=0`, `summary=0`, `disclosureToggles=3`, `toolDisclosures=18`, `officialFileLinks=3`, `legacyFileLinks=0`; first toggle changes `aria-expanded=false` to `true`.
+  - Verification passed:
+    - `node --check frontend/src/store/codex.js`
+    - `node --check frontend/src/pages/codex/index.js`
+    - `node --check frontend/src/pages/codex/activity-summary.js`
+    - `node --check frontend/src/pages/codex/fixtures.js`
+    - `node --check frontend/src/pages/codex/renderer.js`
+    - `node --check frontend/src/pages/codex/utils.js`
+    - `node --check scripts/capture-collapse-alignment.cjs`
+    - `node --check backend/public/dist/app/codex-web.js`
+    - `./build-all.sh` via `C:\Program Files\Git\bin\bash.exe`
+    - `scripts/verify-codex-panel-cdp.cjs` screenshot run at `1920x1080`: `reference/windows-captures/20260705-135358-local-codex-panel-cdp`.
+  - Moved the live code-server Codex view from the right auxiliary/chat sidebar to the left Activity Bar via the workbench context menu (`Move To -> Primary Side Bar`), then closed the right auxiliary sidebar.
+  - Forced the CDP viewport to `1920x1080`, opened the target long `codex-web` session from the left Codex view, and captured a valid source/target comparison at `reference/collapse-alignment/20260705-141759/summary.json`.
+    - Source code-server is valid: `turns=30`, `summaries=5`, `activityHeaders=2`, `toolDisclosures=6`, `toolGroupItems=0`, `fileReferences=3`.
+    - Target Codex Web is valid but still mismatched: `turns=27`, `summaries=7`, `activityHeaders=19`, `toolDisclosures=30`, `toolGroupItems=3`, `fileReferences=3`.
+  - Updated `scripts/capture-collapse-alignment.cjs` so the top-level code-server editor welcome page does not invalidate capture when the left Activity Bar Codex view is selected and the Codex frame exposes the conversation.
+  - Corrected activity/event grouping so ordinary assistant commentary remains normal assistant message content instead of being rendered as tool/activity disclosure rows.
+  - Tool outputs are now attached to their matching tool calls and hidden from the visible stream; orphan stdout/stderr/tool output is not rendered as a standalone collapsed row in completed turns.
+  - Explicit `summary` events are the only source for completed-turn `已处理 ...` summary buttons; generated duration summaries are no longer created only because a turn contains tool activity.
+  - File activity rows no longer create an invented hidden `暂无输出` body; rows without command/output keep the official-style button/chevron header only.
+  - Latest valid comparison: `reference/collapse-alignment/20260705-143715/summary.json`.
+    - Source code-server remains valid at `1920x1080`, left Activity Bar Codex selected, right auxiliary/sidebar hidden.
+    - Source counts: `turns=30`, `summaries=5`, `activityHeaders=2`, `toolDisclosures=6`, `toolGroupItems=0`, `fileReferences=3`.
+    - Target counts: `turns=43`, `summaries=5`, `activityHeaders=3`, `toolDisclosures=12`, `toolGroupItems=3`, `fileReferences=3`.
+    - Remaining structural delta is the intentional Codex Web `exec_command ×3` enhancement and its three command-detail bodies.
+  - Verification passed again:
+    - `node --check frontend/src/store/codex.js`
+    - `node --check frontend/src/pages/codex/index.js`
+    - `node --check frontend/src/pages/codex/activity-summary.js`
+    - `node --check frontend/src/pages/codex/fixtures.js`
+    - `node --check frontend/src/pages/codex/renderer.js`
+    - `node --check frontend/src/pages/codex/utils.js`
+    - `node --check scripts/capture-collapse-alignment.cjs`
+    - `node --check backend/public/dist/app/codex-web.js`
+    - `./build-all.sh` via `C:\Program Files\Git\bin\bash.exe`
+  - Interaction check passed for the enhanced command group:
+    - `exec_command ×3` defaults collapsed.
+    - clicking it sets `aria-expanded=true`.
+    - three `[data-codex-tool-group-item]` command detail rows become visible.
+    - the row was collapsed again after verification.
+  - Hardened dynamic-state verification:
+    - `scripts/audit-codex-dynamic-states.cjs` now uses a fresh tab per run, disables cache, appends `auditRun`, waits for shadow stylesheets, and closes the created tab afterward.
+    - Default audit viewport is now `1920x1080`, matching the non-negotiable capture rule.
+    - The audit now checks send button empty/typed/cleared opacity states: empty `0.5`, typed `1`, cleared `0.5`.
+  - Fixed composer send button state without inline opacity patches:
+    - Send button markup now uses `codex-composer-send-button`, `codex-send-disabled`, and `codex-send-ready`.
+    - `syncComposerState()` only toggles state classes; no inline style override is used.
+    - Adapter CSS owns the disabled/ready opacity transition.
+  - Hardened source/target structural capture:
+    - `scripts/capture-collapse-alignment.cjs` rejects local dynamic/audit/probe fixture tabs when selecting the target Codex Web page.
+    - Target page preparation now forces `1920x1080`, applies the `611px` local sidebar width, opens the `thread-reference` fixture row, and waits for conversation/composer before preflight.
+    - Final valid comparison: `reference/collapse-alignment/20260705-150922/summary.json`.
+      - Source URL: `https://code-tx.zelt.cn/?folder=/root`.
+      - Target URL: `http://127.0.0.1:58888/?codexFixture=reference`.
+      - Source and target viewports: `1920x1080`.
+      - Source remains left Activity Bar Codex selected with right auxiliary/sidebar hidden.
+      - Source counts: `turns=30`, `summaries=5`, `activityHeaders=2`, `toolDisclosures=6`, `toolGroupItems=0`, `fileReferences=3`, `shimmers=0`.
+      - Target counts: `turns=43`, `summaries=5`, `activityHeaders=3`, `toolDisclosures=9`, `toolGroupItems=3`, `fileReferences=3`, `shimmers=0`.
+      - Remaining structural delta is the intentional Codex Web grouped command enhancement: one extra activity header, three extra tool disclosures, and three command detail rows.
+  - Verification passed after rebuild/restart:
+    - `node --check frontend/src/pages/codex/renderer.js`
+    - `node --check scripts/audit-codex-dynamic-states.cjs`
+    - `node --check scripts/capture-collapse-alignment.cjs`
+    - `node --check backend/public/dist/app/codex-web.js`
+    - `./build-all.sh` via `C:\Program Files\Git\bin\bash.exe`
+    - Restarted local `build/codex-web.exe`
+    - `node scripts/audit-codex-dynamic-states.cjs`
+    - `node scripts/capture-collapse-alignment.cjs`
+  - Removed the legacy event-level `virtualList` fixture offset from `thread-reference` and removed the renderer path that accepted event-provided `height`/`marginTop`; virtual layout is now owned by `virtualizer.js`.
+  - Added a separate `virtual-scroll` fixture with 90 generated turns, summaries, grouped `exec_command` rows, outputs, and file references so long-session scrolling can be tested without fake saved-page offsets.
+  - Reworked the conversation virtualizer to derive the rendered window from `scrollTop` and preserve the scroll position across DOM re-renders with `restoreScrollTop`; this fixes the blank top-spacer behavior seen when opening or scrolling very long sessions.
+  - Added `scripts/audit-codex-virtual-scroll.cjs`.
+    - Latest report: `reference/codex-reference/virtual-scroll-audit.json`.
+    - Viewport: `1920x1080`.
+    - Result: `0 failed`.
+    - Evidence: top renders real turns `0..4`, bottom returns to `85..89`, every captured step has visible turns, no visible overlap, summaries/activity rows/grouped command rows/file references appear during scrolling.
+  - Hardened `scripts/capture-collapse-alignment.cjs`:
+    - Added CDP command timeouts and stage logs so source/target capture cannot hang silently.
+    - Target Codex Web capture now forces a fresh local `?codexFixture=reference&captureRun=...` navigation with cache disabled instead of reusing a stale tab/bundle.
+    - Reverse `flex-col-reverse` source scrolling now samples toward `0` as well as older positions, which is required for code-server's webview scroll container.
+    - Scroll chunk payloads now store visible-window summaries instead of serializing entire long-turn text blobs.
+  - Latest valid structural capture: `reference/collapse-alignment/20260705-163950/summary.json`.
+    - Status: `captured`, failures: `[]`.
+    - Source URL: `https://code-tx.zelt.cn/?folder=/root`.
+    - Source viewport is `1920x1080`; left Activity Bar Codex is selected; right auxiliary/sidebar is hidden.
+    - Source scroll chunks: `chunkCount=14`, `uniqueWindowCount=13`, blank windows: `0`, reverse container.
+    - Target URL: fresh local `http://127.0.0.1:58888/?codexFixture=reference&captureRun=...`.
+    - Target scroll chunks: `chunkCount=7`, `uniqueWindowCount=7`, blank windows: `0`.
+    - Target counts remain intentionally higher for the Codex Web `exec_command 脳3` enhancement: `activityHeaders=3`, `toolDisclosures=9`, `toolGroupItems=3`.
+  - Verification passed after rebuild/restart:
+    - `node --check frontend/src/pages/codex/fixtures.js`
+    - `node --check frontend/src/pages/codex/index.js`
+    - `node --check frontend/src/pages/codex/renderer.js`
+    - `node --check frontend/src/pages/codex/virtualizer.js`
+    - `node --check scripts/audit-codex-virtual-scroll.cjs`
+    - `node --check scripts/capture-collapse-alignment.cjs`
+    - `node --check backend/public/dist/app/codex-web.js`
+    - `./build-all.sh` via `C:\Program Files\Git\bin\bash.exe`
+    - Restarted local `build/codex-web.exe`
+    - `node scripts/audit-codex-virtual-scroll.cjs`
+    - `node scripts/audit-codex-dynamic-states.cjs`
+    - `node scripts/capture-collapse-alignment.cjs`
+  - Superseded deployment gap:
+    - Local fixture-backed verification remains the right fast path for the Windows controller when it is not attached to a local agent.
+    - Later live captures and server checks verified the deployed site against the real `host-docker-agent` long session, so this is no longer an open deployment blocker.
+  - Live agent read-only verification:
+    - Online `GET https://codex.zelt.cn/api/nodes` returned online node `host-docker-agent`.
+    - Online `GET https://codex.zelt.cn/api/sessions?nodeId=host-docker-agent` returned the real long session `019f0a04-7f0b-7483-8bc4-18f214a5c8f1` with `lastSeq=7207`.
+    - Live structural capture: `reference/collapse-alignment/20260705-164503/summary.json`.
+      - Target URL: `https://codex.zelt.cn/?captureRun=20260705-164503`.
+      - Target opened the real long session from `host-docker-agent`.
+      - Target counts: `turns=72`, `activityHeaders=8`, `toolDisclosures=24`, `fileReferences=3`.
+      - Target scroll chunks: `chunkCount=14`, `uniqueWindowCount=9`, blank windows: `0`, `maxScroll=39822`.
+      - Screenshot confirms the real conversation area is populated, not a blank shell: `reference/collapse-alignment/20260705-164503/target-codex-web/screenshot.png`.
+    - Evidence boundary: this is a live read-only check of the currently deployed site and agent data; it does not prove the current local uncommitted frontend changes are deployed.
+  - 2026-07-06 post-deployment verification:
+    - Deployed commit under test: `a429b8c7b77957fad4ad3868b6bf3b18261d63d9`.
+    - Live structural capture: `reference/collapse-alignment/20260705-165344/summary.json`.
+    - Status: `captured`, failures: `[]`.
+    - Source code-server outer viewport is `1920x1080`, left Activity Bar `Codex` is selected, and the right auxiliary/chat sidebar is hidden.
+    - Source capture caveat: the code-server Codex webview frame width was only `299px`, so this run is valid for structure/scroll state but must not be used as final visual-width evidence.
+    - Target URL: fresh `https://codex.zelt.cn/?captureRun=20260705-165344`.
+    - Target opened the real long session `019f0a04-7f0b-7483-8bc4-18f214a5c8f1` from `host-docker-agent`.
+    - Target counts: `turns=80`, `activityHeaders=19`, `toolDisclosures=30`, `toolGroupItems=28`, `fileReferences=6`.
+    - Target scroll chunks: `chunkCount=14`, `uniqueWindowCount=9`, blank windows: `0`, `maxScroll=40656`.
+    - Screenshot confirms the deployed long conversation renders instead of white-screening: `reference/collapse-alignment/20260705-165344/target-codex-web/screenshot.png`.
+    - Superseded visual capture gap: later capture hardening resized the source code-server Codex side view and fails capture when it remains below the required width; do not rely on this earlier 299px-source run for exact spacing.
+  - 2026-07-06 source-width and processed-summary pass:
+    - Hardened `scripts/capture-collapse-alignment.cjs` so source code-server is also forced to `1920x1080`; the script now resizes the left Codex sidebar before capture and fails if it remains below `MIN_SOURCE_SIDEBAR_WIDTH` (`580px` by default).
+    - Valid wide-source live capture: `reference/collapse-alignment/20260705-170001/summary.json`.
+      - Source sidebar: `611px`; source Codex webview frame: `610px`; right auxiliary/sidebar hidden; failures: `[]`.
+      - Target real long session still renders with scroll chunks `14`, unique windows `9`, blank windows `0`.
+    - Fixed generated processed-summary logic in `frontend/src/pages/codex/activity-summary.js`: completed turns now get `已处理 <duration>` when real process/tool events exist even if the agent history does not contain an explicit `summary` event.
+    - Local post-fix structural capture: `reference/collapse-alignment/20260705-170628/summary.json`.
+      - Status: `captured`, failures: `[]`.
+      - Source sidebar: `611px`; target fixture summaries increased to `7`, proving generated processed rows are restored.
+      - Target scroll chunks: `chunkCount=7`, `uniqueWindowCount=7`, blank windows: `0`.
+    - Verification passed:
+      - `node --check frontend/src/pages/codex/activity-summary.js`
+      - `node --check scripts/capture-collapse-alignment.cjs`
+      - `node --check backend/public/dist/app/codex-web.js`
+      - `./build-all.sh` via `C:\Program Files\Git\bin\bash.exe`
+      - restarted local `build/codex-web.exe`
+      - `node scripts/audit-codex-dynamic-states.cjs` (`28` checks, `0` failed)
+      - `node scripts/audit-codex-virtual-scroll.cjs` (`0` failed)
+      - `node scripts/capture-collapse-alignment.cjs`
+  - 2026-07-06 pagination trigger pass:
+    - Fixed `frontend/src/pages/codex/renderer.js` so `runtime.onThreadScroll` runs even when `virtualizer.handleScroll()` changes the rendered window. Before this, scrolling to the top of the loaded page could render a new virtual window and return before `maybeLoadOlderEvents()` had a chance to request older events.
+    - Hardened `scripts/capture-collapse-alignment.cjs` target scroll capture to wait for history loading to settle when it scrolls near the older-page edge.
+    - Verification passed:
+      - `node --check frontend/src/pages/codex/renderer.js`
+      - `node --check scripts/capture-collapse-alignment.cjs`
+      - `./build-all.sh` via `C:\Program Files\Git\bin\bash.exe`
+      - restarted local `build/codex-web.exe`
+      - `node scripts/audit-codex-virtual-scroll.cjs` (`0` failed)
+      - `node scripts/audit-codex-dynamic-states.cjs` (`28` checks, `0` failed)
+      - local structural capture `reference/collapse-alignment/20260705-171412/summary.json`: status `captured`, failures `[]`, source sidebar `611px`, target scroll chunks `7`, unique windows `7`, blank windows `0`.
+  - 2026-07-06 pagination prepend anchoring pass:
+    - Live capture after the pagination-trigger fix exposed a real blank window after older history was prepended: `reference/collapse-alignment/20260705-171706/summary.json` and `reference/collapse-alignment/20260705-171850/summary.json` both failed on target `chunk-13`.
+    - Root cause: `loadOlderEvents()` prepends older events and restores `scrollTop` by the height delta, but the virtualizer kept the old `start/end` window indices. After prepend, the viewport could land in an unrendered estimated spacer.
+    - Fixed `frontend/src/pages/codex/index.js` to mark older-event prepends before merging the page, and fixed `frontend/src/pages/codex/virtualizer.js` to shift the virtual window by the new item-count delta on that prepend.
+    - Also fixed `scripts/capture-collapse-alignment.cjs` to resolve the scroll parent from fresh DOM after re-render, avoiding stale-node fallbacks during capture.
+    - Follow-up after live retry: shifting the window while also using outer `scrollHeight` delta restoration still left the viewport below the rendered window. The success path now lets the virtualizer own prepend restoration by setting `restoreScrollTop` to `previousScrollTop + estimatedPrependedHeight`; `loadOlderEvents()` no longer applies the outer height-delta restore after a successful prepend.
+    - Verification passed locally:
+      - `node --check frontend/src/pages/codex/index.js`
+      - `node --check frontend/src/pages/codex/virtualizer.js`
+      - `node --check scripts/capture-collapse-alignment.cjs`
+      - `./build-all.sh` via `C:\Program Files\Git\bin\bash.exe`
+      - restarted local `build/codex-web.exe`
+      - `node scripts/audit-codex-virtual-scroll.cjs` (`0` failed)
+      - `node scripts/audit-codex-dynamic-states.cjs` (`28` checks, `0` failed)
+    - Live deployment verification after the follow-up fix:
+      - Deployed commit under test: `e38e841 fix: restore scroll after codex history prepend`.
+      - Live capture: `reference/collapse-alignment/20260705-172900/summary.json`.
+      - Status: `captured`, failures: `[]`.
+      - Source sidebar: `611px`; source scroll chunks `14`, unique windows `14`, blank windows `0`.
+      - Target real long session scroll chunks `14`, unique windows `8`, blank windows `0`.
+      - Target older-page prepend was exercised: final target chunk has `turnCount=118`, `viewportTurnCount=10`, `actualScrollTop=88282`, and visible turns `77..78`; this replaces the previous failed `chunk-13` evidence.
+      - Target screenshot evidence: `reference/collapse-alignment/20260705-172900/target-codex-web/screenshot.png`.

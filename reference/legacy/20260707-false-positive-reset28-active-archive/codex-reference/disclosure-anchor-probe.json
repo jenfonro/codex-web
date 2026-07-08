@@ -1,0 +1,112 @@
+{
+  "generatedAt": "2026-07-06T17:06:48.028Z",
+  "panelURL": "http://127.0.0.1:58888/?codexFixture=dynamic&disclosureProbe=20260706170646154",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "sidebarWidth": 611,
+  "targetSessionId": "",
+  "targetNodeId": "",
+  "summary": {
+    "checks": 7,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "viewport is 1920x1080 or larger",
+      "ok": true,
+      "details": "1920x1080"
+    },
+    {
+      "name": "thread scroll container found",
+      "ok": true,
+      "details": ""
+    },
+    {
+      "name": "matching disclosure toggle found",
+      "ok": true,
+      "details": "exec_command npm run build running"
+    },
+    {
+      "name": "toggle is visible before expand",
+      "ok": true,
+      "details": "top=847, bottom=866, height=20"
+    },
+    {
+      "name": "body expands",
+      "ok": true,
+      "details": "{\"found\":true,\"ariaHidden\":\"false\",\"height\":91}"
+    },
+    {
+      "name": "expanded toggle remains visible",
+      "ok": true,
+      "details": "top=847, bottom=866, height=20"
+    },
+    {
+      "name": "expanded toggle remains anchored",
+      "ok": true,
+      "details": "0px"
+    }
+  ],
+  "probe": {
+    "ok": true,
+    "scrollFound": true,
+    "toggle": {
+      "found": true,
+      "key": "inline-activity:4:2",
+      "text": "exec_command npm run build running"
+    },
+    "before": {
+      "label": "before-expand",
+      "found": true,
+      "visible": true,
+      "expanded": "false",
+      "text": "exec_command npm run build running",
+      "rect": {
+        "top": 847,
+        "bottom": 866,
+        "left": 64,
+        "right": 337,
+        "width": 273,
+        "height": 20
+      },
+      "scroll": {
+        "top": 0,
+        "height": 1080,
+        "clientHeight": 1080
+      },
+      "body": {
+        "found": true,
+        "ariaHidden": "true",
+        "height": 0
+      }
+    },
+    "after": {
+      "label": "after-expand",
+      "found": true,
+      "visible": true,
+      "expanded": "true",
+      "text": "exec_command npm run build running",
+      "rect": {
+        "top": 847,
+        "bottom": 866,
+        "left": 64,
+        "right": 337,
+        "width": 273,
+        "height": 20
+      },
+      "scroll": {
+        "top": 0,
+        "height": 1080,
+        "clientHeight": 1080
+      },
+      "body": {
+        "found": true,
+        "ariaHidden": "false",
+        "height": 91
+      }
+    },
+    "deltaTop": 0
+  }
+}

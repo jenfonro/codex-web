@@ -1,0 +1,184 @@
+{
+  "generatedAt": "2026-07-07T21:57:55.420Z",
+  "basis": "Static audit for agent event parsing and frontend conversation state mapping. Runtime visual/state behavior remains covered by dynamic, disclosure, file-diff, virtual-scroll, collapse, live-anchor, and final-screenshot audits.",
+  "files": {
+    "history": "agent/internal/session/history.go",
+    "manager": "agent/internal/session/manager.go",
+    "lifecycle": "frontend/src/pages/codex/lifecycle.js",
+    "activity": "frontend/src/pages/codex/activity-summary.js",
+    "renderer": "frontend/src/pages/codex/renderer.js",
+    "dynamicAudit": "scripts/audit-codex-dynamic-states.cjs",
+    "finalScreenshots": "scripts/capture-codex-final-states.cjs"
+  },
+  "summary": {
+    "checks": 33,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "agent maps user_message",
+      "ok": true,
+      "details": "case \"user_message\": ... newParsedEvent\\(\"user_message\""
+    },
+    {
+      "name": "agent maps agent_message to assistant_message",
+      "ok": true,
+      "details": "case \"agent_message\": ... newParsedEvent\\(\"assistant_message\""
+    },
+    {
+      "name": "agent maps task_started to transient turn_started",
+      "ok": true,
+      "details": "case \"task_started\": ... includeTransient ... newParsedEvent\\(\"turn_started\" ... \"running\""
+    },
+    {
+      "name": "agent maps task_complete to transient turn_completed",
+      "ok": true,
+      "details": "case \"task_complete\": ... includeTransient ... newParsedEvent\\(\"turn_completed\" ... \"completed\""
+    },
+    {
+      "name": "agent maps reasoning summary to summary event",
+      "ok": true,
+      "details": "case \"reasoning\": ... summaryText\\(payload\\[\"summary\"\\]\\) ... newParsedEvent\\(\"summary\""
+    },
+    {
+      "name": "agent maps live function/tool_call as running tool_call",
+      "ok": true,
+      "details": "case \"function_call\"(?:,\\s*\"tool_call\")?: ... if includeTransient ... data\\[\"status\"\\] = \"running\" ... else ... data\\[\"status\"\\] = \"completed\" ... newParsedEvent\\(\"tool_call\""
+    },
+    {
+      "name": "agent maps function/tool_call_output to completed tool_output",
+      "ok": true,
+      "details": "case \"function_call_output\"(?:,\\s*\"tool_call_output\")?: ... data\\[\"status\"\\] = \"completed\" ... newParsedEvent\\(\"tool_output\""
+    },
+    {
+      "name": "agent preserves call/output/status/exit metadata",
+      "ok": true,
+      "details": "\"call_id\" ... \"arguments\" ... \"output\" ... \"status\" ... \"exit_code\""
+    },
+    {
+      "name": "agent parses JSON arguments into args",
+      "ok": true,
+      "details": "json\\.Unmarshal\\(\\[\\]byte\\(arguments\\), &args\\) ... data\\[\"args\"\\] = args"
+    },
+    {
+      "name": "manager emits user prompts",
+      "ok": true,
+      "details": "appendEvent\\(.*\"user_message\""
+    },
+    {
+      "name": "manager emits turn_cancelled status",
+      "ok": true,
+      "details": "appendEvent\\(.*\"turn_cancelled\" ... \"status\": \"cancelled\""
+    },
+    {
+      "name": "manager streams stdout for the active turn",
+      "ok": true,
+      "details": "appendEventForTurn\\(sessionID,\\s*turnID,\\s*\"stdout\""
+    },
+    {
+      "name": "manager streams stderr for the active turn",
+      "ok": true,
+      "details": "appendEventForTurn\\(sessionID,\\s*turnID,\\s*\"stderr\""
+    },
+    {
+      "name": "manager emits turn_started from CLI events for the active turn",
+      "ok": true,
+      "details": "case \"turn\\.started\": ... appendEventForTurn\\(sessionID,\\s*turnID,\\s*\"turn_started\""
+    },
+    {
+      "name": "manager emits turn_completed from CLI events atomically",
+      "ok": true,
+      "details": "case \"turn\\.completed\": ... setStatusAndAppendEventsForTurn\\(sessionID,\\s*turnID,\\s*statusIdle, ... Kind:\\s*\"turn_completed\""
+    },
+    {
+      "name": "frontend activity kinds include running/control surface",
+      "ok": true,
+      "details": "activityKinds = \\[\"turn_started\", \"reasoning\", \"tool_call\", \"stdout\", \"stderr\", \"turn_cancelled\"\\]"
+    },
+    {
+      "name": "frontend terminal statuses include success failure cancel states",
+      "ok": true,
+      "details": "terminalStatuses = \\[[^\\]]*\"completed\" ... \"failed\" ... \"error\" ... \"cancelled\" ... \"stopped\""
+    },
+    {
+      "name": "frontend settling hides stale pending activity",
+      "ok": true,
+      "details": "isTurnSettlingEvent ... turn_completed ... turn_cancelled ... shouldHideSettledPendingActivity"
+    },
+    {
+      "name": "frontend keeps resolved tool_call visible after output",
+      "ok": true,
+      "details": "resolvedToolCallIDs ... eventKind\\(event\\) !== \"tool_output\" ... resolvedCalls\\.has\\(callID\\)"
+    },
+    {
+      "name": "frontend starts new visual turn on user_message",
+      "ok": true,
+      "details": "eventKind\\(event, \"assistant_message\"\\) === \"user_message\" ... flushTurnEvents\\(\\) ... visible\\.push\\(event\\)"
+    },
+    {
+      "name": "processed summary label is separated from reasoning detail text",
+      "ok": true,
+      "details": "const explicit = split\\.summaryEvents\\.find\\(isProcessedSummaryLabel\\) ... summaryDetailEvents ... !isProcessedSummaryLabel\\(event\\)"
+    },
+    {
+      "name": "process summary can be generated from process events",
+      "ok": true,
+      "details": "const hasProcessSummary = summaryEvents\\.length > 0 \\|\\| processEvents\\.length > 0"
+    },
+    {
+      "name": "assistant commentary merges into final answer after process summary",
+      "ok": true,
+      "details": "mergeAssistantEvents ... join\\(\"\\\\n\\\\n\"\\) ... phase: fallback\\?\\.data\\?\\.phase \\|\\| \"final_answer\""
+    },
+    {
+      "name": "completed turn stream only keeps non-collapsible events after final answer",
+      "ok": true,
+      "details": "const afterFinal = contentEntries ... entry\\.index > finalEntry\\.index && !isCollapsibleProcessSignal\\(entry\\.event\\) ... const streamFollowups = buildStreamFollowups\\(afterFinal\\)"
+    },
+    {
+      "name": "cancelled terminal activity stays out of process summaries",
+      "ok": true,
+      "details": "isCollapsibleProcessSignal ... !isStandaloneTerminalActivity\\(event\\) ... eventKind\\(event\\) === \"turn_cancelled\""
+    },
+    {
+      "name": "tool outputs bind to tool calls by call id",
+      "ok": true,
+      "details": "callsByID\\.set\\(callID, item\\) ... const target = callID \\? callsByID\\.get\\(callID\\)"
+    },
+    {
+      "name": "orphan stdout stderr output hidden from stream rows",
+      "ok": true,
+      "details": "kind === \"tool_output\" \\|\\| kind === \"stdout\" \\|\\| kind === \"stderr\""
+    },
+    {
+      "name": "exec_command grouping is disabled for official alignment",
+      "ok": true,
+      "details": "return name === \"exec_command\"|kind: \"tool_group\"|groupedToolStatus"
+    },
+    {
+      "name": "renderer uses official-style tool disclosure",
+      "ok": true,
+      "details": "renderToolActivityDisclosure ... group\\/activity-header ... renderDisclosureBody"
+    },
+    {
+      "name": "renderer renders running shell tool calls",
+      "ok": true,
+      "details": "isActivityPending\\(event\\) ... event\\.kind ... tool_call ... hasShellArgs\\(event\\)"
+    },
+    {
+      "name": "renderer exposes exit code footer",
+      "ok": true,
+      "details": "exit_code + Exit code"
+    },
+    {
+      "name": "dynamic audit covers running completed failed cancelled composer states",
+      "ok": true,
+      "details": "running shell command block present ... completed transition command is hidden for official alignment ... failed shell command remains visible ... cancelled turn status row present ... composer typed text is visible text"
+    },
+    {
+      "name": "final screenshot capture covers required visual states",
+      "ok": true,
+      "details": "completed-summary + file-reference + running-thinking"
+    }
+  ]
+}

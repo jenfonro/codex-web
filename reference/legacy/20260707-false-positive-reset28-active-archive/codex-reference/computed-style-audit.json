@@ -1,0 +1,145 @@
+{
+  "generatedAt": "2026-07-06T17:06:40.505Z",
+  "basis": "Compares local runtime computed styles against captured Codex extension computed styles. Screenshots are not used.",
+  "appUrl": "http://127.0.0.1:58888/?codexFixture=reference",
+  "viewport": {
+    "width": 1904,
+    "height": 985
+  },
+  "sidebarWidth": "derived-per-reference-view",
+  "trackedSelectors": [
+    ".composer-surface-chrome",
+    ".ProseMirror",
+    "[data-user-message-bubble]",
+    "._footer_1u8sk_2",
+    "._footer_z984f_2",
+    "._markdownContent_lzkx4_60",
+    "[data-composer-overlay-floating-ui]",
+    "[data-radix-menu-content]",
+    "[class*='task']",
+    "[class*='shimmer']"
+  ],
+  "styleProps": [
+    "display",
+    "position",
+    "boxSizing",
+    "padding",
+    "paddingTop",
+    "paddingRight",
+    "paddingBottom",
+    "paddingLeft",
+    "margin",
+    "marginTop",
+    "marginRight",
+    "marginBottom",
+    "marginLeft",
+    "gap",
+    "rowGap",
+    "columnGap",
+    "color",
+    "backgroundColor",
+    "border",
+    "borderTop",
+    "borderRight",
+    "borderBottom",
+    "borderLeft",
+    "borderRadius",
+    "boxShadow",
+    "fontFamily",
+    "fontSize",
+    "fontWeight",
+    "fontStyle",
+    "lineHeight",
+    "letterSpacing",
+    "textAlign",
+    "textDecoration",
+    "opacity",
+    "overflow",
+    "overflowX",
+    "overflowY",
+    "whiteSpace",
+    "textOverflow",
+    "alignItems",
+    "justifyContent",
+    "flexDirection",
+    "gridTemplateColumns",
+    "transform",
+    "transition",
+    "animation",
+    "zIndex",
+    "cursor"
+  ],
+  "rectProps": [],
+  "summary": {
+    "actionableDifferences": 0,
+    "environmentSizeDifferences": 0,
+    "differences": 0,
+    "missing": 0,
+    "rows": 0
+  },
+  "differences": [],
+  "actionableDifferences": [],
+  "environmentSizeDifferences": [],
+  "viewContexts": {
+    "list": {
+      "expectedRoot": {
+        "width": 610,
+        "height": 893
+      },
+      "actualRoot": {
+        "width": null,
+        "height": null
+      },
+      "widthDelta": null,
+      "heightDelta": null
+    },
+    "plusMenu": {
+      "expectedRoot": {
+        "width": 579,
+        "height": 893
+      },
+      "actualRoot": {
+        "width": null,
+        "height": null
+      },
+      "widthDelta": null,
+      "heightDelta": null
+    },
+    "approvalMenu": {
+      "expectedRoot": {
+        "width": 579,
+        "height": 893
+      },
+      "actualRoot": {
+        "width": null,
+        "height": null
+      },
+      "widthDelta": null,
+      "heightDelta": null
+    },
+    "modelMenu": {
+      "expectedRoot": {
+        "width": 579,
+        "height": 893
+      },
+      "actualRoot": {
+        "width": null,
+        "height": null
+      },
+      "widthDelta": null,
+      "heightDelta": null
+    },
+    "thread": {
+      "expectedRoot": {
+        "width": 610,
+        "height": 893
+      },
+      "actualRoot": {
+        "width": null,
+        "height": null
+      },
+      "widthDelta": null,
+      "heightDelta": null
+    }
+  }
+}

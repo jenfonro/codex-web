@@ -1,0 +1,84 @@
+{
+  "generatedAt": "2026-07-06T17:06:22.219Z",
+  "basis": "Frontend session sequencing audit. It verifies sparse long-session event windows keep optimistic events ordered after the real agent sequence tail.",
+  "totals": {
+    "checks": 9,
+    "passed": 9,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "normalizeSession preserves session lastSeq",
+      "ok": true,
+      "details": "lastSeq=7207",
+      "evidence": [
+        "frontend/src/pages/codex/api.js"
+      ]
+    },
+    {
+      "name": "normalizeSession preserves useful agent metadata",
+      "ok": true,
+      "details": "cwd=/workspace; codexThreadId=019f",
+      "evidence": [
+        "frontend/src/pages/codex/api.js"
+      ]
+    },
+    {
+      "name": "knownLastSeq uses sparse loaded event tails",
+      "ok": true,
+      "details": "knownLastSeq=7207",
+      "evidence": [
+        "frontend/src/store/codex.js"
+      ]
+    },
+    {
+      "name": "next local event seq follows the real session tail",
+      "ok": true,
+      "details": "nextLocalEventSeq=7208",
+      "evidence": [
+        "frontend/src/store/codex.js",
+        "frontend/src/pages/codex/index.js"
+      ]
+    },
+    {
+      "name": "knownLastSeq also respects event page metadata",
+      "ok": true,
+      "details": "knownLastSeq=8000",
+      "evidence": [
+        "frontend/src/store/codex.js"
+      ]
+    },
+    {
+      "name": "appendLocalEvent uses the shared nextLocalEventSeq helper",
+      "ok": true,
+      "details": "appendLocalEvent must not derive seq from events.length",
+      "evidence": [
+        "frontend/src/pages/codex/index.js"
+      ]
+    },
+    {
+      "name": "appendLocalEvent no longer uses loaded event count as sequence",
+      "ok": true,
+      "details": "events.length is only the currently loaded window and is wrong for long sessions",
+      "evidence": [
+        "frontend/src/pages/codex/index.js"
+      ]
+    },
+    {
+      "name": "optimistic events are explicitly marked local",
+      "ok": true,
+      "details": "local user/error placeholders must be identifiable when authoritative agent events arrive",
+      "evidence": [
+        "frontend/src/pages/codex/index.js"
+      ]
+    },
+    {
+      "name": "authoritative SSE events can replace local placeholders",
+      "ok": true,
+      "details": "incoming agent events with the same seq must replace local optimistic placeholders instead of being dropped",
+      "evidence": [
+        "frontend/src/pages/codex/index.js"
+      ]
+    }
+  ]
+}

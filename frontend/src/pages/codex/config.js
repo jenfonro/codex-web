@@ -40,6 +40,7 @@
   function createPanelMount(host) {
     const shadow = host.shadowRoot || host.attachShadow({ mode: "open" });
     shadow.replaceChildren();
+    global.CodexWorkspaceInteractions?.installNativeDragGuard(shadow);
 
     for (const href of SHADOW_STYLE_HREFS) {
       const link = document.createElement("link");

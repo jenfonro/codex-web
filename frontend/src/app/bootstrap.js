@@ -1,11 +1,46 @@
 "use strict";
 
+window.CodexWorkspaceInteractions = {
+  installNativeDragGuard,
+};
+
 initCodexWorkspace();
 
 function initCodexWorkspace() {
+  installNativeDragGuard(document);
   window.CodexWorkspaceLayout?.render();
   applyFixedWorkspacePlatformClass();
-  initSidebarResize();
+  initWorkspaceViews();
+}
+
+function installNativeDragGuard(root) {
+  if (!root || root.__codexNativeDragGuardInstalled) return;
+  Object.defineProperty(root, "__codexNativeDragGuardInstalled", {
+    value: true,
+    configurable: true,
+  });
+
+  root.addEventListener("dragstart", blockNativeDrag, true);
+  root.addEventListener("dragenter", blockNativeDrag, true);
+  root.addEventListener("dragover", blockNativeDrag, true);
+  root.addEventListener("drop", blockNativeDrag, true);
+}
+
+function blockNativeDrag(event) {
+  if (isNativeDragAllowed(event)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) {
+    try {
+      event.dataTransfer.effectAllowed = "none";
+      event.dataTransfer.dropEffect = "none";
+    } catch {}
+  }
+}
+
+function isNativeDragAllowed(event) {
+  const path = event.composedPath?.() || [event.target];
+  return path.some((node) => node?.nodeType === Node.ELEMENT_NODE && node.matches?.("[data-allow-native-drag='true']"));
 }
 
 function applyFixedWorkspacePlatformClass() {
@@ -15,50 +50,50 @@ function applyFixedWorkspacePlatformClass() {
   workbench.classList.add("windows");
 }
 
-function initSidebarResize() {
-  const handleID = window.CodexWorkspaceLayout?.IDS?.sidebarResizeHandle || "codexSidebarResizeHandle";
-  const handle = document.getElementById(handleID);
-  if (!handle) return;
+function initWorkspaceViews() {
+  const storageKey = "codex-web:workspace-view";
+  const views = new Set(["codex", "workspace", "nodes", "git", "runs"]);
+  const titles = {
+    codex: "CODEX",
+    workspace: "WORKSPACE",
+    nodes: "NODES",
+    git: "SOURCE CONTROL",
+    runs: "RUNS",
+  };
+  const root = document.querySelector(".monaco-workbench");
+  const title = document.getElementById(window.CodexWorkspaceLayout?.IDS?.sidebarTitle || "codexSidebarTitle");
+  if (!root || !title) return;
 
-  const storageKey = "codex-web:sidebar-width";
-  const saved = Number(window.localStorage.getItem(storageKey));
-  if (Number.isFinite(saved) && saved > 0) {
-    setSidebarWidth(saved);
+  root.addEventListener("click", (event) => {
+    const item = event.target.closest("[data-workspace-view]");
+    if (!item) return;
+    const view = item.dataset.workspaceView || "";
+    if (!views.has(view)) return;
+    switchWorkspaceView(view, { persist: true });
+  });
+  window.addEventListener("codex-web:open-view", (event) => {
+    const view = event.detail?.view || "";
+    if (views.has(view)) switchWorkspaceView(view, { persist: true });
+  });
+
+  const saved = window.localStorage.getItem(storageKey);
+  switchWorkspaceView(views.has(saved) ? saved : "codex", { persist: false });
+
+  function switchWorkspaceView(view, options = {}) {
+    if (!views.has(view)) return;
+    if (options.persist) window.localStorage.setItem(storageKey, view);
+    root.dataset.workspaceView = view;
+    title.textContent = titles[view] || "CODEX";
+
+    for (const panel of document.querySelectorAll("[data-workspace-panel]")) {
+      panel.hidden = panel.dataset.workspacePanel !== view;
+    }
+    for (const item of document.querySelectorAll("[data-workspace-view]")) {
+      const active = item.dataset.workspaceView === view;
+      item.classList.toggle("checked", active);
+      item.setAttribute("aria-expanded", active ? "true" : "false");
+      item.setAttribute("aria-selected", active ? "true" : "false");
+    }
+    window.dispatchEvent(new CustomEvent("codex-web:view-changed", { detail: { view } }));
   }
-
-  let dragging = false;
-
-  handle.addEventListener("pointerdown", (event) => {
-    dragging = true;
-    handle.classList.add("resizing");
-    handle.setPointerCapture(event.pointerId);
-    event.preventDefault();
-  });
-
-  handle.addEventListener("pointermove", (event) => {
-    if (!dragging) return;
-    const width = event.clientX - 48;
-    setSidebarWidth(width);
-    window.localStorage.setItem(storageKey, String(clampSidebarWidth(width)));
-  });
-
-  handle.addEventListener("pointerup", (event) => {
-    dragging = false;
-    handle.classList.remove("resizing");
-    handle.releasePointerCapture(event.pointerId);
-  });
-
-  handle.addEventListener("dblclick", () => {
-    window.localStorage.removeItem(storageKey);
-    document.documentElement.style.removeProperty("--cw-sidebar-width");
-  });
-}
-
-function setSidebarWidth(width) {
-  document.documentElement.style.setProperty("--cw-sidebar-width", String(clampSidebarWidth(width)) + "px");
-}
-
-function clampSidebarWidth(width) {
-  const max = Math.max(300, Math.min(900, window.innerWidth - 48 - 420));
-  return Math.round(Math.min(Math.max(width, 220), max));
 }

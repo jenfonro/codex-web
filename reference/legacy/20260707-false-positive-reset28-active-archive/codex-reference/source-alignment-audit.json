@@ -1,0 +1,1881 @@
+{
+  "generatedAt": "2026-07-06T17:06:22.108Z",
+  "basis": "Static source alignment audit. Compares local component/CSS source against captured extension HTML and official extension CSS assets. Screenshots are not used.",
+  "files": {
+    "local": [
+      "frontend/src/pages/codex/index.js",
+      "frontend/src/pages/codex/api.js",
+      "frontend/src/pages/codex/config.js",
+      "frontend/src/pages/codex/fixtures.js",
+      "frontend/src/pages/codex/renderer.js",
+      "frontend/src/pages/codex/utils.js",
+      "frontend/src/pages/codex/panel-shadow.css",
+      "frontend/src/pages/codex/panel.css"
+    ],
+    "localAssetDir": "frontend/src/assets/codex-panel",
+    "officialAssetDir": "reference/extension-source/openai.chatgpt-26.5623.31443/webview/assets",
+    "referenceJSON": "reference/codex-reference/codex-reference.json",
+    "captures": [
+      "20260702-184840-codex-session-list-wide-611",
+      "20260702-185302-codex-thread-wide-611",
+      "20260702-185715-codex-thread-plus-menu-wide-611-stable",
+      "20260702-185942-codex-thread-approval-menu-wide-stable",
+      "20260702-190248-codex-thread-model-menu-right-wide-stable"
+    ]
+  },
+  "counts": {
+    "referenceClassTokens": 4157,
+    "localClassTokens": 269,
+    "referenceDataAttrs": 117,
+    "localDataAttrs": 33,
+    "localSelectors": 72,
+    "assetIntegrity": 23
+  },
+  "assetIntegrity": [
+    {
+      "name": "app-main-DH0Qggoi.css",
+      "status": "exact",
+      "localBytes": 549858,
+      "officialBytes": 549858
+    },
+    {
+      "name": "app-shell-DJDX7Pvr.css",
+      "status": "exact",
+      "localBytes": 1177,
+      "officialBytes": 1177
+    },
+    {
+      "name": "at-mention-list-BF8TOyej.css",
+      "status": "exact",
+      "localBytes": 460,
+      "officialBytes": 460
+    },
+    {
+      "name": "cmdk-pBm4kpmV.css",
+      "status": "exact",
+      "localBytes": 4680,
+      "officialBytes": 4680
+    },
+    {
+      "name": "composer-CXInBfIq.css",
+      "status": "exact",
+      "localBytes": 1005,
+      "officialBytes": 1005
+    },
+    {
+      "name": "composer-footer-D2K4qkyA.css",
+      "status": "exact",
+      "localBytes": 3036,
+      "officialBytes": 3036
+    },
+    {
+      "name": "composer-top-menu-chrome-EBEHrbNH.css",
+      "status": "exact",
+      "localBytes": 2311,
+      "officialBytes": 2311
+    },
+    {
+      "name": "dialog-layout-sS9Dm_y9.css",
+      "status": "exact",
+      "localBytes": 671,
+      "officialBytes": 671
+    },
+    {
+      "name": "diff-unified-updTK7TW.css",
+      "status": "exact",
+      "localBytes": 916,
+      "officialBytes": 916
+    },
+    {
+      "name": "dropdown-9F1MU8ql.css",
+      "status": "exact",
+      "localBytes": 2977,
+      "officialBytes": 2977
+    },
+    {
+      "name": "local-conversation-turn-CGBrbw6f.css",
+      "status": "exact",
+      "localBytes": 1544,
+      "officialBytes": 1544
+    },
+    {
+      "name": "local-task-row-Bj9zvK4d.css",
+      "status": "exact",
+      "localBytes": 302,
+      "officialBytes": 302
+    },
+    {
+      "name": "markdown-DmSBSKzD.css",
+      "status": "exact",
+      "localBytes": 8450,
+      "officialBytes": 8450
+    },
+    {
+      "name": "progression-donut-BI3OQbB8.css",
+      "status": "exact",
+      "localBytes": 236,
+      "officialBytes": 236
+    },
+    {
+      "name": "prompt-editor-BuS6Xjko.css",
+      "status": "exact",
+      "localBytes": 614,
+      "officialBytes": 614
+    },
+    {
+      "name": "prosemirror-ptHiDCW_.css",
+      "status": "exact",
+      "localBytes": 823,
+      "officialBytes": 823
+    },
+    {
+      "name": "rate-limit-reset-modal-D3jrmUOb.css",
+      "status": "exact",
+      "localBytes": 266,
+      "officialBytes": 266
+    },
+    {
+      "name": "referral-invite-modal-DeNnfVpo.css",
+      "status": "exact",
+      "localBytes": 7999,
+      "officialBytes": 7999
+    },
+    {
+      "name": "scroll-to-bottom-buton-H4NGgmRi.css",
+      "status": "exact",
+      "localBytes": 470,
+      "officialBytes": 470
+    },
+    {
+      "name": "thinking-shimmer-BhOGlSiR.css",
+      "status": "exact",
+      "localBytes": 1584,
+      "officialBytes": 1584
+    },
+    {
+      "name": "thread-page-bottom-panel-state-BrqwKW_G.css",
+      "status": "exact",
+      "localBytes": 4087,
+      "officialBytes": 4087
+    },
+    {
+      "name": "thread-side-panel-tabs-CYswclfQ.css",
+      "status": "exact",
+      "localBytes": 583,
+      "officialBytes": 583
+    },
+    {
+      "name": "worktree-init-tool-activities-CxuoHau6.css",
+      "status": "exact",
+      "localBytes": 2281,
+      "officialBytes": 2281
+    }
+  ],
+  "classTokens": [
+    {
+      "name": "!px-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "ProseMirror-trailingBreak",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&>*:first-child]:mt-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&>*:last-child]:mb-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&>ol:first-child]:mt-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&>ul:first-child]:mt-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_.ProseMirror]:focus-visible:outline-none",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_.ProseMirror]:h-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_.ProseMirror]:leading-5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_.ProseMirror]:min-h-[2rem]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_.ProseMirror]:resize-none",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_.ProseMirror_p]:m-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[&_[data-virtualized-turn-content]]:[content-visibility:visible]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[--inline-mention-base-color:color-mix(in_srgb,var(--color-token-text-link-foreground)_80%,var(--color-token-foreground)_20%)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[--inline-mention-color:var(--inline-mention-resolved-base-color,var(--inline-mention-base-color))]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[mask-image:linear-gradient(to_right,black_calc(100%_-_0.25rem),transparent)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "[mask-repeat:no-repeat]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_attachmentsDefault_1u8sk_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_cadencedShimmerHighlight_18j3y_37",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_cadencedShimmerSweep_18j3y_12",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_cadencedShimmer_18j3y_1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_content_1hiti_1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_defaultExternalFooterOnly_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_externalFooterItemText_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_externalFooterItemValueContent_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_externalFooterItemValue_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_externalFooterItem_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_footerLabel_1u8sk_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_footer_1u8sk_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_footer_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_homeExternalFooterOnly_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_inlineMarkdown_lzkx4_385",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_labelSm_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_labelXs_z984f_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_listItem_lzkx4_168",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_list_lzkx4_133",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_markdownContent_lzkx4_60",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_markdownText_lzkx4_86",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_multilineSurface_1u8sk_2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_orderedList_lzkx4_159",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_paragraph_lzkx4_82",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_tableCellFileLink_lzkx4_413",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "_unorderedList_lzkx4_147",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "absolute",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "align-bottom",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "aspect-square",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "backdrop-blur-lg",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "backdrop-blur-sm",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-clip-padding",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-gradient-to-t",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-border/70",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-dropdown-background/90",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-dropdown-background/95",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-input-background/90",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-main-surface-primary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bg-token-menu-border",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "block",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "border",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "border-token-border",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "border-token-border-default",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "border-transparent",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bottom-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bottom-[calc(100%+6*var(--spacing))]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "bottom-full",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "break-words",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "codex-composer-attachments",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-composer-card",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-composer-card-inner",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-composer-card-wrap",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-composer-editor",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-composer-editor-viewport",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-composer-external-footer",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-composer-footer",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-composer-send-button",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-composer-shell",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-composer-surface",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-floating-menu",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-floating-menu-approval",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-floating-menu-model",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-home-composer",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-markdown-link",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-send-disabled",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-thread-footer",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-thread-footer-content",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codex-thread-footer-fade",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codicon",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "codicon-file-code",
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "name": "composer-surface-chrome",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "contents",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "cursor-interaction",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "cursor-pointer",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "data-[state=open]:bg-token-list-hover-background",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "disabled:cursor-not-allowed",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "disabled:opacity-40",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "duration-150",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "ease-in-out",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "electron:dark:bg-token-dropdown-background",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "electron:hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "empty:hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "enabled:hover:bg-token-list-hover-background",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "end-1/2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "extension:from-token-bg-primary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "extension:via-token-bg-primary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "fixed",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex-col",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex-grow",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex-nowrap",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "flex-wrap",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:outline-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus-visible:outline-token-button-background",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus:bg-token-list-hover-background",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "focus:outline-none",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "font-medium",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "font-normal",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "from-token-main-surface-primary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-1.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-3",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-8",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "gap-[5px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "grid",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "grid-cols-[minmax(0,auto)_auto_minmax(0,1fr)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover/activity-header:text-token-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover/inline-mention:decoration-[0.5px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover/inline-mention:decoration-current",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover/inline-mention:decoration-dashed",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover/inline-mention:underline",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group-hover/inline-mention:underline-offset-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group/activity-header",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "group/inline-mention",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-4",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-8",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-[1lh]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-[1px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-full",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-token-button-composer",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "h-token-button-composer-sm",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "home-banners",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hover:bg-token-list-hover-background",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "hover:text-token-description-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "icon-xs",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "inline-block",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "inline-flex",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "inline-markdown",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "inline-mention-brand-aware",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "inset-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "inset-x-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "items-baseline",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "items-center",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "justify-between",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "justify-center",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "justify-end",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "justify-start",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "leading-4",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "leading-[18px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "left-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "loading-shimmer-pure-text",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "m-px",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-h-[250px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-h-[25dvh]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-h-[320px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-w-(--thread-content-max-width)",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-w-20",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-w-40",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-w-[560px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "max-w-full",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mb-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mb-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "md:pb-5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "min-h-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "min-h-6",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "min-w-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mr-[3px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mt-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "mx-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "my-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "no-drag",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "opacity-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "opacity-75",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "outline-hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "overflow-hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "overflow-visible",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "overflow-y-auto",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "p-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "p-0.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "p-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pb-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pb-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pl-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pl-6",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pointer-events-none",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pr-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pr-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "print:hidden",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pt-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pt-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "pt-4",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-0.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-1.5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-3",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-5",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-[var(--padding-row-x)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-row-x",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "px-toolbar",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "py-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "py-1",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "py-[var(--padding-row-y)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "py-row-y",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "relative",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "right-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "ring-[0.5px]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "ring-token-border",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "rounded-2xl",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "rounded-full",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "rounded-lg",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "rounded-xl",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "scroll-mt-4",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "select-none",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "self-start",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "shadow-xl-spread",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "shrink",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "shrink-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "size-token-button-composer",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "sticky",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "tabular-nums",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-[color:var(--inline-mention-color)]",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-base",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-left",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-size-chat",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-sm",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-conversation-summary-trailing",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-description-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-input-placeholder-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-text-link-foreground",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-text-secondary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "text-token-text-tertiary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "top-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "transition-opacity",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "translate-x-1/2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "truncate",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "underline",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "underline-offset-2",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "vertical-scroll-fade-mask",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "via-token-main-surface-primary",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-4",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-52",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-8",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-full",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "w-px",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "whitespace-normal",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "whitespace-nowrap",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "z-0",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "z-10",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "z-30",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "z-50",
+      "source": "reference-or-official-css"
+    },
+    {
+      "name": "z-[60]",
+      "source": "reference-or-official-css"
+    }
+  ],
+  "dataAttrs": [
+    {
+      "name": "data-above-composer-portal",
+      "source": "reference"
+    },
+    {
+      "name": "data-above-composer-queue-portal",
+      "source": "reference"
+    },
+    {
+      "name": "data-action",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-align",
+      "source": "reference"
+    },
+    {
+      "name": "data-allow-native-drag",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-codex-composer",
+      "source": "reference"
+    },
+    {
+      "name": "data-codex-composer-surface",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-codex-empty",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-codex-focus-turn",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-codex-intelligence-trigger",
+      "source": "reference"
+    },
+    {
+      "name": "data-codex-script",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-codex-window-type",
+      "source": "reference"
+    },
+    {
+      "name": "data-composer-overlay-floating-ui",
+      "source": "reference"
+    },
+    {
+      "name": "data-disclosure-toggle",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-file-reference",
+      "source": "reference"
+    },
+    {
+      "name": "data-list-navigation-item",
+      "source": "reference"
+    },
+    {
+      "name": "data-markdown-copy",
+      "source": "reference"
+    },
+    {
+      "name": "data-orientation",
+      "source": "reference"
+    },
+    {
+      "name": "data-pip-obstacle",
+      "source": "reference"
+    },
+    {
+      "name": "data-placeholder",
+      "source": "reference"
+    },
+    {
+      "name": "data-popover",
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "name": "data-radix-collection-item",
+      "source": "reference"
+    },
+    {
+      "name": "data-radix-menu-content",
+      "source": "reference"
+    },
+    {
+      "name": "data-radix-popper-content-wrapper",
+      "source": "reference"
+    },
+    {
+      "name": "data-selected-reasoning-effort",
+      "source": "reference"
+    },
+    {
+      "name": "data-selected-text-overlay-target",
+      "source": "reference"
+    },
+    {
+      "name": "data-side",
+      "source": "reference"
+    },
+    {
+      "name": "data-state",
+      "source": "reference"
+    },
+    {
+      "name": "data-thread-find-composer",
+      "source": "reference"
+    },
+    {
+      "name": "data-thread-scroll-footer",
+      "source": "reference"
+    },
+    {
+      "name": "data-tooltip-overflow-target",
+      "source": "reference"
+    },
+    {
+      "name": "data-turn-key",
+      "source": "reference"
+    },
+    {
+      "name": "data-virtualkeyboard",
+      "source": "reference"
+    }
+  ],
+  "selectors": [
+    {
+      "selector": ":host",
+      "line": 2,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ":host",
+      "line": 17,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "#root[data-codex-window-type=\"extension\"]",
+      "line": 17,
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "selector": "#root",
+      "line": 37,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ":host",
+      "line": 46,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ":host *",
+      "line": 46,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ":host *::before",
+      "line": 46,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ":host *::after",
+      "line": 46,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ":host [data-allow-native-drag=\"true\"]",
+      "line": 51,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ":host [data-allow-native-drag=\"true\"] *",
+      "line": 51,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-panel-header",
+      "line": 55,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "[data-codex-panel-root]",
+      "line": 60,
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "selector": ".codex-panel-view",
+      "line": 66,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-list-body",
+      "line": 76,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-thread-body",
+      "line": 76,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-thread-scroll-region",
+      "line": 76,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-thread-body",
+      "line": 81,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-thread-scroll-region",
+      "line": 85,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-thread-scroll",
+      "line": 90,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-thread-content-shell",
+      "line": 95,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-thread-content",
+      "line": 95,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "[data-thread-scroll]",
+      "line": 100,
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "selector": "[data-thread-content-shell]",
+      "line": 105,
+      "source": "local-behavior-allowlist"
+    },
+    {
+      "selector": "[data-thread-scroll-footer=\"true\"]",
+      "line": 109,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "[data-thread-scroll-footer=\"true\"] [data-pip-obstacle=\"thread-footer\"]",
+      "line": 120,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "[data-thread-scroll-footer=\"true\"] [data-composer-overlay-floating-ui]",
+      "line": 120,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "[data-thread-scroll-footer=\"true\"] [data-radix-popper-content-wrapper]",
+      "line": 120,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-thread-footer-fade",
+      "line": 124,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-thread-footer-content",
+      "line": 134,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-home-composer",
+      "line": 134,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-shell",
+      "line": 134,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-surface",
+      "line": 134,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-card-wrap",
+      "line": 134,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-card",
+      "line": 134,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-card-inner",
+      "line": 134,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-home-composer",
+      "line": 138,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-surface",
+      "line": 142,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-card",
+      "line": 146,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-card-inner",
+      "line": 152,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-editor-viewport",
+      "line": 156,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-editor",
+      "line": 163,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-footer",
+      "line": 167,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-external-footer",
+      "line": 172,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-session-status-spinner",
+      "line": 179,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-session-status-spinner::before",
+      "line": 190,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-session-status-spinner::after",
+      "line": 190,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-session-status-spinner::before",
+      "line": 198,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-session-status-spinner::after",
+      "line": 202,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-history-page-loader",
+      "line": 208,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-list-status-notice",
+      "line": 220,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-turn-activity-icon-spacer",
+      "line": 227,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-turn-activity-status",
+      "line": 233,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codicon",
+      "line": 267,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codicon::before",
+      "line": 280,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-markdown-link",
+      "line": 284,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-markdown-link:hover",
+      "line": 289,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-home-watermark",
+      "line": 293,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-send-button",
+      "line": 304,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-send-button.codex-send-ready",
+      "line": 309,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-composer-send-button.codex-send-disabled",
+      "line": 313,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".ProseMirror[data-codex-empty=\"true\"]::before",
+      "line": 317,
+      "source": "official-class-target"
+    },
+    {
+      "selector": "#root > span.pointer-events-none.fixed.inset-0",
+      "line": 331,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-error-message",
+      "line": 335,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-chevron-right",
+      "line": 339,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "[data-composer-overlay-floating-ui]",
+      "line": 343,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-floating-menu",
+      "line": 347,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-floating-menu-approval",
+      "line": 355,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-floating-menu-model",
+      "line": 359,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-floating-menu-node",
+      "line": 363,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "._content_1hiti_1",
+      "line": 370,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": ".codex-sidebar-content",
+      "line": 377,
+      "source": "local-adapter-allowlist"
+    },
+    {
+      "selector": "#codexPanel",
+      "line": 381,
+      "source": "local-adapter-allowlist"
+    }
+  ],
+  "unexplained": {
+    "classTokens": [],
+    "dataAttrs": [],
+    "selectors": [],
+    "assets": []
+  },
+  "allowlist": {
+    "classes": [
+      "codex-composer-attachments",
+      "codex-composer-card",
+      "codex-composer-card-inner",
+      "codex-composer-card-wrap",
+      "codex-composer-editor",
+      "codex-composer-editor-viewport",
+      "codex-composer-external-footer",
+      "codex-composer-footer",
+      "codex-composer-send-button",
+      "codex-composer-shell",
+      "codex-composer-surface",
+      "codex-error-message",
+      "codex-floating-menu",
+      "codex-floating-menu-approval",
+      "codex-floating-menu-model",
+      "codex-floating-menu-node",
+      "codex-history-page-loader",
+      "codex-home-composer",
+      "codex-home-watermark",
+      "codex-list-body",
+      "codex-list-status-notice",
+      "codex-markdown-link",
+      "codex-panel-frame",
+      "codex-panel-header",
+      "codex-panel-view",
+      "codex-panel-view-list",
+      "codex-panel-view-thread",
+      "codex-send-disabled",
+      "codex-send-ready",
+      "codex-session-status-spinner",
+      "codex-sidebar-content",
+      "codex-thread-body",
+      "codex-thread-content",
+      "codex-thread-content-shell",
+      "codex-thread-footer",
+      "codex-thread-footer-content",
+      "codex-thread-footer-fade",
+      "codex-thread-scroll",
+      "codex-thread-scroll-region",
+      "codex-turn-activity-status",
+      "codicon",
+      "codicon-file-code",
+      "light",
+      "vscode-light"
+    ],
+    "dataAttrs": [
+      "data-action",
+      "data-allow-native-drag",
+      "data-codex-api-error",
+      "data-codex-archive-button",
+      "data-codex-composer",
+      "data-codex-composer-surface",
+      "data-codex-empty",
+      "data-codex-focus-turn",
+      "data-codex-intelligence-trigger",
+      "data-codex-node-id",
+      "data-codex-os",
+      "data-codex-panel-root",
+      "data-codex-script",
+      "data-codex-session-id",
+      "data-codex-view",
+      "data-codex-window-chrome",
+      "data-codex-window-type",
+      "data-disclosure-toggle",
+      "data-popover",
+      "data-thread-content-shell",
+      "data-thread-scroll"
+    ],
+    "selectors": [
+      "#codexPanel",
+      "#root",
+      ".ProseMirror p",
+      ".ProseMirror p.placeholder br",
+      ".ProseMirror p.placeholder::before",
+      "._content_1hiti_1",
+      ".codex-chevron-right",
+      ".codex-composer-card",
+      ".codex-composer-card-inner",
+      ".codex-composer-card-wrap",
+      ".codex-composer-editor",
+      ".codex-composer-editor-viewport",
+      ".codex-composer-external-footer",
+      ".codex-composer-footer",
+      ".codex-composer-send-button",
+      ".codex-composer-send-button.codex-send-disabled",
+      ".codex-composer-send-button.codex-send-ready",
+      ".codex-composer-shell",
+      ".codex-composer-surface",
+      ".codex-error-message",
+      ".codex-floating-menu",
+      ".codex-floating-menu-approval",
+      ".codex-floating-menu-model",
+      ".codex-floating-menu-node",
+      ".codex-history-page-loader",
+      ".codex-home-composer",
+      ".codex-home-watermark",
+      ".codex-list-body",
+      ".codex-list-status-notice",
+      ".codex-markdown-link",
+      ".codex-markdown-link:hover",
+      ".codex-panel-header",
+      ".codex-panel-view",
+      ".codex-send-ready",
+      ".codex-session-status-spinner",
+      ".codex-session-status-spinner::after",
+      ".codex-session-status-spinner::before",
+      ".codex-sidebar-content",
+      ".codex-thread-body",
+      ".codex-thread-content",
+      ".codex-thread-content-shell",
+      ".codex-thread-footer-content",
+      ".codex-thread-footer-fade",
+      ".codex-thread-scroll",
+      ".codex-thread-scroll-region",
+      ".codex-turn-activity-icon-spacer",
+      ".codex-turn-activity-status",
+      ".codicon",
+      ".codicon::before",
+      ".thread-scroll-container",
+      ":host",
+      "[data-composer-overlay-floating-ui]",
+      "[data-thread-find-target=\"conversation\"]",
+      "[data-thread-scroll-footer=\"true\"]"
+    ]
+  }
+}

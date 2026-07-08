@@ -14,13 +14,15 @@ type Controller struct {
 	DataDir               string
 	AgentToken            string
 	AgentTokenIsGenerated bool
+	EnableFixtures        bool
 }
 
 func LoadController() (Controller, error) {
 	dataDir := getenv("CODEX_WEB_DATA", "./data")
 	cfg := Controller{
-		Addr:    getenv("CODEX_WEB_ADDR", "127.0.0.1:58888"),
-		DataDir: dataDir,
+		Addr:           getenv("CODEX_WEB_ADDR", "127.0.0.1:58888"),
+		DataDir:        dataDir,
+		EnableFixtures: getenvBool("CODEX_WEB_ENABLE_FIXTURES", false),
 	}
 	agentToken := os.Getenv("CODEX_WEB_AGENT_TOKEN")
 	if agentToken == "" {
@@ -41,6 +43,21 @@ func getenv(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+func getenvBool(key string, defaultValue bool) bool {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
+	if value == "" {
+		return defaultValue
+	}
+	switch value {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return defaultValue
+	}
 }
 
 func loadOrCreateSecret(path string, byteCount int) (string, error) {

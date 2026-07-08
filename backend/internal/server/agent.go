@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"codex-web/backend/internal/model"
 	"codex-web/backend/internal/node"
@@ -12,6 +13,8 @@ import (
 var agentUpgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
+
+var agentHelloTimeout = 10 * time.Second
 
 func (a *App) handleAgentConnect(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -25,6 +28,9 @@ func (a *App) handleAgentConnect(w http.ResponseWriter, r *http.Request) {
 	conn, err := agentUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
+	}
+	if agentHelloTimeout > 0 {
+		_ = conn.SetReadDeadline(time.Now().Add(agentHelloTimeout))
 	}
 	var first model.AgentEnvelope
 	if err := conn.ReadJSON(&first); err != nil {

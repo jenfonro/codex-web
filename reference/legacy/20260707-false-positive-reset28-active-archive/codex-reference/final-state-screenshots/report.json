@@ -1,0 +1,147 @@
+{
+  "generatedAt": "2026-07-06T09:11:20.635Z",
+  "appURL": "http://127.0.0.1:58889/?codexFixture=reference",
+  "cdp": "http://127.0.0.1:9338",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "sidebarWidth": 611,
+  "captures": [
+    {
+      "id": "completed-summary",
+      "label": "Completed turn with processed-time summary",
+      "file": "completed-summary.png",
+      "state": {
+        "found": true,
+        "selector": "button[aria-expanded].text-size-chat",
+        "text": "Processed 120s",
+        "expanded": false,
+        "inViewport": true,
+        "rect": {
+          "x": 64,
+          "y": 772,
+          "width": 108,
+          "height": 22
+        }
+      }
+    },
+    {
+      "id": "file-reference",
+      "label": "File/diff reference styling",
+      "file": "file-reference.png",
+      "state": {
+        "found": true,
+        "selector": "._tableCellFileLink_lzkx4_413, [data-file-reference], .thread-diff-virtualized",
+        "text": "frontend/src/pages/codex/virtual-90.js",
+        "expanded": false,
+        "inViewport": true,
+        "rect": {
+          "x": 117,
+          "y": 816,
+          "width": 252,
+          "height": 17
+        }
+      }
+    },
+    {
+      "id": "running-thinking",
+      "label": "Running/thinking shimmer and running shell state",
+      "file": "running-thinking.png",
+      "state": {
+        "found": true,
+        "selector": "._cadencedShimmer_18j3y_1, .loading-shimmer-pure-text, .group\\/activity-header, [class*='group/activity-header']",
+        "text": "正在思考 正在思考",
+        "expanded": false,
+        "inViewport": true,
+        "rect": {
+          "x": 64,
+          "y": 623,
+          "width": 52,
+          "height": 20
+        }
+      }
+    }
+  ],
+  "summary": {
+    "checks": 15,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "viewport is 1920x1080 or larger",
+      "ok": true,
+      "details": "1920x1080"
+    },
+    {
+      "name": "sidebar width is visual-reference width",
+      "ok": true,
+      "details": "611px"
+    },
+    {
+      "name": "completed-summary state found",
+      "ok": true,
+      "details": "Processed 120s"
+    },
+    {
+      "name": "completed-summary screenshot written",
+      "ok": true,
+      "details": "completed-summary.png"
+    },
+    {
+      "name": "completed-summary target has visible bounds",
+      "ok": true,
+      "details": "108x22 at 64,772"
+    },
+    {
+      "name": "completed-summary target is in scroll viewport",
+      "ok": true,
+      "details": "108x22 at 64,772"
+    },
+    {
+      "name": "file-reference state found",
+      "ok": true,
+      "details": "frontend/src/pages/codex/virtual-90.js"
+    },
+    {
+      "name": "file-reference screenshot written",
+      "ok": true,
+      "details": "file-reference.png"
+    },
+    {
+      "name": "file-reference target has visible bounds",
+      "ok": true,
+      "details": "252x17 at 117,816"
+    },
+    {
+      "name": "file-reference target is in scroll viewport",
+      "ok": true,
+      "details": "252x17 at 117,816"
+    },
+    {
+      "name": "running-thinking state found",
+      "ok": true,
+      "details": "正在思考 正在思考"
+    },
+    {
+      "name": "running-thinking screenshot written",
+      "ok": true,
+      "details": "running-thinking.png"
+    },
+    {
+      "name": "running-thinking target has visible bounds",
+      "ok": true,
+      "details": "52x20 at 64,623"
+    },
+    {
+      "name": "running-thinking target is in scroll viewport",
+      "ok": true,
+      "details": "52x20 at 64,623"
+    },
+    {
+      "name": "running state includes shimmer or running text",
+      "ok": true,
+      "details": "正在思考 正在思考"
+    }
+  ]
+}

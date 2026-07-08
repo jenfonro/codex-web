@@ -7,6 +7,7 @@ import (
 	"log"
 	"mime"
 	"net/http"
+	pathpkg "path"
 	"path/filepath"
 	"strings"
 
@@ -63,6 +64,7 @@ func loadConfig() (appConfig, error) {
 		DataDir:             loaded.DataDir,
 		AgentToken:          loaded.AgentToken,
 		AgentTokenGenerated: loaded.AgentTokenIsGenerated,
+		EnableFixtures:      loaded.EnableFixtures,
 	}
 	return cfg, nil
 }
@@ -102,24 +104,69 @@ func (a *App) staticHandler() http.Handler {
 			writeError(w, http.StatusNotFound, "not found")
 			return
 		}
-		path := strings.TrimPrefix(r.URL.Path, "/")
-		if path == "" {
-			path = "index.html"
+		requestPath := cleanStaticPath(r.URL.Path)
+		if !a.cfg.EnableFixtures && isFixtureAsset(requestPath) {
+			writeStaticNotFound(w, r)
+			return
 		}
-		if _, err := staticFS.Open(path); err != nil {
-			r.URL.Path = "/"
-			path = "index.html"
+		if file, err := staticFS.Open(requestPath); err != nil {
+			if !canFallbackToIndex(requestPath) {
+				writeStaticNotFound(w, r)
+				return
+			}
+			requestPath = "index.html"
+		} else {
+			if isDirectory(file) {
+				_ = file.Close()
+				writeStaticNotFound(w, r)
+				return
+			}
+			_ = file.Close()
 		}
-		if path == "index.html" {
+		if requestPath == "index.html" {
 			w.Header().Set("Cache-Control", "no-cache")
 		} else {
 			w.Header().Set("Cache-Control", "public, max-age=3600")
 		}
-		if ctype := mime.TypeByExtension(filepath.Ext(path)); ctype != "" {
+		if ctype := mime.TypeByExtension(filepath.Ext(requestPath)); ctype != "" {
 			w.Header().Set("Content-Type", ctype)
 		}
-		fileServer.ServeHTTP(w, r)
+		serveReq := r.Clone(r.Context())
+		serveReq.URL.Path = "/" + requestPath
+		if requestPath == "index.html" {
+			serveReq.URL.Path = "/"
+		}
+		fileServer.ServeHTTP(w, serveReq)
 	})
+}
+
+func isDirectory(file fs.File) bool {
+	info, err := file.Stat()
+	return err == nil && info.IsDir()
+}
+
+func writeStaticNotFound(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	http.NotFound(w, r)
+}
+
+func cleanStaticPath(path string) string {
+	cleaned := strings.TrimPrefix(pathpkg.Clean("/"+strings.TrimPrefix(path, "/")), "/")
+	if cleaned == "" || cleaned == "." {
+		return "index.html"
+	}
+	return cleaned
+}
+
+func isFixtureAsset(path string) bool {
+	return cleanStaticPath(path) == "app/codex-fixtures.js"
+}
+
+func canFallbackToIndex(path string) bool {
+	if strings.HasPrefix(path, "app/") || strings.HasPrefix(path, "assets/") {
+		return false
+	}
+	return filepath.Ext(path) == ""
 }
 
 func readJSON(r *http.Request, v any) error {

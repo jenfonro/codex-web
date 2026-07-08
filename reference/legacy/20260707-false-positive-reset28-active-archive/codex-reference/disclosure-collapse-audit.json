@@ -1,0 +1,275 @@
+{
+  "generatedAt": "2026-07-06T18:17:44.986Z",
+  "fixtureURL": "http://127.0.0.1:58888/?codexFixture=dynamic&auditRun=20260706181743798",
+  "basis": "Disclosure collapse audit. The source snippets are read from the official extension asset; DOM evidence is collected by expanding and collapsing an official-style local disclosure. This intentionally does not target Codex Web-only exec_command grouping.",
+  "sourceEvidence": {
+    "file": {
+      "path": "C:\\Users\\79917\\Desktop\\codex\\codex-web\\reference\\extension-source\\openai.chatgpt-26.5623.31443\\webview\\assets\\tool-activity-disclosure-BLOD7VGb.js",
+      "exists": true,
+      "bytes": 3349
+    },
+    "checks": [
+      {
+        "name": "official disclosure asset present",
+        "ok": true,
+        "details": "3349 bytes"
+      },
+      {
+        "name": "official source contains: group/activity-header inline-flex min-w-0 max-w-full self-start items-center gap-1.5 p-0 text-left",
+        "ok": true,
+        "details": "group/activity-header inline-flex min-w-0 max-w-full self-start items-center gap-1.5 p-0 text-left"
+      },
+      {
+        "name": "official source contains: animate:{height:O?w:0,opacity:O?1:0}",
+        "ok": true,
+        "details": "animate:{height:O?w:0,opacity:O?1:0}"
+      },
+      {
+        "name": "official source contains: \"aria-hidden\":!O,inert:!O",
+        "ok": true,
+        "details": "\"aria-hidden\":!O,inert:!O"
+      },
+      {
+        "name": "official source contains: className:O?`overflow-visible`:`overflow-hidden`",
+        "ok": true,
+        "details": "className:O?`overflow-visible`:`overflow-hidden`"
+      },
+      {
+        "name": "official source contains: style:{pointerEvents:O?`auto`:`none`}",
+        "ok": true,
+        "details": "style:{pointerEvents:O?`auto`:`none`}"
+      },
+      {
+        "name": "official source contains: flex flex-col gap-2 pt-2 pb-1",
+        "ok": true,
+        "details": "flex flex-col gap-2 pt-2 pb-1"
+      }
+    ]
+  },
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "sidebarWidth": 611,
+  "summary": {
+    "checks": 27,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "official disclosure asset present",
+      "ok": true,
+      "details": "3349 bytes"
+    },
+    {
+      "name": "official source contains: group/activity-header inline-flex min-w-0 max-w-full self-start items-center gap-1.5 p-0 text-left",
+      "ok": true,
+      "details": "group/activity-header inline-flex min-w-0 max-w-full self-start items-center gap-1.5 p-0 text-left"
+    },
+    {
+      "name": "official source contains: animate:{height:O?w:0,opacity:O?1:0}",
+      "ok": true,
+      "details": "animate:{height:O?w:0,opacity:O?1:0}"
+    },
+    {
+      "name": "official source contains: \"aria-hidden\":!O,inert:!O",
+      "ok": true,
+      "details": "\"aria-hidden\":!O,inert:!O"
+    },
+    {
+      "name": "official source contains: className:O?`overflow-visible`:`overflow-hidden`",
+      "ok": true,
+      "details": "className:O?`overflow-visible`:`overflow-hidden`"
+    },
+    {
+      "name": "official source contains: style:{pointerEvents:O?`auto`:`none`}",
+      "ok": true,
+      "details": "style:{pointerEvents:O?`auto`:`none`}"
+    },
+    {
+      "name": "official source contains: flex flex-col gap-2 pt-2 pb-1",
+      "ok": true,
+      "details": "flex flex-col gap-2 pt-2 pb-1"
+    },
+    {
+      "name": "viewport is 1920x1080 or larger",
+      "ok": true,
+      "details": "1920x1080"
+    },
+    {
+      "name": "sidebar target is wide enough",
+      "ok": true,
+      "details": "611px"
+    },
+    {
+      "name": "official-style disclosure toggle found",
+      "ok": true,
+      "details": "已处理 22s"
+    },
+    {
+      "name": "audited disclosure body found",
+      "ok": true,
+      "details": "overflow-hidden -mx-1.5 px-1.5"
+    },
+    {
+      "name": "collapsed body retains DOM text",
+      "ok": true,
+      "details": "93"
+    },
+    {
+      "name": "collapsed body is aria-hidden",
+      "ok": true,
+      "details": "true"
+    },
+    {
+      "name": "collapsed body is inert",
+      "ok": true,
+      "details": "true"
+    },
+    {
+      "name": "collapsed body uses overflow-hidden",
+      "ok": true,
+      "details": "overflow-hidden -mx-1.5 px-1.5 hidden"
+    },
+    {
+      "name": "collapsed body has zero visual height",
+      "ok": true,
+      "details": "0px"
+    },
+    {
+      "name": "collapsed body opacity is zero",
+      "ok": true,
+      "details": "0"
+    },
+    {
+      "name": "collapsed body ignores pointer events",
+      "ok": true,
+      "details": "none"
+    },
+    {
+      "name": "collapsed body has no visible text",
+      "ok": true,
+      "details": ""
+    },
+    {
+      "name": "collapsed body has no visible descendants",
+      "ok": true,
+      "details": "0"
+    },
+    {
+      "name": "expanded body is not aria-hidden",
+      "ok": true,
+      "details": "false"
+    },
+    {
+      "name": "expanded body is not inert",
+      "ok": true,
+      "details": "false"
+    },
+    {
+      "name": "expanded body uses overflow-visible",
+      "ok": true,
+      "details": "overflow-visible -mx-1.5 px-1.5 visible"
+    },
+    {
+      "name": "expanded body has visual height",
+      "ok": true,
+      "details": "50px"
+    },
+    {
+      "name": "expanded body exposes visible text",
+      "ok": true,
+      "details": "Checked the processed-summary disclosure path and kept command rows out of the expanded body."
+    },
+    {
+      "name": "expanded disclosure keeps toggle anchored",
+      "ok": true,
+      "details": "0px"
+    },
+    {
+      "name": "re-collapsed body hides again",
+      "ok": true,
+      "details": "aria=true, height=0, text="
+    }
+  ],
+  "dom": {
+    "ok": true,
+    "toggle": {
+      "found": true,
+      "key": "turn-activity:dynamic-processed-summary-turn",
+      "text": "已处理 22s",
+      "className": "text-size-chat hover:bg-token-bg-subtle cursor-interaction inline-flex items-center gap-1 rounded-md border border-transparent focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:outline-none"
+    },
+    "collapsed": {
+      "label": "collapsed",
+      "toggleFound": true,
+      "bodyFound": true,
+      "ariaExpanded": "false",
+      "ariaHidden": "true",
+      "inert": true,
+      "className": "overflow-hidden -mx-1.5 px-1.5",
+      "rectWidth": 575,
+      "rectHeight": 0,
+      "overflow": "hidden",
+      "opacity": "0",
+      "pointerEvents": "none",
+      "domTextLength": 93,
+      "visibleText": "",
+      "rawText": "Checked the processed-summary disclosure path and kept command rows out of the expanded body.",
+      "visibleDescendantCount": 0
+    },
+    "expanded": {
+      "label": "expanded",
+      "toggleFound": true,
+      "bodyFound": true,
+      "ariaExpanded": "true",
+      "ariaHidden": "false",
+      "inert": false,
+      "className": "overflow-visible -mx-1.5 px-1.5",
+      "rectWidth": 575,
+      "rectHeight": 50,
+      "overflow": "visible",
+      "opacity": "1",
+      "pointerEvents": "auto",
+      "domTextLength": 93,
+      "visibleText": "Checked the processed-summary disclosure path and kept command rows out of the expanded body.",
+      "rawText": "Checked the processed-summary disclosure path and kept command rows out of the expanded body.",
+      "visibleDescendantCount": 4
+    },
+    "anchor": {
+      "beforeExpand": {
+        "found": true,
+        "top": 417,
+        "bottom": 438,
+        "height": 22,
+        "scrollTop": 66
+      },
+      "afterExpand": {
+        "found": true,
+        "top": 417,
+        "bottom": 438,
+        "height": 22,
+        "scrollTop": 0
+      },
+      "expandDeltaTop": 0
+    },
+    "recollapsed": {
+      "label": "recollapsed",
+      "toggleFound": true,
+      "bodyFound": true,
+      "ariaExpanded": "false",
+      "ariaHidden": "true",
+      "inert": true,
+      "className": "overflow-hidden -mx-1.5 px-1.5",
+      "rectWidth": 575,
+      "rectHeight": 0,
+      "overflow": "hidden",
+      "opacity": "0",
+      "pointerEvents": "none",
+      "domTextLength": 93,
+      "visibleText": "",
+      "rawText": "Checked the processed-summary disclosure path and kept command rows out of the expanded body.",
+      "visibleDescendantCount": 0
+    }
+  }
+}

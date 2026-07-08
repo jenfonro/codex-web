@@ -1,0 +1,135 @@
+{
+  "generatedAt": "2026-07-06T17:06:57.993Z",
+  "fixtureURL": "http://127.0.0.1:58888/?codexFixture=virtual-scroll&auditRun=20260706170654322",
+  "disclosureFixtureURL": "http://127.0.0.1:58888/?codexFixture=dynamic&auditRun=20260706170654322",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "sidebarWidth": 611,
+  "basis": "Browser-level regression audit for app-owned workspace interactions: no native HTML drag preview, no sidebar resize sash, wheel scrolling works in long threads, and disclosure toggles receive real mouse clicks.",
+  "summary": {
+    "checks": 13,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "workspace has no sidebar resize handle",
+      "ok": true,
+      "details": "0"
+    },
+    {
+      "name": "workspace has no explicit draggable elements",
+      "ok": true,
+      "details": "0"
+    },
+    {
+      "name": "workspace disables native user drag",
+      "ok": true,
+      "details": "none"
+    },
+    {
+      "name": "codex shadow disables native user drag",
+      "ok": true,
+      "details": "none"
+    },
+    {
+      "name": "codex panel has no app-region draggable header",
+      "ok": true,
+      "details": "0"
+    },
+    {
+      "name": "activity drag gesture does not emit dragstart",
+      "ok": true,
+      "details": "0"
+    },
+    {
+      "name": "panel header drag gesture does not emit dragstart",
+      "ok": true,
+      "details": "0"
+    },
+    {
+      "name": "thread content drag gesture does not emit dragstart",
+      "ok": true,
+      "details": "0"
+    },
+    {
+      "name": "long thread has scrollable content",
+      "ok": true,
+      "details": "max=18661"
+    },
+    {
+      "name": "mouse wheel changes long-thread scrollTop",
+      "ok": true,
+      "details": "before=18653, after=17753"
+    },
+    {
+      "name": "official-style disclosure toggle is visible",
+      "ok": true,
+      "details": "exec_command exit 1 failed"
+    },
+    {
+      "name": "real mouse click toggles disclosure",
+      "ok": true,
+      "details": "before=false, after=true"
+    },
+    {
+      "name": "disclosure click target is not blocked by overlay",
+      "ok": true,
+      "details": "SPAN min-w-0 flex-1 truncate"
+    }
+  ],
+  "audit": {
+    "shell": {
+      "sidebarResizeHandleCount": 0,
+      "draggableAttributeCount": 0,
+      "draggableAttributeLabels": [],
+      "workbenchUserDrag": "none",
+      "shadowRootUserDrag": "none",
+      "shadowDraggableClassCount": 0,
+      "shadowHeaderCount": 1
+    },
+    "activityDrag": {
+      "dragStarts": 0,
+      "draggableAttributeCount": 0,
+      "shadowDraggableClassCount": 0
+    },
+    "headerDrag": {
+      "dragStarts": 0,
+      "draggableAttributeCount": 0,
+      "shadowDraggableClassCount": 0
+    },
+    "contentDrag": {
+      "dragStarts": 0,
+      "draggableAttributeCount": 0,
+      "shadowDraggableClassCount": 0
+    },
+    "scroll": {
+      "found": true,
+      "before": 18653,
+      "maxScroll": 18661,
+      "x": 353,
+      "y": 507,
+      "after": 17753,
+      "changed": true
+    },
+    "disclosure": {
+      "found": true,
+      "key": "inline-activity:3:0",
+      "beforeExpanded": "false",
+      "text": "exec_command exit 1 failed",
+      "x": 168,
+      "y": 472,
+      "rect": {
+        "left": 64,
+        "top": 463,
+        "width": 209,
+        "height": 20
+      },
+      "clickedAtExpectedPoint": true,
+      "hitSummary": "SPAN min-w-0 flex-1 truncate",
+      "afterExpanded": "true",
+      "toggled": true
+    }
+  }
+}

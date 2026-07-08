@@ -98,6 +98,35 @@ func TestAgentConnectRejectsBadToken(t *testing.T) {
 	}
 }
 
+func TestAgentConnectClosesWhenHelloTimesOut(t *testing.T) {
+	oldTimeout := agentHelloTimeout
+	agentHelloTimeout = 50 * time.Millisecond
+	defer func() { agentHelloTimeout = oldTimeout }()
+
+	app := &App{
+		cfg:   appConfig{AgentToken: "secret"},
+		nodes: node.NewRegistry(filepath.Join(t.TempDir(), "nodes.json")),
+	}
+	server := httptest.NewServer(http.HandlerFunc(app.handleAgentConnect))
+	defer server.Close()
+
+	wsURL := "ws" + server.URL[len("http"):]
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, http.Header{"Authorization": []string{"Bearer secret"}})
+	if err != nil {
+		t.Fatalf("Dial() error = %v", err)
+	}
+	defer conn.Close()
+
+	_ = conn.SetReadDeadline(time.Now().Add(time.Second))
+	var msg model.AgentEnvelope
+	if err := conn.ReadJSON(&msg); err == nil {
+		t.Fatalf("ReadJSON() error = nil, want controller to close connection before hello")
+	}
+	if nodes := app.nodes.List(); len(nodes) != 0 {
+		t.Fatalf("nodes after hello timeout = %#v, want none", nodes)
+	}
+}
+
 func waitForClient(t *testing.T, app *App, id string) node.Client {
 	t.Helper()
 	var client node.Client

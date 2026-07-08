@@ -1,0 +1,457 @@
+{
+  "generatedAt": "2026-07-06T17:06:22.424Z",
+  "basis": "Static architecture audit for Codex Web controller + root agent separation. This is a source-boundary gate, not a replacement for Go tests or browser visual audits.",
+  "totals": {
+    "checks": 44,
+    "passed": 44,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "controller entry lives under backend/cmd/codex-web",
+      "ok": true,
+      "details": "backend/cmd/codex-web/main.go",
+      "evidence": [
+        "backend/cmd/codex-web/main.go"
+      ]
+    },
+    {
+      "name": "agent is a root-level Go module, not nested under backend",
+      "ok": true,
+      "details": "agent/go.mod and agent/main.go exist; backend/cmd/codex-agent must not exist",
+      "evidence": [
+        "agent/go.mod",
+        "agent/main.go"
+      ]
+    },
+    {
+      "name": "backend internal packages stay controller-only",
+      "ok": true,
+      "details": "actual=config,model,node,server; missing=none; unexpected=none",
+      "evidence": [
+        "backend/internal/config",
+        "backend/internal/model",
+        "backend/internal/node",
+        "backend/internal/server"
+      ]
+    },
+    {
+      "name": "agent internal packages own transport, host, and session responsibilities",
+      "ok": true,
+      "details": "actual=agent,config,host,model,session; missing=none; unexpected=none",
+      "evidence": [
+        "agent/internal/agent",
+        "agent/internal/config",
+        "agent/internal/host",
+        "agent/internal/model",
+        "agent/internal/session"
+      ]
+    },
+    {
+      "name": "removed backend local Codex/appserver/bridge/host packages",
+      "ok": true,
+      "details": "backend/internal must not contain local execution packages",
+      "evidence": [
+        "backend/internal"
+      ]
+    },
+    {
+      "name": "backend does not execute Codex or import agent internals",
+      "ok": true,
+      "details": "no forbidden execution references found",
+      "evidence": [
+        "backend/cmd/codex-web/main.go",
+        "backend/internal/config/config.go",
+        "backend/internal/model/node.go",
+        "backend/internal/node/registry_test.go",
+        "backend/internal/node/registry.go",
+        "backend/internal/node/remote_test.go",
+        "backend/internal/node/remote.go",
+        "backend/internal/node/types.go",
+        "backend/internal/server/agent_test.go",
+        "backend/internal/server/agent.go",
+        "backend/internal/server/app_test.go",
+        "backend/internal/server/app.go",
+        "backend/internal/server/nodes.go",
+        "backend/internal/server/sessions_test.go",
+        "backend/internal/server/sessions.go",
+        "backend/internal/server/types.go",
+        "backend/public/public.go"
+      ]
+    },
+    {
+      "name": "agent session manager runs Codex CLI turns",
+      "ok": true,
+      "details": "agent/internal/session/manager.go contains the CLI execution path for new and resumed sessions",
+      "evidence": [
+        "agent/internal/session/manager.go"
+      ]
+    },
+    {
+      "name": "agent turns are independent of browser request lifetime",
+      "ok": true,
+      "details": "session turns detach from the controller HTTP request context before running the CLI, with a fake Codex regression test",
+      "evidence": [
+        "agent/internal/session/manager.go",
+        "agent/internal/session/history_test.go"
+      ]
+    },
+    {
+      "name": "agent owns git execution, backend only forwards git requests",
+      "ok": true,
+      "details": "git command execution is under agent/internal/host; backend exposes POST /api/git as a remote op",
+      "evidence": [
+        "agent/internal/host/git.go",
+        "backend/internal/server/sessions.go"
+      ]
+    },
+    {
+      "name": "controller exposes required API routes",
+      "ok": true,
+      "details": "backend/internal/server/app.go routes nodes, sessions, workspace, git, and agent websocket endpoints",
+      "evidence": [
+        "backend/internal/server/app.go"
+      ]
+    },
+    {
+      "name": "controller session API forwards to agent operations",
+      "ok": true,
+      "details": "session/workspace/git HTTP handlers use node.Client.Request operations",
+      "evidence": [
+        "backend/internal/server/sessions.go"
+      ]
+    },
+    {
+      "name": "session SSE supports both backlog and live updates",
+      "ok": true,
+      "details": "GET /api/sessions/events replays backlog for one session and streams agent session.event messages",
+      "evidence": [
+        "backend/internal/server/sessions.go",
+        "backend/internal/node/remote.go"
+      ]
+    },
+    {
+      "name": "session SSE disables reverse-proxy buffering",
+      "ok": true,
+      "details": "SSE responses set X-Accel-Buffering: no so nginx can flush stream headers/backlog promptly",
+      "evidence": [
+        "backend/internal/server/sessions.go",
+        "backend/internal/server/sessions_test.go"
+      ]
+    },
+    {
+      "name": "remote disconnect closes live SSE subscribers",
+      "ok": true,
+      "details": "Remote.Close resolves pending requests and closes subscribed event streams so browsers can reconnect instead of hanging on a stale node stream",
+      "evidence": [
+        "backend/internal/node/remote.go",
+        "backend/internal/node/remote_test.go"
+      ]
+    },
+    {
+      "name": "remote request write failure tears down the stale node connection",
+      "ok": true,
+      "details": "controller write failures close the remote, mark the node offline, and close event streams instead of leaving a stale online client",
+      "evidence": [
+        "backend/internal/node/remote.go",
+        "backend/internal/node/remote_test.go"
+      ]
+    },
+    {
+      "name": "session list page can subscribe to all session events",
+      "ok": true,
+      "details": "omitting sessionId keeps the SSE stream open for every session on the selected node",
+      "evidence": [
+        "backend/internal/server/sessions.go"
+      ]
+    },
+    {
+      "name": "frontend exposes explicit node switching for multi-agent control",
+      "ok": true,
+      "details": "the Codex panel stores normalized nodes, shows a multi-node selector only when needed, switches active node through the controller, and rebuilds session/SSE state",
+      "evidence": [
+        "frontend/src/pages/codex/api.js",
+        "frontend/src/store/codex.js",
+        "frontend/src/pages/codex/index.js",
+        "frontend/src/pages/codex/renderer.js",
+        "frontend/src/pages/codex/panel-shadow.css"
+      ]
+    },
+    {
+      "name": "frontend has a controller-owned node management view",
+      "ok": true,
+      "details": "the workspace can switch from the Codex view to a controller-owned Nodes view, list nodes, select the active node, delete offline nodes, and keep Codex panel node state synchronized",
+      "evidence": [
+        "frontend/src/components/workspace/layout.js",
+        "frontend/src/app/bootstrap.js",
+        "frontend/src/pages/nodes/index.js",
+        "frontend/src/pages/nodes/nodes.css",
+        "frontend/src/pages/codex/index.js",
+        "frontend/build.sh"
+      ]
+    },
+    {
+      "name": "frontend has controller-owned workspace and git views",
+      "ok": true,
+      "details": "the workspace Activity Bar can switch to file browsing and source-control views that call the controller workspace/git APIs for the active agent node",
+      "evidence": [
+        "frontend/src/components/workspace/layout.js",
+        "frontend/src/app/bootstrap.js",
+        "frontend/src/pages/workspace/index.js",
+        "frontend/src/pages/workspace/workspace.css",
+        "frontend/src/pages/git/index.js",
+        "frontend/src/pages/git/git.css",
+        "frontend/build.sh"
+      ]
+    },
+    {
+      "name": "frontend has a controller-owned runs view",
+      "ok": true,
+      "details": "the workspace Activity Bar can switch to a controller-owned Runs view that aggregates online-node sessions, subscribes to live session events, opens a run in the Codex panel, and cancels active turns through the controller",
+      "evidence": [
+        "frontend/src/components/workspace/layout.js",
+        "frontend/src/app/bootstrap.js",
+        "frontend/src/pages/runs/index.js",
+        "frontend/src/pages/runs/runs.css",
+        "frontend/src/pages/codex/index.js",
+        "frontend/build.sh"
+      ]
+    },
+    {
+      "name": "node routing never silently falls back to local execution",
+      "ok": true,
+      "details": "missing, offline, and unknown nodes are explicit errors",
+      "evidence": [
+        "backend/internal/server/sessions.go"
+      ]
+    },
+    {
+      "name": "node id priority includes body, header, and query",
+      "ok": true,
+      "details": "requestNodeID checks explicit body nodeId, X-Codex-Web-Node-ID, then query nodeId",
+      "evidence": [
+        "backend/internal/server/sessions.go"
+      ]
+    },
+    {
+      "name": "agent websocket protocol has typed envelopes and request correlation",
+      "ok": true,
+      "details": "backend and agent model envelopes carry type, requestId, nodeId, result, error, and event",
+      "evidence": [
+        "backend/internal/model/node.go",
+        "agent/internal/model/node.go"
+      ]
+    },
+    {
+      "name": "agent hello, heartbeat, request, response, and event flow is implemented",
+      "ok": true,
+      "details": "agent connects outbound, registers with hello, heartbeats, handles controller.request, forwards session events, and disconnects unblock pending controller requests",
+      "evidence": [
+        "agent/internal/agent/agent.go",
+        "backend/internal/server/agent.go",
+        "backend/internal/node/remote.go",
+        "backend/internal/node/remote_test.go"
+      ]
+    },
+    {
+      "name": "agent responses are bound to the websocket connection that received the request",
+      "ok": true,
+      "details": "request responses and forwarded events use the connection for the current serve loop instead of a mutable global agent connection, and event write failures break the serve loop for reconnect",
+      "evidence": [
+        "agent/internal/agent/agent.go",
+        "agent/internal/agent/agent_test.go"
+      ]
+    },
+    {
+      "name": "controller persists node records and generated agent token",
+      "ok": true,
+      "details": "nodes.json and agent-token.txt are data-dir owned; registry keeps offline records and blocks online deletion",
+      "evidence": [
+        "backend/internal/server/app.go",
+        "backend/internal/config/config.go",
+        "backend/internal/node/registry.go"
+      ]
+    },
+    {
+      "name": "stale agent disconnect cannot mark a reconnected node offline",
+      "ok": true,
+      "details": "registry only removes the matching client on MarkOffline and has a regression test for same-node reconnect races",
+      "evidence": [
+        "backend/internal/node/registry.go",
+        "backend/internal/node/registry_test.go"
+      ]
+    },
+    {
+      "name": "agent config requires controller, identity, token, root, Codex home, and Codex binary",
+      "ok": true,
+      "details": "agent/internal/config/config.go defines the runtime boundary through environment variables",
+      "evidence": [
+        "agent/internal/config/config.go"
+      ]
+    },
+    {
+      "name": "build scripts produce both controller and agent binaries",
+      "ok": true,
+      "details": "build-all builds frontend and delegates to build.sh; build.sh emits codex-web and codex-agent",
+      "evidence": [
+        "build-all.sh",
+        "build.sh"
+      ]
+    },
+    {
+      "name": "root Go test wrapper covers both separated modules",
+      "ok": true,
+      "details": "test-go.sh is the root verification entry for the separate backend and agent Go modules, and it prepares embedded frontend dist for fresh clones",
+      "evidence": [
+        "test-go.sh",
+        "README.md"
+      ]
+    },
+    {
+      "name": "Docker agent image stays lightweight and proxy-aware",
+      "ok": true,
+      "details": "agent/Dockerfile uses the proxy Alpine base and starts codex-agent directly",
+      "evidence": [
+        "agent/Dockerfile"
+      ]
+    },
+    {
+      "name": "Docker agent helper persists data and imports existing Codex auth/session state",
+      "ok": true,
+      "details": "run-agent-container mounts persistent codex-home/tmp/root, copies auth/config, imports sessions, and keeps detached containers running",
+      "evidence": [
+        "scripts/run-agent-container.sh"
+      ]
+    },
+    {
+      "name": "systemd keeps only the controller on the host",
+      "ok": true,
+      "details": "systemd services=codex-web.service",
+      "evidence": [
+        "systemd/codex-web.service"
+      ]
+    },
+    {
+      "name": "frontend assets are bundled and cache-busted",
+      "ok": true,
+      "details": "frontend build emits app/codex-web.css and app/codex-web.js with timestamped URLs, plus a separate fixture bundle for explicit audits",
+      "evidence": [
+        "frontend/src/index.html",
+        "frontend/build.sh"
+      ]
+    },
+    {
+      "name": "fixture assets are not publicly served unless audit mode is enabled",
+      "ok": true,
+      "details": "app/codex-fixtures.js remains buildable for local audits but the controller hides it by default in production static serving, including normalized path variants",
+      "evidence": [
+        "backend/internal/config/config.go",
+        "backend/internal/server/app.go",
+        "backend/internal/server/app_test.go"
+      ]
+    },
+    {
+      "name": "static asset misses return 404 while client routes fall back to index",
+      "ok": true,
+      "details": "missing JS/CSS/assets are explicit 404s; extensionless client routes still receive index.html without a FileServer redirect",
+      "evidence": [
+        "backend/internal/server/app.go",
+        "backend/internal/server/app_test.go"
+      ]
+    },
+    {
+      "name": "static directories are never listed",
+      "ok": true,
+      "details": "static directories return 404/no-store explicitly while the root path still serves index.html",
+      "evidence": [
+        "backend/internal/server/app.go",
+        "backend/internal/server/app_test.go"
+      ]
+    },
+    {
+      "name": "app-owned frontend code does not load remote code-server/webview/auth runtime",
+      "ok": true,
+      "details": "no remote code-server/webview/auth runtime references in app-owned frontend code",
+      "evidence": [
+        "frontend/src/app/bootstrap.js",
+        "frontend/src/app/layout.css",
+        "frontend/src/components/icons/codex-icons.js",
+        "frontend/src/components/workspace/layout.js",
+        "frontend/src/pages/codex/activity-summary.js",
+        "frontend/src/pages/codex/api.js",
+        "frontend/src/pages/codex/config.js",
+        "frontend/src/pages/codex/grouping.js",
+        "frontend/src/pages/codex/index.js",
+        "frontend/src/pages/codex/lifecycle.js",
+        "frontend/src/pages/codex/panel-shadow.css",
+        "frontend/src/pages/codex/panel.css",
+        "frontend/src/pages/codex/renderer.js",
+        "frontend/src/pages/codex/utils.js",
+        "frontend/src/pages/codex/virtualizer.js",
+        "frontend/src/pages/git/git.css",
+        "frontend/src/pages/git/index.js",
+        "frontend/src/pages/nodes/index.js",
+        "frontend/src/pages/nodes/nodes.css",
+        "frontend/src/pages/runs/index.js",
+        "frontend/src/pages/runs/runs.css",
+        "frontend/src/pages/workspace/index.js",
+        "frontend/src/pages/workspace/workspace.css",
+        "frontend/src/store/codex.js"
+      ]
+    },
+    {
+      "name": "current web UI has no browser login/auth surface",
+      "ok": true,
+      "details": "agent token auth is retained for agent websocket only; browser UI has no login/password route",
+      "evidence": [
+        "backend/internal/server/app.go",
+        "frontend/src/index.html"
+      ]
+    },
+    {
+      "name": "production frontend does not fall back to fixture or local fake sessions",
+      "ok": true,
+      "details": "fixtures remain available only through explicit codexFixture modes; production API failures surface errors instead of sample/local conversations; fixture session creation is delegated to the fixture bundle",
+      "evidence": [
+        "frontend/src/pages/codex/index.js",
+        "frontend/src/pages/codex/renderer.js"
+      ]
+    },
+    {
+      "name": "production frontend bundle excludes fixture sample data",
+      "ok": true,
+      "details": "main app bundle contains only the explicit fixture loader; fixture definitions, sample data, and fixture session creation live in app/codex-fixtures.js",
+      "evidence": [
+        "backend/public/dist/app/codex-web.js",
+        "backend/public/dist/app/codex-fixtures.js"
+      ]
+    },
+    {
+      "name": "unified panel audit runner covers virtual scrolling",
+      "ok": true,
+      "details": "long-session virtual scroll coverage is part of the standard panel audit runner, not a manual-only script",
+      "evidence": [
+        "scripts/run-codex-panel-audits.ps1",
+        "scripts/audit-codex-virtual-scroll.cjs"
+      ]
+    },
+    {
+      "name": "unified panel audit runner executes the Runs view smoke",
+      "ok": true,
+      "details": "the controller-owned Runs sidebar is browser-tested for node/session loading, all-session SSE subscription, cancel routing, and opening a run",
+      "evidence": [
+        "scripts/run-codex-panel-audits.ps1",
+        "scripts/verify-runs-view.py"
+      ]
+    },
+    {
+      "name": "unified panel audit runner executes controller side-view smoke",
+      "ok": true,
+      "details": "Nodes, Workspace, and Git side views are browser-tested for active-node selection, offline-node deletion, workspace routing, and git routing",
+      "evidence": [
+        "scripts/run-codex-panel-audits.ps1",
+        "scripts/verify-controller-views.py"
+      ]
+    }
+  ]
+}

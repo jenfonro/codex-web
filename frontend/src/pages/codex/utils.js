@@ -12,6 +12,8 @@ function activityLabel(event) {
       return event.text || "已运行命令";
     case "stderr":
       return event.text || "命令输出";
+    case "turn_cancelled":
+      return event.text || "Stopped";
     default:
       return event.text || "正在思考";
   }
@@ -34,6 +36,67 @@ function assistantTextFromData(data) {
   const item = data.item;
   if (item && typeof item === "object") return String(item.text || item.message || "");
   return String(data.text || data.message || "");
+}
+
+function websiteResourcesFromEvents(events) {
+  const resources = [];
+  const seen = new Set();
+  for (const event of Array.isArray(events) ? events : []) {
+    if (!isAssistantResourceSource(event)) continue;
+    for (const url of extractWebsiteResourceURLs(eventText(event))) {
+      if (seen.has(url)) continue;
+      seen.add(url);
+      resources.push({ type: "website", title: "网页预览", subtitle: "网站", url });
+    }
+  }
+  return resources;
+}
+
+function isAssistantResourceSource(event) {
+  return String(event?.kind || "").trim() === "assistant_message";
+}
+
+function eventText(event) {
+  return String(
+    event?.text ||
+    event?.html ||
+    event?.data?.message ||
+    event?.data?.html ||
+    assistantTextFromData(event?.data),
+  );
+}
+
+function extractWebsiteResourceURLs(text) {
+  const value = String(text || "");
+  if (!value) return [];
+  const urls = [];
+  const pattern = /https?:\/\/[^\s<>"'`，。；、）)】\]}]+/g;
+  let match;
+  while ((match = pattern.exec(value))) {
+    const url = normalizeWebsiteResourceURL(match[0]);
+    if (url && isWebsitePreviewURL(url)) urls.push(url);
+  }
+  return urls;
+}
+
+function normalizeWebsiteResourceURL(value) {
+  const cleaned = String(value || "").replace(/[.,;:!?，。；：！？）)\]}]+$/u, "");
+  try {
+    return new URL(cleaned).href;
+  } catch {
+    return "";
+  }
+}
+
+function isWebsitePreviewURL(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+    const host = url.hostname.toLowerCase();
+    return host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host.endsWith(".localhost");
+  } catch {
+    return false;
+  }
 }
 
 function formatText(text) {
@@ -96,8 +159,32 @@ function renderInlineText(text, options = {}) {
 }
 
 function renderPlainInlineText(text, options = {}) {
-  if (!options.highlightCommands) return escapeHTML(text);
+  if (!options.highlightCommands) return renderPlainFileReferences(text);
   return renderCommandHighlights(text);
+}
+
+function renderPlainFileReferences(text) {
+  const value = String(text || "");
+  if (!value) return "";
+  const pattern = /(^|[\s(（:：])((?:[a-zA-Z]:[\\/]|~?\/|\.{1,2}\/)[^\s`"'<>，。；;、)）]+?\.[a-zA-Z0-9][a-zA-Z0-9._-]*(?::\d+|#L?\d+)?)/g;
+  let cursor = 0;
+  const pieces = [];
+  let match;
+  while ((match = pattern.exec(value))) {
+    const prefix = match[1] || "";
+    const path = match[2] || "";
+    const pathStart = match.index + prefix.length;
+    if (pathStart > cursor) pieces.push(escapeHTML(value.slice(cursor, pathStart)));
+    if (isFileReference(path)) {
+      const reference = parseFileReference(path);
+      pieces.push(renderFileReference(fileReferenceLabel(path, reference), path));
+    } else {
+      pieces.push(escapeHTML(path));
+    }
+    cursor = pathStart + path.length;
+  }
+  if (cursor < value.length) pieces.push(escapeHTML(value.slice(cursor)));
+  return pieces.join("");
 }
 
 function renderCommandHighlights(text) {
@@ -117,27 +204,74 @@ function renderCommandHighlights(text) {
 }
 
 function renderInlineCode(text) {
-  return `<span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">${escapeHTML(text)}</span>`;
+  const value = String(text || "");
+  const fileReference = parseInlineCodeFileReference(value);
+  if (fileReference) return renderFileReference(fileReferenceLabel(value, fileReference), value);
+  return `<span data-markdown-copy="inline-code" class="inline-markdown _inlineMarkdown_lzkx4_385">${escapeHTML(value)}</span>`;
 }
 
 function renderMarkdownLink(label, target) {
   const href = String(target || "").trim();
+  const fileReference = parseFileReference(href);
   const cleanLabel = String(label || "").trim() || fileNameFromPath(href);
-  if (isFileReference(href)) return renderFileReference(cleanLabel, href);
+  if (fileReference) return renderFileReference(fileReferenceLabel(fileReferenceDisplayLabel(cleanLabel, fileReference), fileReference), href);
   return `<a class="codex-markdown-link" href="${escapeAttr(href)}" target="_blank" rel="noreferrer">${escapeHTML(cleanLabel)}</a>`;
 }
 
 function renderFileReference(label, path) {
-  return `<span class="codex-file-reference" role="link" tabindex="0" title="${escapeAttr(path)}" data-file-reference="${escapeAttr(path)}"><span class="codicon codicon-file-code codex-file-reference-icon" aria-hidden="true"></span><span class="codex-file-reference-label">${escapeHTML(label || fileNameFromPath(path))}</span></span>`;
+  const text = label || fileNameFromPath(path);
+  const icon = global.CodexIcons?.svg
+    ? global.CodexIcons.svg("editFile", "icon-xs")
+    : '<span class="codicon codicon-file-code icon-xs" aria-hidden="true"></span>';
+  return `<span class="inline-flex max-w-full" data-file-reference="${escapeAttr(path)}" title="${escapeAttr(path)}"><span class="group/inline-mention cursor-pointer" role="button" tabindex="0" data-state="closed"><span class="break-words whitespace-normal" data-state="closed"><span class="px-0.5 inline-mention-brand-aware font-medium text-[color:var(--inline-mention-color)] [--inline-mention-color:var(--inline-mention-resolved-base-color,var(--inline-mention-base-color))] [--inline-mention-base-color:color-mix(in_srgb,var(--color-token-text-link-foreground)_80%,var(--color-token-foreground)_20%)] group-hover/inline-mention:underline group-hover/inline-mention:decoration-current group-hover/inline-mention:decoration-dashed group-hover/inline-mention:decoration-[0.5px] group-hover/inline-mention:underline-offset-2 _tableCellFileLink_lzkx4_413"><span class="relative mr-[3px] inline-block h-[1lh] w-4 align-bottom">${icon}</span><span class="min-w-0 break-words">${escapeHTML(text)}</span></span></span></span></span>`;
 }
 
 function isFileReference(target) {
+  return Boolean(parseFileReference(target));
+}
+
+function parseInlineCodeFileReference(target) {
+  const value = String(target || "").trim();
+  if (/^\.\.?[/\\][^/\\]+$/i.test(value)) return null;
+  if (!/^([a-zA-Z]:[\\/]|~?[/\\]|\.\.?[/\\].+[/\\]|[\w.-]+[/\\])/.test(value)) return null;
+  return parseFileReference(value);
+}
+
+function parseFileReference(target) {
   const value = String(target || "");
-  return /^([a-zA-Z]:[\\/]|[./~]?[/\\]|[\w.-]+[/\\]).+\.[\w-]+(?:[:#]\d+)?$/.test(value);
+  if (!/^([a-zA-Z]:[\\/]|[./~]?[/\\]|[\w.-]+[/\\]).+\.[\w-]+(?:[:#]\d+|#L\d+)?$/i.test(value)) return null;
+  const hashLine = value.match(/#L?(\d+)$/i);
+  const colonLine = hashLine ? null : value.match(/:(\d+)$/);
+  return {
+    path: hashLine ? value.slice(0, -hashLine[0].length) : colonLine ? value.slice(0, -colonLine[0].length) : value,
+    line: hashLine?.[1] || colonLine?.[1] || "",
+  };
+}
+
+function fileReferenceLabel(label, reference) {
+  const base = String(label || "").trim() || fileNameFromPath(reference?.path || "");
+  if (!reference?.line || /\(line\s+\d+\)$/i.test(base)) return base;
+  return `${base} (line ${reference.line})`;
+}
+
+function fileReferenceDisplayLabel(label, reference) {
+  const cleanLabel = String(label || "").trim();
+  if (cleanLabel && reference?.line && !/[\\/]/.test(cleanLabel)) {
+    const relative = workspaceRelativePath(reference.path);
+    if (relative && relative.endsWith(`/${cleanLabel}`)) return relative;
+  }
+  return cleanLabel || fileNameFromPath(reference?.path || "");
+}
+
+function workspaceRelativePath(path) {
+  const value = String(path || "").replace(/\\/g, "/");
+  const match = value.match(/(?:^|\/)codex-web\/(.+)$/i);
+  return match?.[1] || "";
 }
 
 function fileNameFromPath(path) {
-  const value = String(path || "").split(/[?#]/)[0].replace(/\\/g, "/");
+  const reference = parseFileReference(path);
+  const value = String(reference?.path || path || "").split(/[?#]/)[0].replace(/\\/g, "/");
   return value.split("/").filter(Boolean).pop() || value || "file";
 }
 
@@ -194,6 +328,7 @@ function escapeAttr(value) {
     formatInlineText,
     formatUserText,
     formatInlineCodeText,
+    websiteResourcesFromEvents,
     timeFromEvent,
     relativeTime,
     trimTitle,

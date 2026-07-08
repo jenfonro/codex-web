@@ -1,0 +1,50 @@
+{
+  "generatedAt": "2026-07-08T03:17:34.045Z",
+  "basis": "Rules audit for Codex Web conversation turn grouping, including completed adjacent user turns and paged leading partial windows.",
+  "summary": {
+    "checks": 8,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "guided user input before final answer stays in the active official turn",
+      "ok": true,
+      "details": ""
+    },
+    {
+      "name": "same turn file activity remains with the earlier visible user anchor",
+      "ok": true,
+      "details": ""
+    },
+    {
+      "name": "new official turn id promotes the intervening user message to a visible turn",
+      "ok": true,
+      "details": ""
+    },
+    {
+      "name": "adjacent completed user turns stay separate",
+      "ok": true,
+      "details": ""
+    },
+    {
+      "name": "incomplete streams keep sequential grouping",
+      "ok": true,
+      "details": ""
+    },
+    {
+      "name": "paged windows hide incomplete leading non-user turns",
+      "ok": true,
+      "details": ""
+    },
+    {
+      "name": "standalone completed internal tool events are hidden",
+      "ok": true,
+      "details": ""
+    },
+    {
+      "name": "standalone running tools and cancelled rows remain visible",
+      "ok": true,
+      "details": ""
+    }
+  ]
+}

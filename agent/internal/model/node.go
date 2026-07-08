@@ -46,6 +46,7 @@ type SessionEvent struct {
 	Time      time.Time      `json:"time"`
 	Kind      string         `json:"kind"`
 	Text      string         `json:"text,omitempty"`
+	Inline    bool           `json:"inline,omitempty"`
 	Data      map[string]any `json:"data,omitempty"`
 }
 
@@ -64,10 +65,12 @@ type SessionCancelRequest struct {
 }
 
 type SessionEventsRequest struct {
-	SessionID string `json:"sessionId"`
-	LastSeq   int64  `json:"lastSeq"`
-	BeforeSeq int64  `json:"beforeSeq,omitempty"`
-	Limit     int    `json:"limit,omitempty"`
+	SessionID   string `json:"sessionId"`
+	LastSeq     int64  `json:"lastSeq"`
+	BeforeSeq   int64  `json:"beforeSeq,omitempty"`
+	Limit       int    `json:"limit,omitempty"`
+	Compact     bool   `json:"compact,omitempty"`
+	FileDetails bool   `json:"fileDetails,omitempty"`
 }
 
 type SessionEventsPage struct {

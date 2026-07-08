@@ -1,0 +1,135 @@
+{
+  "generatedAt": "2026-07-06T17:06:27.039816+00:00",
+  "appURL": "http://127.0.0.1:58888/?codexFixture=reference",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "summary": {
+    "checks": 12,
+    "failed": 0
+  },
+  "checks": [
+    {
+      "name": "runs view audit completed",
+      "ok": true,
+      "details": "ok"
+    },
+    {
+      "name": "viewport is 1920x1080 or larger",
+      "ok": true,
+      "details": "1920x1080"
+    },
+    {
+      "name": "runs view is reachable from Activity Bar",
+      "ok": true,
+      "details": "title='RUNS'"
+    },
+    {
+      "name": "running session row renders",
+      "ok": true,
+      "details": "title='Running smoke session'"
+    },
+    {
+      "name": "running and recent sessions are grouped",
+      "ok": true,
+      "details": "running=1, idle=1"
+    },
+    {
+      "name": "runs subtitle summarizes active and total sessions",
+      "ok": true,
+      "details": "subtitle='1 running / 2 total'"
+    },
+    {
+      "name": "nodes API is requested",
+      "ok": true,
+      "details": "GET /api/nodes?, GET /api/sessions?nodeId=server-a, GET /api/sessions/events?nodeId=server-a, POST /api/sessions/run-1/cancel?, GET /api/nodes?, GET /api/sessions?nodeId=server-a, GET /api/nodes?, GET /api/sessions?nodeId=server-a, GET /api/sessions/run-1/events?nodeId=server-a&limit=100"
+    },
+    {
+      "name": "sessions are loaded with nodeId",
+      "ok": true,
+      "details": "GET /api/nodes?, GET /api/sessions?nodeId=server-a, GET /api/sessions/events?nodeId=server-a, POST /api/sessions/run-1/cancel?, GET /api/nodes?, GET /api/sessions?nodeId=server-a, GET /api/nodes?, GET /api/sessions?nodeId=server-a, GET /api/sessions/run-1/events?nodeId=server-a&limit=100"
+    },
+    {
+      "name": "all-session SSE is opened with nodeId",
+      "ok": true,
+      "details": "GET /api/nodes?, GET /api/sessions?nodeId=server-a, GET /api/sessions/events?nodeId=server-a, POST /api/sessions/run-1/cancel?, GET /api/nodes?, GET /api/sessions?nodeId=server-a, GET /api/nodes?, GET /api/sessions?nodeId=server-a, GET /api/sessions/run-1/events?nodeId=server-a&limit=100"
+    },
+    {
+      "name": "cancel posts selected node id",
+      "ok": true,
+      "details": "[{\"nodeId\": \"server-a\"}]"
+    },
+    {
+      "name": "open run switches back to Codex view",
+      "ok": true,
+      "details": "view='codex'"
+    },
+    {
+      "name": "open run stores selected node id",
+      "ok": true,
+      "details": "stored='server-a'"
+    }
+  ],
+  "evidence": {
+    "cancelRequests": [
+      {
+        "nodeId": "server-a"
+      }
+    ],
+    "apiRequests": [
+      {
+        "method": "GET",
+        "path": "/api/nodes",
+        "query": ""
+      },
+      {
+        "method": "GET",
+        "path": "/api/sessions",
+        "query": "nodeId=server-a"
+      },
+      {
+        "method": "GET",
+        "path": "/api/sessions/events",
+        "query": "nodeId=server-a"
+      },
+      {
+        "method": "POST",
+        "path": "/api/sessions/run-1/cancel",
+        "query": ""
+      },
+      {
+        "method": "GET",
+        "path": "/api/nodes",
+        "query": ""
+      },
+      {
+        "method": "GET",
+        "path": "/api/sessions",
+        "query": "nodeId=server-a"
+      },
+      {
+        "method": "GET",
+        "path": "/api/nodes",
+        "query": ""
+      },
+      {
+        "method": "GET",
+        "path": "/api/sessions",
+        "query": "nodeId=server-a"
+      },
+      {
+        "method": "GET",
+        "path": "/api/sessions/run-1/events",
+        "query": "nodeId=server-a&limit=100"
+      }
+    ],
+    "title": "RUNS",
+    "runningTitle": "Running smoke session",
+    "subtitle": "1 running / 2 total",
+    "runningCount": 1,
+    "idleCount": 1,
+    "activeViewAfterOpen": "codex",
+    "storedNodeAfterOpen": "server-a"
+  }
+}

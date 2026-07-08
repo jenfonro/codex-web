@@ -156,10 +156,19 @@ agent.event -> session.event
 
 ## Verification
 
+Go code is intentionally split into separate `backend` and `agent` modules. Use the root wrapper to test both. It prepares `backend/public/dist` automatically when a fresh clone has no embedded frontend output yet:
+
 ```bash
-go test ./...
-(cd agent && go test ./...)
+./test-go.sh
 ./build-all.sh
+```
+
+Run the completion-oriented audit after deploying when you need read-only proof
+that the live controller, agent node, long-session event paging, and SSE entry
+point still work:
+
+```bash
+node scripts/audit-codex-completion.cjs
 ```
 
 Refresh the captured workspace reference when needed:

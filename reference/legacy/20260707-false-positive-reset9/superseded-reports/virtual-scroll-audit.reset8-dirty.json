@@ -1,0 +1,200 @@
+{
+  "generatedAt": "2026-07-06T18:48:01.740Z",
+  "fixtureURL": "http://127.0.0.1:58888/?codexFixture=virtual-scroll&auditRun=20260706184800506",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "sidebarWidth": 611,
+  "summary": {
+    "checks": 13,
+    "failed": 0,
+    "stepCount": 4,
+    "uniqueWindowCount": 4
+  },
+  "checks": [
+    {
+      "name": "audit completed",
+      "ok": true,
+      "details": "ok"
+    },
+    {
+      "name": "viewport is 1920x1080 or larger",
+      "ok": true,
+      "details": "1920x1080"
+    },
+    {
+      "name": "focused historical seq renders in viewport",
+      "ok": true,
+      "details": "seq=133, found=true, scrollTop=9868, text=\"Virtual scroll turn 45: verify long-session rendering, disclosure rows, summaries, and scroll anchoring. 1:03 Processed 75s Updated frontend/src/pages/codex/vir\""
+    },
+    {
+      "name": "long session is scrollable",
+      "ok": true,
+      "details": "maxScroll=18663"
+    },
+    {
+      "name": "multiple virtual windows observed",
+      "ok": true,
+      "details": "unique=4"
+    },
+    {
+      "name": "every captured step has visible turns",
+      "ok": true,
+      "details": "4 step(s)"
+    },
+    {
+      "name": "no visible turn overlap",
+      "ok": true,
+      "details": "none"
+    },
+    {
+      "name": "top renders real turns, not blank spacer",
+      "ok": true,
+      "details": "top: 0..4, visible=5, scrollTop=0"
+    },
+    {
+      "name": "bottom return renders latest turns",
+      "ok": true,
+      "details": "bottom-return: 85..89, visible=5, scrollTop=18661"
+    },
+    {
+      "name": "summary rows appear while scrolling",
+      "ok": true,
+      "details": "max=12"
+    },
+    {
+      "name": "no grouped command detail rows appear while scrolling",
+      "ok": true,
+      "details": "max=0"
+    },
+    {
+      "name": "no Codex Web-only command enhancement text appears while scrolling",
+      "ok": true,
+      "details": "max=0"
+    },
+    {
+      "name": "file references appear while scrolling",
+      "ok": true,
+      "details": "max=4"
+    }
+  ],
+  "audit": {
+    "ok": true,
+    "focus": {
+      "seq": 133,
+      "expectedText": "Virtual scroll turn 45",
+      "found": true,
+      "text": "Virtual scroll turn 45: verify long-session rendering, disclosure rows, summaries, and scroll anchoring. 1:03 Processed 75s Updated frontend/src/pages/codex/virtual-45.js while keeping the disclosure body collapsed by default. 1:03",
+      "seqs": [
+        133,
+        134,
+        135
+      ],
+      "centered": true,
+      "rect": {
+        "top": 403,
+        "bottom": 611,
+        "height": 208
+      },
+      "viewport": {
+        "top": 100,
+        "bottom": 914,
+        "height": 814
+      },
+      "scrollTop": 9868
+    },
+    "maxScroll": 18663,
+    "step": 691,
+    "steps": [
+      {
+        "label": "initial-bottom",
+        "scrollTop": 9868,
+        "scrollHeight": 19477,
+        "clientHeight": 814,
+        "turnCount": 36,
+        "viewportTurnCount": 5,
+        "firstTurnKey": "42",
+        "lastTurnKey": "46",
+        "firstTurnText": "Virtual scroll turn 43: verify long-session rendering, disclosure rows, summaries, and scroll anchoring. 1:02 Completed virtual scroll turn 43. This text is intentionally long enough to wrap in the Codex panel and exerci",
+        "lastTurnText": "Virtual scroll turn 47: verify long-session rendering, disclosure rows, summaries, and scroll anchoring. 1:03 Completed virtual scroll turn 47. This text is intentionally long enough to wrap in the Codex panel and exerci",
+        "summaryCount": 11,
+        "activityHeaderCount": 0,
+        "toolGroupItemCount": 0,
+        "fileReferenceCount": 4,
+        "commandEnhancementTextCount": 0,
+        "spacerTopHeight": 9816,
+        "spacerBottomHeight": 2800,
+        "overlaps": []
+      },
+      {
+        "label": "up-1",
+        "scrollTop": 9177,
+        "scrollHeight": 19477,
+        "clientHeight": 814,
+        "turnCount": 36,
+        "viewportTurnCount": 5,
+        "firstTurnKey": "41",
+        "lastTurnKey": "45",
+        "firstTurnText": "Virtual scroll turn 42: verify long-session rendering, disclosure rows, summaries, and scroll anchoring. 1:02 已处理 12s Completed virtual scroll turn 42. This text is intentionally long enough to wrap in the Codex panel an",
+        "lastTurnText": "Virtual scroll turn 46: verify long-session rendering, disclosure rows, summaries, and scroll anchoring. 1:03 Completed virtual scroll turn 46. This text is intentionally long enough to wrap in the Codex panel and exerci",
+        "summaryCount": 11,
+        "activityHeaderCount": 0,
+        "toolGroupItemCount": 0,
+        "fileReferenceCount": 4,
+        "commandEnhancementTextCount": 0,
+        "spacerTopHeight": 7262,
+        "spacerBottomHeight": 5354,
+        "overlaps": []
+      },
+      {
+        "label": "top",
+        "scrollTop": 0,
+        "scrollHeight": 19477,
+        "clientHeight": 814,
+        "turnCount": 36,
+        "viewportTurnCount": 5,
+        "firstTurnKey": "0",
+        "lastTurnKey": "4",
+        "firstTurnText": "Virtual scroll turn 1: verify long-session rendering, disclosure rows, summaries, and scroll anchoring. 0:48 Completed virtual scroll turn 1. This text is intentionally long enough to wrap in the Codex panel and exercise",
+        "lastTurnText": "Virtual scroll turn 5: verify long-session rendering, disclosure rows, summaries, and scroll anchoring. 0:49 Processed 35s Completed virtual scroll turn 5. This text is intentionally long enough to wrap in the Codex pane",
+        "summaryCount": 11,
+        "activityHeaderCount": 0,
+        "toolGroupItemCount": 0,
+        "fileReferenceCount": 4,
+        "commandEnhancementTextCount": 0,
+        "spacerTopHeight": 0,
+        "spacerBottomHeight": 12616,
+        "overlaps": []
+      },
+      {
+        "label": "bottom-return",
+        "scrollTop": 18661,
+        "scrollHeight": 19475,
+        "clientHeight": 814,
+        "turnCount": 36,
+        "viewportTurnCount": 5,
+        "firstTurnKey": "85",
+        "lastTurnKey": "89",
+        "firstTurnText": "Virtual scroll turn 86: verify long-session rendering, disclosure rows, summaries, and scroll anchoring. 1:16 Completed virtual scroll turn 86. This text is intentionally long enough to wrap in the Codex panel and exerci",
+        "lastTurnText": "Virtual scroll turn 90: verify long-session rendering, disclosure rows, summaries, and scroll anchoring. 1:18 Processed 120s Updated frontend/src/pages/codex/virtual-90.js while keeping the disclosure body collapsed by d",
+        "summaryCount": 12,
+        "activityHeaderCount": 0,
+        "toolGroupItemCount": 0,
+        "fileReferenceCount": 4,
+        "commandEnhancementTextCount": 0,
+        "spacerTopHeight": 12572,
+        "spacerBottomHeight": 0,
+        "overlaps": []
+      }
+    ],
+    "uniqueWindowCount": 4,
+    "maxCounts": {
+      "summaryCount": 12,
+      "activityHeaderCount": 0,
+      "toolGroupItemCount": 0,
+      "fileReferenceCount": 4,
+      "commandEnhancementTextCount": 0
+    }
+  }
+}

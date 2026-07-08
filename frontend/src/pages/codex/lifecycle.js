@@ -3,11 +3,11 @@
 (function defineCodexPanelLifecycle(global) {
   const utils = global.CodexPanelUtils;
 
-  const activityKinds = ["turn_started", "reasoning", "tool_call", "stdout", "stderr"];
+  const activityKinds = ["turn_started", "reasoning", "tool_call", "stdout", "stderr", "turn_cancelled"];
   const defaultPendingActivityKinds = ["turn_started", "reasoning"];
   const controlKinds = ["turn_completed", "thread_started", "cli_event"];
   const runningStatuses = ["pending", "running", "active", "starting"];
-  const terminalStatuses = ["completed", "complete", "done", "succeeded", "success", "failed", "error", "cancelled", "canceled", "skipped"];
+  const terminalStatuses = ["completed", "complete", "done", "succeeded", "success", "failed", "error", "cancelled", "canceled", "interrupted", "stopped", "skipped"];
 
   function eventKind(event, fallback = "") {
     return String(event?.kind || fallback || "");
@@ -43,7 +43,17 @@
   }
 
   function assistantEventHasContent(event) {
-    return eventKind(event) === "assistant_message" && Boolean(String(event?.text || utils.assistantTextFromData(event?.data)).trim());
+    return eventKind(event) === "assistant_message" && Boolean(assistantEventContent(event));
+  }
+
+  function assistantEventContent(event) {
+    return String(
+      event?.text ||
+      event?.html ||
+      event?.data?.message ||
+      event?.data?.html ||
+      utils.assistantTextFromData(event?.data),
+    ).trim();
   }
 
   function isFinalAssistantEvent(event) {
@@ -52,14 +62,35 @@
 
   function isTurnSettlingEvent(event) {
     const kind = eventKind(event);
-    if (kind === "turn_completed" || kind === "error") return true;
+    if (kind === "turn_completed" || kind === "turn_cancelled" || kind === "error") return true;
     return assistantEventHasContent(event) || isFinalAssistantEvent(event);
+  }
+
+  function callIDFor(event) {
+    return String(event?.data?.call_id || event?.data?.callId || event?.call_id || event?.callId || "");
+  }
+
+  function resolvedToolCallIDs(events) {
+    const ids = new Set();
+    for (const event of events) {
+      if (eventKind(event) !== "tool_output") continue;
+      const callID = callIDFor(event);
+      if (callID) ids.add(callID);
+    }
+    return ids;
+  }
+
+  function shouldHideSettledPendingActivity(event, resolvedCalls) {
+    if (!isActivityPending(event)) return false;
+    if (eventKind(event) !== "tool_call") return true;
+    const callID = callIDFor(event);
+    return !callID || !resolvedCalls.has(callID);
   }
 
   function sessionStatusFromEvent(event, fallback = "idle") {
     const kind = eventKind(event);
     if (kind === "error") return "error";
-    if (kind === "turn_completed" || assistantEventHasContent(event) || isFinalAssistantEvent(event)) return "idle";
+    if (kind === "turn_completed" || kind === "turn_cancelled" || assistantEventHasContent(event) || isFinalAssistantEvent(event)) return "idle";
     if (kind === "user_message") return "running";
     if (isActivityPending(event)) return "running";
     if (isActivityEvent(event)) return fallback || "idle";
@@ -77,9 +108,10 @@
     const flushTurnEvents = () => {
       if (!turnEvents.length) return;
       const settled = turnEvents.some(isTurnSettlingEvent);
+      const resolvedCalls = settled ? resolvedToolCallIDs(turnEvents) : new Set();
       for (const event of turnEvents) {
         if (isControlEvent(event)) continue;
-        if (settled && isActivityPending(event)) continue;
+        if (settled && shouldHideSettledPendingActivity(event, resolvedCalls)) continue;
         visible.push(event);
       }
       turnEvents = [];
