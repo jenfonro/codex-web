@@ -5,7 +5,7 @@
 
   const activityKinds = ["turn_started", "reasoning", "tool_call", "stdout", "stderr"];
   const defaultPendingActivityKinds = ["turn_started", "reasoning"];
-  const controlKinds = ["turn_completed", "thread_started", "cli_event"];
+  const controlKinds = ["turn_completed", "thread_started", "thread_status"];
   const runningStatuses = ["pending", "running", "active", "starting"];
   const terminalStatuses = ["completed", "complete", "done", "succeeded", "success", "failed", "error", "cancelled", "canceled", "skipped"];
 

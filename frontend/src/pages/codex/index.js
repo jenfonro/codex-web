@@ -208,6 +208,13 @@
 function applyIncomingSessionEvent(incoming) {
   if (!incoming?.sessionId) return;
   const events = state.eventsBySession.get(incoming.sessionId) || [];
+  if (replaceSessionEvent(events, incoming)) {
+    state.eventsBySession.set(incoming.sessionId, events);
+    touchEventPage(incoming.sessionId, incoming);
+    if (!updateSessionFromEvent(incoming)) scheduleSessionReload();
+    if (state.view === "list" || state.activeSessionId === incoming.sessionId) requestRender();
+    return;
+  }
   if (hasSessionEvent(events, incoming)) return;
   events.push(incoming);
   events.sort(compareEvents);
@@ -215,6 +222,15 @@ function applyIncomingSessionEvent(incoming) {
   touchEventPage(incoming.sessionId, incoming);
   if (!updateSessionFromEvent(incoming)) scheduleSessionReload();
   if (state.view === "list" || state.activeSessionId === incoming.sessionId) requestRender();
+}
+
+function replaceSessionEvent(events, incoming) {
+  const seq = Number(incoming.seq || 0);
+  if (!seq || !incoming.data?.replace) return false;
+  const index = events.findIndex((event) => Number(event.seq || 0) === seq);
+  if (index < 0) return false;
+  events[index] = { ...events[index], ...incoming };
+  return true;
 }
 
 function hasSessionEvent(events, incoming) {

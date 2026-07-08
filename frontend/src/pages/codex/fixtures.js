@@ -97,7 +97,7 @@
         diffCard: {
           files: [
             { path: "frontend/src/pages/codex/index.js", additions: "+36", deletions: "-8" },
-            { path: "backend/internal/session/history.go", additions: "+22", deletions: "-3" },
+            { path: "backend/internal/appserver/client.go", additions: "+22", deletions: "-3" },
             { path: "backend/internal/server/sessions.go", additions: "+18", deletions: "-2" },
           ],
           total: 3,

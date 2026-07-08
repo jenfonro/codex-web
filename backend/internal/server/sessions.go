@@ -33,7 +33,12 @@ type gitRequest struct {
 func (a *App) handleSessions(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		writeJSON(w, map[string]any{"sessions": a.sessions.List()})
+		sessions, err := a.sessions.List(r.Context())
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, map[string]any{"sessions": sessions})
 	case http.MethodPost:
 		var req sessionCreateHTTP
 		if err := readJSON(r, &req); err != nil {

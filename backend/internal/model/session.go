@@ -14,12 +14,13 @@ type SessionRecord struct {
 }
 
 type SessionEvent struct {
-	SessionID string         `json:"sessionId"`
-	Seq       int64          `json:"seq"`
-	Time      time.Time      `json:"time"`
-	Kind      string         `json:"kind"`
-	Text      string         `json:"text,omitempty"`
-	Data      map[string]any `json:"data,omitempty"`
+	SessionID string           `json:"sessionId"`
+	Seq       int64            `json:"seq"`
+	Time      time.Time        `json:"time"`
+	Kind      string           `json:"kind"`
+	Text      string           `json:"text,omitempty"`
+	Items     []map[string]any `json:"items,omitempty"`
+	Data      map[string]any   `json:"data,omitempty"`
 }
 
 type SessionCreateRequest struct {
