@@ -14,6 +14,7 @@ Environment=CODEX_WEB_PORT=58888
 Environment=CODEX_WEB_DOCKER_DATA=/root/code/codex-web/build/docker/data
 Environment=CODEX_WEB_DOCKER_CODEX_HOME=/root/code/codex-web/build/docker/codex-home
 Environment=CODEX_WEB_DOCKER_WORKSPACE=/root
+Environment=CODEX_WEB_CONTAINER_WORKSPACE=/root
 ExecStartPre=-/usr/bin/docker rm -f ${CODEX_WEB_CONTAINER}
 ExecStart=/root/code/codex-web/scripts/run-container.sh
 ExecStop=/usr/bin/docker stop ${CODEX_WEB_CONTAINER}

@@ -10,6 +10,7 @@ PORT="${CODEX_WEB_PORT:-58888}"
 HOST_DATA="${CODEX_WEB_DOCKER_DATA:-${ROOT_DIR}/build/docker/data}"
 HOST_CODEX_HOME="${CODEX_WEB_DOCKER_CODEX_HOME:-${ROOT_DIR}/build/docker/codex-home}"
 HOST_WORKSPACE="${CODEX_WEB_DOCKER_WORKSPACE:-${ROOT_DIR}}"
+CONTAINER_WORKSPACE="${CODEX_WEB_CONTAINER_WORKSPACE:-/workspace}"
 
 mkdir -p "${HOST_DATA}" "${HOST_CODEX_HOME}" "${HOST_WORKSPACE}"
 
@@ -22,9 +23,9 @@ exec docker run \
   -e CODEX_WEB_ADDR=0.0.0.0:58888 \
   -e CODEX_WEB_DATA=/data \
   -e CODEX_HOME=/codex-home \
-  -e CODEX_WEB_ROOT=/workspace \
+  -e CODEX_WEB_ROOT="${CONTAINER_WORKSPACE}" \
   -e CODEX_WEB_CODEX_BIN=/usr/local/bin/codex \
   -v "${HOST_DATA}:/data" \
   -v "${HOST_CODEX_HOME}:/codex-home" \
-  -v "${HOST_WORKSPACE}:/workspace" \
+  -v "${HOST_WORKSPACE}:${CONTAINER_WORKSPACE}" \
   "${IMAGE}"
