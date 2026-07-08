@@ -822,16 +822,21 @@ function renderToolSummaryTurn(event, index) {
 }
 
 function renderToolSummaryContent(event, index) {
-  const items = Array.isArray(event.items)
-    ? event.items
-    : Array.isArray(event.data?.items)
-      ? event.data.items
-      : String(event.text || "").split("\n").filter(Boolean);
-  const summaryText = items.map(toolSummaryItemText).join("\n");
+  const summaryText = toolSummaryText(event);
   return `
     <div class="group flex min-w-0 flex-col gap-2">
       <div data-selected-text-overlay-target="codex-tool-summary-${index}" class="codex-message-content codex-tool-summary-content text-size-chat">${markdown.render(summaryText, { variant: "tool-summary" })}</div>
     </div>`;
+}
+
+function toolSummaryText(event) {
+  const items = Array.isArray(event.items)
+    ? event.items
+    : Array.isArray(event.data?.items)
+      ? event.data.items
+      : null;
+  if (!items) return String(event.text || "");
+  return items.map(toolSummaryItemText).join("\n");
 }
 
 function toolSummaryItemText(item) {
