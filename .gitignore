@@ -1,0 +1,34 @@
+# Build and runtime output
+/build/
+/data/
+/.browser-profile/
+
+# Frontend artifacts
+/frontend/dist/
+/frontend/node_modules/
+/frontend/.vite/
+
+# Embedded frontend artifacts
+/backend/public/dist/
+
+# Go artifacts and local build caches
+*.test
+*.out
+/.gocache/
+/.gomodcache/
+/.gopath/
+/build/tmp/go-cache/
+/build/tmp/go-mod-cache/
+/build/tmp/go-path/
+
+# Local env and secrets
+.env
+.env.*
+!.env.example
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
