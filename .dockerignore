@@ -1,0 +1,7 @@
+.git
+build
+data
+frontend/dist
+backend/public/dist
+**/*.log
+**/tmp

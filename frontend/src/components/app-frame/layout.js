@@ -10,7 +10,7 @@
   const railItems = [
     { label: "Sessions", icon: "history" },
     { label: "Search", icon: "target" },
-    { label: "Nodes", icon: "localMode" },
+    { label: "Workspace", icon: "localMode" },
     { label: "Git", icon: "branchMessage" },
     { label: "Runs", icon: "plan" },
     { label: "Codex", icon: "blossom", active: true },
@@ -22,14 +22,14 @@
   ];
 
   const statusLeftItems = [
-    { id: "codex.status.node", label: "controller", icon: "localMode" },
+    { id: "codex.status.host", label: "Host", icon: "localMode" },
     { id: "codex.status.sessions", label: "Session problems", text: "0 / 0" },
     { id: "codex.status.streams", label: "Active streams", text: "0" },
   ];
 
   const statusRightItems = [
     { id: "codex.status.mode", label: "Mode", text: "Codex Web" },
-    { id: "codex.status.agent", label: "Agent", icon: "target", text: "online" },
+    { id: "codex.status.runtime", label: "Runtime", icon: "target", text: "online" },
   ];
 
   function render(target = document.getElementById(IDS.root)) {
@@ -64,13 +64,13 @@
           <button type="button" class="codex-command-center" aria-label="Open command center">
             <span class="codex-command-path">root</span>
           </button>
-          <div class="codex-agent-pill" aria-label="Agent status">
-            <button type="button" class="codex-agent-path">root</button>
-            <button type="button" class="codex-agent-count" aria-label="Unread sessions">
-              <span class="codex-agent-dot" aria-hidden="true"></span>
+          <div class="codex-host-pill" aria-label="Codex host status">
+            <button type="button" class="codex-host-path">root</button>
+            <button type="button" class="codex-host-count" aria-label="Unread sessions">
+              <span class="codex-host-dot" aria-hidden="true"></span>
               <span>2</span>
             </button>
-            <button type="button" class="codex-agent-action" aria-label="Switch chat">
+            <button type="button" class="codex-host-action" aria-label="Switch chat">
               ${icon("newChat", "codex-icon")}
               ${icon("chevron20x21", "codex-icon codex-icon-xs")}
             </button>
@@ -129,11 +129,11 @@
 
   function renderSurface() {
     return `
-      <section class="codex-surface" id="codexAgentSurface" role="main" aria-label="Agent preview">
+      <section class="codex-surface" id="codexRuntimeSurface" role="main" aria-label="Codex runtime preview">
         <div class="codex-surface-tabs">
           <div class="codex-surface-tab is-active">
             ${icon("cursor", "codex-icon codex-icon-sm")}
-            <span>Agent</span>
+            <span>Codex</span>
             <button type="button" class="codex-surface-close" aria-label="Close">${icon("closeCircle", "codex-icon codex-icon-xs")}</button>
           </div>
         </div>

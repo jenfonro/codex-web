@@ -1,23 +1,25 @@
 [Unit]
-Description=Codex Web Controller
+Description=Codex Web
+Requires=docker.service
 Wants=network-online.target
-After=network-online.target
+After=docker.service network-online.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/code/codex-web/build
-Environment=CODEX_WEB_ADDR=0.0.0.0:58888
-Environment=CODEX_WEB_DATA=/root/code/codex-web/build/data
-Environment=PATH=/root/.nvm/versions/node/v24.13.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStartPre=/bin/bash -lc 'cd /root/code/codex-web/build && mkdir -p data tmp && rm -f codex-web.5.log && [ ! -e codex-web.4.log ] || mv codex-web.4.log codex-web.5.log && [ ! -e codex-web.3.log ] || mv codex-web.3.log codex-web.4.log && [ ! -e codex-web.2.log ] || mv codex-web.2.log codex-web.3.log && [ ! -e codex-web.1.log ] || mv codex-web.1.log codex-web.2.log && [ ! -s codex-web.log ] || mv codex-web.log codex-web.1.log && : > codex-web.log'
-ExecStart=/root/code/codex-web/build/codex-web
+WorkingDirectory=/root/code/codex-web
+Environment=CODEX_WEB_IMAGE=codex-web:local
+Environment=CODEX_WEB_CONTAINER=codex-web
+Environment=CODEX_WEB_PORT=58888
+Environment=CODEX_WEB_DOCKER_DATA=/root/code/codex-web/build/docker/data
+Environment=CODEX_WEB_DOCKER_CODEX_HOME=/root/code/codex-web/build/docker/codex-home
+Environment=CODEX_WEB_DOCKER_WORKSPACE=/root
+ExecStartPre=-/usr/bin/docker rm -f ${CODEX_WEB_CONTAINER}
+ExecStart=/root/code/codex-web/scripts/run-container.sh
+ExecStop=/usr/bin/docker stop ${CODEX_WEB_CONTAINER}
 Restart=on-failure
 RestartSec=3
-KillSignal=SIGTERM
 TimeoutStopSec=30
-StandardOutput=append:/root/code/codex-web/build/codex-web.log
-StandardError=append:/root/code/codex-web/build/codex-web.log
 
 [Install]
 WantedBy=multi-user.target

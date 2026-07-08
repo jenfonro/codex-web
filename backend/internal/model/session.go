@@ -2,33 +2,6 @@ package model
 
 import "time"
 
-type AgentHello struct {
-	NodeID       string   `json:"nodeId"`
-	Name         string   `json:"name"`
-	Hostname     string   `json:"hostname"`
-	RootDir      string   `json:"rootDir"`
-	CodexHome    string   `json:"codexHome"`
-	Version      string   `json:"version"`
-	Capabilities []string `json:"capabilities,omitempty"`
-}
-
-type AgentEnvelope struct {
-	Type      string         `json:"type"`
-	RequestID string         `json:"requestId,omitempty"`
-	NodeID    string         `json:"nodeId,omitempty"`
-	Hello     *AgentHello    `json:"hello,omitempty"`
-	Op        string         `json:"op,omitempty"`
-	Params    map[string]any `json:"params,omitempty"`
-	Result    any            `json:"result,omitempty"`
-	Error     string         `json:"error,omitempty"`
-	Event     *AgentEvent    `json:"event,omitempty"`
-}
-
-type AgentEvent struct {
-	Method string         `json:"method"`
-	Params map[string]any `json:"params"`
-}
-
 type SessionRecord struct {
 	ID            string    `json:"id"`
 	CodexThreadID string    `json:"codexThreadId,omitempty"`

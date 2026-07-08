@@ -11,13 +11,15 @@ import (
 	"strings"
 
 	"codex-web/backend/internal/config"
-	"codex-web/backend/internal/node"
+	"codex-web/backend/internal/host"
+	"codex-web/backend/internal/session"
 	"codex-web/backend/public"
 )
 
 type App struct {
-	cfg   appConfig
-	nodes *node.Registry
+	cfg      appConfig
+	hostsvc  *host.Service
+	sessions *session.Manager
 }
 
 func New() (*App, error) {
@@ -25,44 +27,41 @@ func New() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodes := node.NewRegistry(filepath.Join(cfg.DataDir, "nodes.json"))
-	if err := nodes.Load(); err != nil {
-		return nil, err
-	}
-	if err := nodes.Save(); err != nil {
-		return nil, err
-	}
 	app := &App{
-		cfg:   cfg,
-		nodes: nodes,
+		cfg:     cfg,
+		hostsvc: host.New(cfg.RootDir, cfg.CodexHome),
+		sessions: session.New(session.Config{
+			CodexBin:  cfg.CodexBin,
+			CodexHome: cfg.CodexHome,
+			RootDir:   cfg.RootDir,
+		}),
 	}
 	return app, nil
 }
 
 func (a *App) Run() error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/agent/connect", a.handleAgentConnect)
 	mux.HandleFunc("/api/", a.handleAPI)
 	mux.Handle("/", a.staticHandler())
 
-	if a.cfg.AgentTokenGenerated {
-		log.Printf("generated agent token stored in %s", filepath.Join(a.cfg.DataDir, "agent-token.txt"))
-	}
 	log.Printf("codex-web listening on http://%s", a.cfg.Addr)
-	log.Printf("codex-web controller data dir: %s", a.cfg.DataDir)
+	log.Printf("codex-web data dir: %s", a.cfg.DataDir)
+	log.Printf("codex-web codex home: %s", a.cfg.CodexHome)
+	log.Printf("codex-web workspace root: %s", a.cfg.RootDir)
 	return http.ListenAndServe(a.cfg.Addr, mux)
 }
 
 func loadConfig() (appConfig, error) {
-	loaded, err := config.LoadController()
+	loaded, err := config.Load()
 	if err != nil {
 		return appConfig{}, err
 	}
 	cfg := appConfig{
-		Addr:                loaded.Addr,
-		DataDir:             loaded.DataDir,
-		AgentToken:          loaded.AgentToken,
-		AgentTokenGenerated: loaded.AgentTokenIsGenerated,
+		Addr:      loaded.Addr,
+		DataDir:   loaded.DataDir,
+		CodexHome: loaded.CodexHome,
+		RootDir:   loaded.RootDir,
+		CodexBin:  loaded.CodexBin,
 	}
 	return cfg, nil
 }
@@ -70,12 +69,6 @@ func loadConfig() (appConfig, error) {
 func (a *App) handleAPI(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api")
 	switch {
-	case path == "/nodes":
-		a.handleNodes(w, r)
-	case path == "/nodes/active":
-		a.handleActiveNode(w, r)
-	case strings.HasPrefix(path, "/nodes/"):
-		a.handleNodeItem(w, r, strings.TrimPrefix(path, "/nodes/"))
 	case path == "/sessions":
 		a.handleSessions(w, r)
 	case path == "/sessions/events":
@@ -144,7 +137,7 @@ func writeError(w http.ResponseWriter, status int, message string) {
 }
 
 func methodNotAllowed(w http.ResponseWriter) {
-	writeError(w, http.StatusMethodNotAllowed, "请求方法不允许")
+	writeError(w, http.StatusMethodNotAllowed, "method not allowed")
 }
 
 func firstString(values ...string) string {

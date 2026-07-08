@@ -62,34 +62,14 @@
       renderer.render();
       return;
     }
-    await loadNodes();
     await loadSessions();
-    subscribeNodeSessions();
+    subscribeSessionList();
     renderer.render();
   }
 
-  async function loadNodes() {
-    try {
-      const payload = await api.fetchJSON("/api/nodes");
-      const nodes = Array.isArray(payload.nodes) ? payload.nodes : [];
-      const saved = nodes.find((node) => node.id === state.nodeId && node.online);
-      const selected = saved || nodes.find((node) => node.online) || nodes[0];
-      if (selected?.id) {
-        state.nodeId = selected.id;
-        store.setStoredNodeId(state.nodeId);
-      }
-    } catch {
-      state.apiAvailable = false;
-    }
-  }
-
   async function loadSessions(preserveEvents = false) {
-    if (!state.nodeId) {
-      useSampleSessions(false);
-      return;
-    }
     try {
-      const payload = await api.fetchJSON(`/api/sessions?nodeId=${encodeURIComponent(state.nodeId)}`);
+      const payload = await api.fetchJSON("/api/sessions");
       const sessions = api.normalizeSessions(payload.sessions);
       state.sessions = sessions;
       if (!preserveEvents) {
@@ -124,7 +104,7 @@
   async function loadEvents(sessionID) {
     if (!state.apiAvailable) return;
     try {
-      const qs = new URLSearchParams({ nodeId: state.nodeId, limit: String(EVENT_PAGE_SIZE) });
+      const qs = new URLSearchParams({ limit: String(EVENT_PAGE_SIZE) });
       const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(sessionID)}/events?${qs.toString()}`);
       const events = api.normalizeEvents(payload.events);
       state.eventsBySession.set(sessionID, events);
@@ -157,11 +137,7 @@
         renderPreservingThreadScroll();
         return;
       }
-      const qs = new URLSearchParams({
-        nodeId: state.nodeId,
-        beforeSeq: String(beforeSeq),
-        limit: String(EVENT_PAGE_SIZE),
-      });
+      const qs = new URLSearchParams({ beforeSeq: String(beforeSeq), limit: String(EVENT_PAGE_SIZE) });
       const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(sessionID)}/events?${qs.toString()}`);
       const olderEvents = api.normalizeEvents(payload.events);
       const events = mergeSessionEvents(olderEvents, state.eventsBySession.get(sessionID) || []);
@@ -188,14 +164,13 @@
     });
   }
 
-  function subscribeNodeSessions() {
-    if (state.nodeEventSource) {
-      state.nodeEventSource.close();
-      state.nodeEventSource = null;
+  function subscribeSessionList() {
+    if (state.sessionEventSource) {
+      state.sessionEventSource.close();
+      state.sessionEventSource = null;
     }
-    if (!state.apiAvailable || !state.nodeId) return;
-    const qs = new URLSearchParams({ nodeId: state.nodeId });
-    const source = new EventSource(`/api/sessions/events?${qs.toString()}`);
+    if (!state.apiAvailable) return;
+    const source = new EventSource("/api/sessions/events");
     source.onmessage = (event) => {
       try {
         applyIncomingSessionEvent(api.normalizeEvent(JSON.parse(event.data)));
@@ -203,7 +178,7 @@
         // Keep the stream alive if one row is malformed.
       }
     };
-    state.nodeEventSource = source;
+    state.sessionEventSource = source;
   }
 
   function subscribeSession(sessionID) {
@@ -212,7 +187,7 @@
       state.eventSource = null;
     }
     if (!state.apiAvailable) return;
-    const qs = new URLSearchParams({ sessionId: sessionID, nodeId: state.nodeId });
+    const qs = new URLSearchParams({ sessionId: sessionID });
     const lastSeq = latestSeqForSession(sessionID);
     if (lastSeq > 0) qs.set("lastSeq", String(lastSeq));
     const source = new EventSource(`/api/sessions/events?${qs.toString()}`);
@@ -449,7 +424,7 @@ async function submitComposer() {
         const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(state.activeSessionId)}/send`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nodeId: state.nodeId, prompt }),
+          body: JSON.stringify({ prompt }),
         });
         upsertSession(api.normalizeSession(payload.session));
       } catch (error) {
@@ -469,7 +444,7 @@ async function submitComposer() {
       const payload = await api.fetchJSON("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nodeId: state.nodeId, prompt }),
+        body: JSON.stringify({ prompt }),
       });
       const session = api.normalizeSession(payload.session);
       if (session?.id) {

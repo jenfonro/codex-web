@@ -1,37 +1,32 @@
 package config
 
 import (
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
-type Controller struct {
-	Addr                  string
-	DataDir               string
-	AgentToken            string
-	AgentTokenIsGenerated bool
+type App struct {
+	Addr      string
+	DataDir   string
+	CodexHome string
+	RootDir   string
+	CodexBin  string
 }
 
-func LoadController() (Controller, error) {
-	dataDir := getenv("CODEX_WEB_DATA", "./data")
-	cfg := Controller{
-		Addr:    getenv("CODEX_WEB_ADDR", "127.0.0.1:58888"),
-		DataDir: dataDir,
+func Load() (App, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return App{}, fmt.Errorf("resolve user home: %w", err)
 	}
-	agentToken := os.Getenv("CODEX_WEB_AGENT_TOKEN")
-	if agentToken == "" {
-		generated, err := loadOrCreateSecret(filepath.Join(dataDir, "agent-token.txt"), 32)
-		if err != nil {
-			return cfg, err
-		}
-		agentToken = generated
-		cfg.AgentTokenIsGenerated = true
+	cfg := App{
+		Addr:      getenv("CODEX_WEB_ADDR", "127.0.0.1:58888"),
+		DataDir:   getenv("CODEX_WEB_DATA", "./data"),
+		CodexHome: getenv("CODEX_HOME", filepath.Join(home, ".codex")),
+		RootDir:   getenv("CODEX_WEB_ROOT", home),
+		CodexBin:  getenv("CODEX_WEB_CODEX_BIN", "codex"),
 	}
-	cfg.AgentToken = agentToken
 	return cfg, nil
 }
 
@@ -41,28 +36,4 @@ func getenv(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
-}
-
-func loadOrCreateSecret(path string, byteCount int) (string, error) {
-	if data, err := os.ReadFile(path); err == nil {
-		if value := strings.TrimSpace(string(data)); value != "" {
-			return value, nil
-		}
-	}
-	secret := randomToken(byteCount)
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return "", err
-	}
-	if err := os.WriteFile(path, []byte(secret+"\n"), 0o600); err != nil {
-		return "", err
-	}
-	return secret, nil
-}
-
-func randomToken(byteCount int) string {
-	buf := make([]byte, byteCount)
-	if _, err := rand.Read(buf); err != nil {
-		return fmt.Sprintf("%d", os.Getpid())
-	}
-	return base64.RawURLEncoding.EncodeToString(buf)
 }

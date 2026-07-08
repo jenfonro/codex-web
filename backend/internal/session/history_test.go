@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"codex-web/agent/internal/model"
+	"codex-web/backend/internal/model"
 )
 
 const testSessionID = "019f2402-138c-7092-8098-7fcb30ade7f1"

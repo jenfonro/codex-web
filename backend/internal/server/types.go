@@ -5,8 +5,9 @@ type apiError struct {
 }
 
 type appConfig struct {
-	Addr                string
-	DataDir             string
-	AgentToken          string
-	AgentTokenGenerated bool
+	Addr      string
+	DataDir   string
+	CodexHome string
+	RootDir   string
+	CodexBin  string
 }

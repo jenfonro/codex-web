@@ -7,7 +7,6 @@ if [[ ! -f "./backend/go.mod" || ! -d "./frontend" ]]; then
 fi
 
 BACKEND_DIR="./backend"
-AGENT_DIR="./agent"
 FRONTEND_EMBED_DIST="./backend/public/dist"
 BUILD_DIR="./build"
 ROOT_ABS="$(pwd -P)"
@@ -36,17 +35,4 @@ fi
   go build -buildvcs=false -o "../build/codex-web${GOEXE}" ./cmd/codex-web
 )
 
-(
-  cd "${AGENT_DIR}"
-  go build -buildvcs=false -o "../build/codex-agent${GOEXE}" .
-)
-
-mkdir -p "${BUILD_DIR}/docker-agent"
-(
-  cd "${AGENT_DIR}"
-  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -buildvcs=false -o "../build/docker-agent/codex-agent" .
-)
-
 echo "built: ${BUILD_DIR}/codex-web${GOEXE}"
-echo "built: ${BUILD_DIR}/codex-agent${GOEXE}"
-echo "built: ${BUILD_DIR}/docker-agent/codex-agent"

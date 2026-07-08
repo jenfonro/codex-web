@@ -165,7 +165,7 @@ button {
   cursor: pointer;
 }
 
-.codex-agent-pill {
+.codex-host-pill {
   height: 22px;
   display: inline-flex;
   align-items: stretch;
@@ -176,7 +176,7 @@ button {
   border-radius: 6px;
 }
 
-.codex-agent-pill button {
+.codex-host-pill button {
   height: 100%;
   display: inline-flex;
   align-items: center;
@@ -188,11 +188,11 @@ button {
   cursor: pointer;
 }
 
-.codex-agent-pill button:hover {
+.codex-host-pill button:hover {
   background: var(--cw-hover);
 }
 
-.codex-agent-dot {
+.codex-host-dot {
   width: 7px;
   height: 7px;
   border-radius: 999px;
@@ -544,7 +544,7 @@ button {
     display: none;
   }
 
-  .codex-agent-pill {
+  .codex-host-pill {
     min-width: 0;
     max-width: 100%;
   }
