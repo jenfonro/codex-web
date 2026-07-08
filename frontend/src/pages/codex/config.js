@@ -5,6 +5,7 @@
   const ASSET_VERSION = String(global.CODEX_WEB_ASSET_VERSION || "");
   const SHADOW_STYLE_HREFS = [
     "pages/codex/panel-shadow.css",
+    "pages/codex/markdown.css",
   ];
 
   function withAssetVersion(href) {
