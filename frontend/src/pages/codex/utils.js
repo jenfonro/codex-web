@@ -36,14 +36,6 @@ function assistantTextFromData(data) {
   return String(data.text || data.message || "");
 }
 
-function formatPlainMessageText(text) {
-  return escapeHTML(String(text || ""));
-}
-
-function formatUserText(text) {
-  return `<span>${escapeHTML(String(text || ""))}</span>`;
-}
-
 function timeFromEvent(event) {
   const date = event.time ? new Date(event.time) : null;
   if (!date || Number.isNaN(date.getTime())) return "";
@@ -88,8 +80,6 @@ function escapeAttr(value) {
     activityIcon,
     summarizeToolActivity,
     assistantTextFromData,
-    formatPlainMessageText,
-    formatUserText,
     timeFromEvent,
     relativeTime,
     trimTitle,

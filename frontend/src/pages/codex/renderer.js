@@ -5,8 +5,6 @@
     activityLabel,
     activityIcon,
     assistantTextFromData,
-    formatPlainMessageText,
-    formatUserText,
     timeFromEvent,
     escapeHTML,
     escapeAttr,
@@ -17,6 +15,10 @@
     visibleConversationEvents,
   } = global.CodexPanelLifecycle;
   const activitySummary = global.CodexPanelActivitySummary;
+  const markdown = global.CodexMarkdown;
+  if (!markdown?.render) {
+    throw new Error("CodexMarkdown renderer is required");
+  }
   const virtualizerFactory = global.CodexPanelVirtualizer;
 
   function createCodexPanelRenderer(runtime) {
@@ -511,7 +513,7 @@ function renderUserBubble(event) {
       <div ${bubbleAttrs} class="bg-token-foreground/5 max-w-[77%] min-w-0 overflow-hidden break-words rounded-2xl px-3 py-2 [&_.contain-inline-size]:[contain:initial] text-left focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:outline-none${cursorClass}">
         <div class="flex flex-col items-end gap-1">
           <div class="text-size-chat relative w-full min-w-0">
-            <div class="text-size-chat whitespace-pre-wrap">${formatUserText(event.text)}</div>
+            <div class="codex-message-content text-size-chat">${markdown.render(event.text, { variant: "user" })}</div>
           </div>
         </div>
       </div>
@@ -535,14 +537,16 @@ function renderAssistantMessage(event, index, isError) {
 
 function renderAssistantContent(event, index, isError, includeActions = true) {
   const errorClass = isError ? " codex-error-message" : "";
-  const messageText = formatPlainMessageText(event.text || assistantTextFromData(event.data));
+  const messageText = markdown.render(event.text || assistantTextFromData(event.data), {
+    variant: isError ? "error" : "assistant",
+  });
   const actionsVisible = Boolean(event.actionsVisible || event.data?.actionsVisible);
   const actionClass = actionsVisible
     ? "-translate-x-1.5 mt-1.5 flex h-5 items-center justify-start gap-0.5 [&_button]:focus-visible:ring-2 [&_button]:focus-visible:ring-token-focus-border [&_button]:focus-visible:ring-offset-0"
     : "-translate-x-1.5 mt-1.5 flex h-5 items-center justify-start gap-0.5 [&_button]:focus-visible:ring-2 [&_button]:focus-visible:ring-token-focus-border [&_button]:focus-visible:ring-offset-0 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100";
   return `
     <div class="group flex min-w-0 flex-col">
-      <div data-selected-text-overlay-target="codex-assistant-${index}" class="codex-message-text text-size-chat${errorClass}">${messageText}</div>
+      <div data-selected-text-overlay-target="codex-assistant-${index}" class="codex-message-content text-size-chat${errorClass}">${messageText}</div>
       ${event.diffCard || event.data?.diffCard ? renderDiffCard(event.diffCard || event.data.diffCard) : ""}
       ${includeActions ? `<div class="${actionClass}">
         ${renderMessageIconButton("复制", "copy", "p-0.5", false)}
@@ -799,7 +803,7 @@ function renderActivityDisclosureBody(event) {
   return `
         <div aria-hidden="false" class="overflow-visible" style="pointer-events: auto;">
           <div class="flex flex-col gap-2 pt-2 pb-1 pl-6">
-            ${items.map((item) => `<div class="text-size-chat text-token-text-secondary">${formatPlainMessageText(toolSummaryItemText(item))}</div>`).join("")}
+            ${items.map((item) => `<div class="codex-message-content text-size-chat text-token-text-secondary">${markdown.render(toolSummaryItemText(item), { variant: "activity" })}</div>`).join("")}
           </div>
         </div>`;
 }
@@ -826,7 +830,7 @@ function renderToolSummaryContent(event, index) {
   const summaryText = items.map(toolSummaryItemText).join("\n");
   return `
     <div class="group flex min-w-0 flex-col gap-2">
-      <div data-selected-text-overlay-target="codex-tool-summary-${index}" class="codex-message-text codex-tool-summary-text text-size-chat">${formatPlainMessageText(summaryText)}</div>
+      <div data-selected-text-overlay-target="codex-tool-summary-${index}" class="codex-message-content codex-tool-summary-content text-size-chat">${markdown.render(summaryText, { variant: "tool-summary" })}</div>
     </div>`;
 }
 

@@ -824,7 +824,6 @@ svg {
 .overflow-y-auto { overflow-y: auto; }
 .whitespace-nowrap { white-space: nowrap; }
 .whitespace-normal { white-space: normal; }
-.whitespace-pre-wrap { white-space: pre-wrap; }
 .break-words { overflow-wrap: break-word; }
 .truncate {
   overflow: hidden;
@@ -1086,15 +1085,97 @@ svg {
   }
 }
 
-.codex-message-text {
+.codex-message-content {
   min-width: 0;
   color: var(--color-token-text-primary);
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.codex-tool-summary-text {
+.codex-tool-summary-content {
   color: var(--color-token-text-secondary);
+}
+
+.codex-markdown {
+  min-width: 0;
+  color: inherit;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+.codex-markdown > :first-child {
+  margin-top: 0;
+}
+
+.codex-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.codex-markdown p {
+  margin: 0 0 10px;
+}
+
+.codex-markdown ul,
+.codex-markdown ol {
+  margin: 0 0 10px;
+  padding-left: 1.35em;
+}
+
+.codex-markdown li {
+  margin: 2px 0;
+}
+
+.codex-markdown li > p {
+  margin: 0;
+}
+
+.codex-markdown a {
+  color: var(--color-token-text-link-foreground);
+  text-decoration-line: underline;
+  text-underline-offset: 2px;
+}
+
+.codex-markdown code {
+  border-radius: var(--radius-xs);
+  background: var(--color-token-bg-fog);
+  color: var(--color-token-foreground);
+  font-family: var(--font-mono);
+  font-size: var(--codex-chat-code-font-size);
+  padding: 1px 4px;
+}
+
+.codex-markdown pre {
+  margin: 0 0 10px;
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: var(--color-token-bg-fog);
+  padding: 10px 12px;
+}
+
+.codex-markdown pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  white-space: pre;
+}
+
+.codex-markdown blockquote {
+  margin: 0 0 10px;
+  border-left: 2px solid var(--color-token-border-heavy);
+  color: var(--color-token-text-secondary);
+  padding-left: 10px;
+}
+
+.codex-markdown table {
+  width: 100%;
+  margin: 0 0 10px;
+  border-collapse: collapse;
+}
+
+.codex-markdown th,
+.codex-markdown td {
+  border: 1px solid var(--color-token-border);
+  padding: 4px 6px;
+  text-align: left;
 }
 
 .codex-send-ready {

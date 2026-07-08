@@ -28,11 +28,13 @@ done
 
 script_bundle="${DIST_DIR}/app/codex-web.js"
 script_sources=(
+  "vendor/markdown-it.min.js"
   "components/icons/codex-icons.js"
   "components/app-frame/layout.js"
   "app/bootstrap.js"
   "pages/codex/config.js"
   "pages/codex/utils.js"
+  "pages/codex/markdown.js"
   "pages/codex/lifecycle.js"
   "pages/codex/activity-summary.js"
   "pages/codex/virtualizer.js"
