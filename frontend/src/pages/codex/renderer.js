@@ -42,6 +42,36 @@ function syncThreadScrollPosition() {
   });
 }
 
+function updateAssistantItem(item) {
+  if (state.view !== "thread" || !item?.id) return false;
+  const content = findStateItemContent(item.id);
+  if (!content) return false;
+  const scroll = mount.root.querySelector("[data-thread-scroll]");
+  const stickToBottom = isThreadScrollAtBottom(scroll);
+  const html = markdown.render(item.text || assistantTextFromData(item.raw), { variant: "assistant" });
+  if (content.innerHTML !== html) {
+    content.innerHTML = html;
+  }
+  if (stickToBottom && scroll) {
+    requestAnimationFrame(() => {
+      scroll.scrollTop = scroll.scrollHeight;
+    });
+  }
+  return true;
+}
+
+function findStateItemContent(itemID) {
+  for (const node of mount.root.querySelectorAll("[data-codex-state-item-id]")) {
+    if (node.dataset.codexStateItemId === itemID) return node;
+  }
+  return null;
+}
+
+function isThreadScrollAtBottom(scroll) {
+  if (!scroll) return true;
+  return scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 80;
+}
+
 function renderListView() {
   return `
     <div class="codex-panel-view codex-panel-view-list flex h-full flex-col" tabindex="0" data-codex-panel-root data-codex-view="list">
@@ -615,6 +645,8 @@ function renderAssistantMessage(event, index, isError) {
 
 function renderAssistantContent(event, index, isError, includeActions = true) {
   const errorClass = isError ? " codex-error-message" : "";
+  const itemID = event?.data?.itemId || event?.itemId || "";
+  const itemAttr = itemID ? ` data-codex-state-item-id="${escapeAttr(itemID)}"` : "";
   const messageText = markdown.render(event.text || assistantTextFromData(event.data), {
     variant: isError ? "error" : "assistant",
   });
@@ -624,7 +656,7 @@ function renderAssistantContent(event, index, isError, includeActions = true) {
     : "-translate-x-1.5 mt-1.5 flex h-5 items-center justify-start gap-0.5 [&_button]:focus-visible:ring-2 [&_button]:focus-visible:ring-token-focus-border [&_button]:focus-visible:ring-offset-0 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100";
   return `
     <div class="group flex min-w-0 flex-col">
-      <div data-selected-text-overlay-target="codex-assistant-${index}" class="codex-message-content text-size-chat${errorClass}">${messageText}</div>
+      <div data-selected-text-overlay-target="codex-assistant-${index}" class="codex-message-content text-size-chat${errorClass}"${itemAttr}>${messageText}</div>
       ${event.diffCard || event.data?.diffCard ? renderDiffCard(event.diffCard || event.data.diffCard) : ""}
       ${includeActions ? `<div class="${actionClass}">
         ${renderMessageIconButton("复制", "copy", "p-0.5", false)}
@@ -1203,6 +1235,7 @@ function ensureEmptyComposerStructure(input) {
 
     return {
       render,
+      updateAssistantItem,
       syncComposerState,
       composerText,
       clearComposer,

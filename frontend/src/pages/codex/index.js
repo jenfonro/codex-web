@@ -28,7 +28,6 @@
   };
   const renderer = rendererFactory.create(runtime);
   let initialized = false;
-  let sessionReloadTimer = 0;
   let renderFrame = 0;
 
   if (document.readyState === "loading") {
@@ -67,9 +66,10 @@
     try {
       const payload = await api.fetchJSON("/api/sessions");
       const sessions = api.normalizeSessions(payload.sessions);
-    state.sessions = sessions;
+      state.sessions = sessions;
       if (!preserveEvents) {
         state.statesBySession = new Map();
+        state.appliedSeqBySession = new Map();
         state.eventsBySession = new Map();
         state.eventPagesBySession = new Map();
       }
@@ -82,6 +82,7 @@
   function useSampleSessions(apiAvailable) {
     state.sessions = runtime.samples.sessions.slice();
     state.statesBySession = new Map();
+    state.appliedSeqBySession = new Map();
     state.eventsBySession = new Map(runtime.samples.eventsBySession);
     state.eventPagesBySession = new Map();
     state.apiAvailable = apiAvailable;
@@ -150,20 +151,33 @@
 
 function applyStateUpdate(update) {
   if (!update?.sessionId) return;
+  if (isDuplicateStateUpdate(update)) return;
+  let renderIntent = { mode: "full" };
   if (update.state) {
     applySessionState(update.state);
   } else {
     if (update.session) upsertSession(update.session);
-    if (update.turn) applyTurnUpdate(update.sessionId, update.turn, update.seq);
-    if (update.item) applyItemUpdate(update.sessionId, update.turn, update.item, update.seq);
-    if (update.error) applyErrorUpdate(update.sessionId, update.error, update.seq);
+    if (update.item) {
+      renderIntent = renderIntentForItemUpdate(applyItemUpdate(update.sessionId, update.turn, update.item, update.seq));
+    } else if (update.turn) {
+      applyTurnUpdate(update.sessionId, update.turn, update.seq);
+    }
+    if (update.error) {
+      applyErrorUpdate(update.sessionId, update.error, update.seq);
+      renderIntent = { mode: "full" };
+    }
   }
-  if (state.view === "list" || state.activeSessionId === update.sessionId) requestRender();
+  markStateUpdateApplied(update.sessionId, update.seq);
+  renderStateUpdate(update, renderIntent);
 }
 
 function applySessionState(sessionState) {
   if (!sessionState?.session?.id) return;
+  const incomingSeq = Number(sessionState.lastSeq || 0);
+  const appliedSeq = Number(state.appliedSeqBySession.get(sessionState.session.id) || 0);
+  if (incomingSeq > 0 && incomingSeq < appliedSeq) return;
   state.statesBySession.set(sessionState.session.id, sessionState);
+  markStateUpdateApplied(sessionState.session.id, incomingSeq);
   upsertSession(sessionState.session);
 }
 
@@ -181,18 +195,19 @@ function applyTurnUpdate(sessionID, turn, seq) {
 }
 
 function applyItemUpdate(sessionID, turn, item, seq) {
-  if (!item?.id) return;
+  if (!item?.id) return null;
   const sessionState = ensureSessionState(sessionID, seq);
   const turnID = turn?.id || sessionState.turns[sessionState.turns.length - 1]?.id || `turn-${seq || Date.now()}`;
   let turnIndex = sessionState.turns.findIndex((entry) => entry.id === turnID);
   if (turnIndex < 0) {
-    sessionState.turns.push(turn || { id: turnID, status: "running", items: [] });
+    sessionState.turns.push({ ...(turn || {}), id: turnID, status: turn?.status || "running", items: [] });
     turnIndex = sessionState.turns.length - 1;
   } else if (turn) {
-    sessionState.turns[turnIndex] = mergeTurn(sessionState.turns[turnIndex], turn);
+    sessionState.turns[turnIndex] = mergeTurnMetadata(sessionState.turns[turnIndex], turn);
   }
   const items = sessionState.turns[turnIndex].items || [];
   const itemIndex = items.findIndex((entry) => entry.id === item.id);
+  const existingItem = itemIndex >= 0 ? items[itemIndex] : null;
   if (itemIndex >= 0) {
     items[itemIndex] = mergeStateItem(items[itemIndex], item);
   } else {
@@ -201,6 +216,12 @@ function applyItemUpdate(sessionID, turn, item, seq) {
   sessionState.turns[turnIndex].items = items;
   sessionState.lastSeq = Math.max(sessionState.lastSeq || 0, Number(seq || 0));
   state.statesBySession.set(sessionID, sessionState);
+  const nextItem = items[itemIndex >= 0 ? itemIndex : items.length - 1];
+  return {
+    existing: Boolean(existingItem),
+    item: nextItem,
+    textChanged: String(existingItem?.text || "") !== String(nextItem?.text || ""),
+  };
 }
 
 function applyErrorUpdate(sessionID, message, seq) {
@@ -244,6 +265,10 @@ function mergeTurn(existing, incoming) {
   return merged;
 }
 
+function mergeTurnMetadata(existing, incoming) {
+  return { ...existing, ...incoming, items: Array.isArray(existing?.items) ? existing.items : [] };
+}
+
 function mergeStateItem(existing, incoming) {
   return {
     ...existing,
@@ -259,45 +284,47 @@ function latestStateSeqForSession(sessionID) {
   return Number(state.statesBySession.get(sessionID)?.lastSeq || 0);
 }
 
+function isDuplicateStateUpdate(update) {
+  const seq = Number(update?.seq || 0);
+  if (!update?.sessionId || seq <= 0) return false;
+  return seq <= Number(state.appliedSeqBySession.get(update.sessionId) || 0);
+}
+
+function markStateUpdateApplied(sessionID, seq) {
+  const nextSeq = Number(seq || 0);
+  if (!sessionID || nextSeq <= 0) return;
+  state.appliedSeqBySession.set(sessionID, Math.max(Number(state.appliedSeqBySession.get(sessionID) || 0), nextSeq));
+}
+
+function renderIntentForItemUpdate(result) {
+  if (!result?.existing || !result.textChanged) return { mode: "full" };
+  const item = result.item;
+  if (item?.type !== "agentMessage") return { mode: "full" };
+  if (!isRunningStatus(item.status)) return { mode: "full" };
+  if (!String(item.text || "").trim()) return { mode: "full" };
+  return { mode: "assistant-item", item };
+}
+
+function renderStateUpdate(update, renderIntent) {
+  if (state.view !== "list" && state.activeSessionId !== update.sessionId) return;
+  if (state.view === "thread" && renderIntent?.mode === "assistant-item") {
+    if (renderer.updateAssistantItem(renderIntent.item)) {
+      renderer.syncComposerState();
+      return;
+    }
+  }
+  requestRender();
+}
+
+function isRunningStatus(status) {
+  return ["running", "active", "pending", "starting", "inprogress", "in_progress"].includes(String(status || "").trim().toLowerCase());
+}
+
 function requestRender() {
   if (renderFrame) return;
   renderFrame = global.requestAnimationFrame(() => {
     renderFrame = 0;
     renderer.render();
-  });
-}
-
-function scheduleSessionReload() {
-  if (sessionReloadTimer) return;
-  sessionReloadTimer = global.setTimeout(async () => {
-    sessionReloadTimer = 0;
-    await loadSessions(true);
-    renderer.render();
-  }, 500);
-}
-
-function renderPreservingThreadScroll() {
-  const snapshot = snapshotThreadScroll();
-  renderer.render();
-  restoreThreadScroll(snapshot);
-}
-
-function snapshotThreadScroll() {
-  const scroll = mount.root.querySelector("[data-thread-scroll]");
-  if (!scroll) return null;
-  return {
-    scrollTop: scroll.scrollTop,
-    scrollHeight: scroll.scrollHeight,
-  };
-}
-
-function restoreThreadScroll(snapshot) {
-  if (!snapshot) return;
-  global.requestAnimationFrame(() => {
-    const scroll = mount.root.querySelector("[data-thread-scroll]");
-    if (!scroll) return;
-    const heightDelta = scroll.scrollHeight - snapshot.scrollHeight;
-    scroll.scrollTop = Math.max(0, snapshot.scrollTop + heightDelta);
   });
 }
 
