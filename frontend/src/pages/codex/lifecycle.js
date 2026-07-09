@@ -38,6 +38,7 @@
   }
 
   function isControlEvent(event) {
+    if (isEmptyAssistantEvent(event)) return true;
     if (isFinalAssistantEvent(event) && !assistantEventHasContent(event)) return true;
     return controlKinds.includes(eventKind(event));
   }
@@ -48,6 +49,10 @@
 
   function assistantEventHasContent(event) {
     return eventKind(event) === "assistant_message" && Boolean(String(event?.text || utils.assistantTextFromData(event?.data)).trim());
+  }
+
+  function isEmptyAssistantEvent(event) {
+    return eventKind(event) === "assistant_message" && !assistantEventHasContent(event);
   }
 
   function isFinalAssistantEvent(event) {

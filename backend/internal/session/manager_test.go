@@ -319,6 +319,52 @@ func TestManagerAgentMessageCompletedClearsStreamingState(t *testing.T) {
 	})
 }
 
+func TestManagerSkipsEmptyStartedAgentMessage(t *testing.T) {
+	backend := newFakeBackend()
+	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+	manager.sessions["thread-1"] = &managedSession{
+		record:       model.SessionRecord{ID: "thread-1", CodexThreadID: "thread-1", Title: "Thread", Status: statusRunning, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		eventsLoaded: true,
+		itemSeq:      map[string]int64{},
+	}
+	backend.emit(appserver.Notification{
+		Method: "item/started",
+		Params: map[string]any{
+			"threadId": "thread-1",
+			"item": map[string]any{
+				"type":  "agentMessage",
+				"id":    "agent-1",
+				"phase": "final_answer",
+			},
+		},
+	})
+
+	time.Sleep(20 * time.Millisecond)
+	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
+	if err != nil {
+		t.Fatalf("Events() error = %v", err)
+	}
+	if len(page.Events) != 0 {
+		t.Fatalf("events after empty start = %#v, want none", page.Events)
+	}
+
+	backend.emit(appserver.Notification{
+		Method: "item/agentMessage/delta",
+		Params: map[string]any{
+			"threadId": "thread-1",
+			"itemId":   "agent-1",
+			"delta":    "partial",
+		},
+	})
+	waitForCondition(t, func() bool {
+		page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
+		return err == nil &&
+			len(page.Events) == 1 &&
+			page.Events[0].Text == "partial" &&
+			page.Events[0].Data["streaming"] == true
+	})
+}
+
 func TestManagerEventsPaginatesFromTailAndBeforeSeq(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)

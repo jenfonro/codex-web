@@ -43,6 +43,7 @@ assert.strictEqual(
     { kind: "thread_status", data: { status: "running" } },
     { kind: "turn_started", data: { status: "running" } },
     { kind: "user_message", text: "hello" },
+    { kind: "assistant_message", data: { phase: "final_answer", streaming: true } },
     { kind: "assistant_message", text: "partial answer", data: { streaming: true } },
   ]),
   "user_message,turn_started,assistant_message",

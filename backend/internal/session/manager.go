@@ -380,10 +380,16 @@ func (m *Manager) handleNotification(notification appserver.Notification) {
 			return
 		}
 		if notification.Method == "item/started" {
+			if event.Kind == "assistant_message" && strings.TrimSpace(event.Text) == "" {
+				return
+			}
 			if event.Data == nil {
 				event.Data = map[string]any{}
 			}
 			event.Data["status"] = firstNonEmpty(strAny(event.Data["status"]), statusRunning)
+			if event.Kind == "assistant_message" {
+				event.Data["streaming"] = true
+			}
 		}
 		m.upsertItemEvent(threadID, event)
 		for _, followup := range extra {
