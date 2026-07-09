@@ -88,7 +88,6 @@ function normalizeTurnOutcome(value) {
     type: String(value.type || value.Type || ""),
     text: String(value.text || value.Text || ""),
     status: String(value.status || value.Status || ""),
-    raw: value.raw || value.Raw || null,
   };
 }
 

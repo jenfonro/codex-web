@@ -195,8 +195,6 @@ func (m *Manager) Cancel(id string) error {
 		now := time.Now().UTC()
 		managed.turns[turnIndex].Status = "interrupted"
 		managed.turns[turnIndex].CompletedAt = &now
-		managed.finalizeTerminalTurn(turnIndex)
-		managed.refreshTurnOutcome(turnIndex)
 	}
 	m.setStatusLocked(id, statusIdle)
 	update := m.sessionUpdateLocked(managed, "session")
@@ -525,7 +523,6 @@ func (m *Manager) appendAssistantDelta(sessionID, itemID, delta string) {
 	item.Text += delta
 	item.Status = statusRunning
 	item.Time = time.Now().UTC()
-	session.refreshTurnOutcome(turnIndex)
 	session.runningTurnID = session.turns[turnIndex].ID
 	m.setStatusLocked(sessionID, statusRunning)
 	update := m.itemUpdateLocked(session, turnIndex, itemIndex)
@@ -547,7 +544,6 @@ func (m *Manager) appendCommandOutputDelta(sessionID, itemID, delta string) {
 	item.Output += delta
 	item.Status = statusRunning
 	item.Time = time.Now().UTC()
-	session.refreshTurnOutcome(turnIndex)
 	session.runningTurnID = session.turns[turnIndex].ID
 	m.setStatusLocked(sessionID, statusRunning)
 	update := m.itemUpdateLocked(session, turnIndex, itemIndex)
@@ -736,7 +732,7 @@ func turnFromAppServer(turn appserver.Turn) model.SessionTurn {
 		item := itemFromMap(raw, itemTime.Add(time.Duration(index)*time.Millisecond))
 		items = append(items, item)
 	}
-	modelTurn := model.SessionTurn{
+	return model.SessionTurn{
 		ID:          turn.ID,
 		Status:      firstNonEmpty(turn.Status, statusIdle),
 		StartedAt:   startedAt,
@@ -745,9 +741,6 @@ func turnFromAppServer(turn appserver.Turn) model.SessionTurn {
 		Error:       turn.Error,
 		Items:       items,
 	}
-	finalizeTerminalTurnItems(&modelTurn)
-	modelTurn.Outcome = deriveTurnOutcome(modelTurn)
-	return modelTurn
 }
 
 func itemFromMap(item map[string]any, itemTime time.Time) model.SessionItem {
@@ -888,7 +881,6 @@ func (s *managedSession) ensureTurn(turnID string) int {
 	}
 	s.turns = append(s.turns, turn)
 	index := len(s.turns) - 1
-	s.refreshTurnOutcome(index)
 	s.turnIndex[turnID] = index
 	return index
 }
@@ -901,15 +893,11 @@ func (s *managedSession) upsertTurn(turn model.SessionTurn) int {
 	if index, ok := s.turnIndex[turn.ID]; ok {
 		existing := &s.turns[index]
 		mergeTurn(existing, turn)
-		s.finalizeTerminalTurn(index)
-		s.refreshTurnOutcome(index)
 		s.rebuildIndexes()
 		return index
 	}
 	s.turns = append(s.turns, turn)
 	index := len(s.turns) - 1
-	s.finalizeTerminalTurn(index)
-	s.refreshTurnOutcome(index)
 	s.turnIndex[turn.ID] = index
 	for itemIndex := range turn.Items {
 		if itemID := turn.Items[itemIndex].ID; itemID != "" {
@@ -925,7 +913,6 @@ func (s *managedSession) upsertItem(turnIndex int, item model.SessionItem) int {
 		if location, ok := s.itemIndex[item.ID]; ok {
 			existing := &s.turns[location.Turn].Items[location.Item]
 			mergeItem(existing, item)
-			s.refreshTurnOutcome(location.Turn)
 			return location.Item
 		}
 	}
@@ -937,29 +924,17 @@ func (s *managedSession) upsertItem(turnIndex int, item model.SessionItem) int {
 	if item.ID != "" {
 		s.itemIndex[item.ID] = itemLocation{Turn: turnIndex, Item: itemIndex}
 	}
-	s.refreshTurnOutcome(turnIndex)
 	return itemIndex
 }
 
-func (s *managedSession) refreshTurnOutcome(turnIndex int) {
-	if turnIndex < 0 || turnIndex >= len(s.turns) {
-		return
-	}
-	s.turns[turnIndex].Outcome = deriveTurnOutcome(s.turns[turnIndex])
-}
-
-func (s *managedSession) finalizeTerminalTurn(turnIndex int) {
-	if turnIndex < 0 || turnIndex >= len(s.turns) {
-		return
-	}
-	finalizeTerminalTurnItems(&s.turns[turnIndex])
-}
-
 func finalizeTerminalTurnItems(turn *model.SessionTurn) {
-	if turn == nil || !isTerminalTurnStatus(turn.Status) {
+	if turn == nil {
 		return
 	}
 	status := terminalItemStatus(turn.Status)
+	if status == "" {
+		return
+	}
 	for index := range turn.Items {
 		if turn.Items[index].Status == "" || isRunningStatus(turn.Items[index].Status) {
 			turn.Items[index].Status = status
@@ -973,8 +948,10 @@ func terminalItemStatus(turnStatus string) string {
 		return statusError
 	case "cancelled", "canceled", "interrupted":
 		return "interrupted"
-	default:
+	case "completed", "complete", "done", "succeeded", "success":
 		return "completed"
+	default:
+		return ""
 	}
 }
 
@@ -1186,15 +1163,12 @@ func cloneTurn(turn model.SessionTurn) model.SessionTurn {
 		out.DurationMs = &duration
 	}
 	out.Error = cloneMap(turn.Error)
-	if turn.Outcome != nil {
-		outcome := *turn.Outcome
-		outcome.Raw = cloneMap(turn.Outcome.Raw)
-		out.Outcome = &outcome
-	}
 	out.Items = make([]model.SessionItem, 0, len(turn.Items))
 	for _, item := range turn.Items {
 		out.Items = append(out.Items, cloneItem(item))
 	}
+	finalizeTerminalTurnItems(&out)
+	out.Outcome = deriveTurnOutcome(out)
 	return out
 }
 
@@ -1237,35 +1211,25 @@ func eventsFromState(state model.SessionState) []model.SessionEvent {
 		}
 		if turn.Outcome != nil {
 			seq++
-			event := turnOutcomeEvent(state.Session.ID, turn, turnIndex)
+			eventTime := time.Now().UTC()
+			if turn.CompletedAt != nil {
+				eventTime = *turn.CompletedAt
+			} else if turn.StartedAt != nil {
+				eventTime = *turn.StartedAt
+			}
+			event := newParsedEvent("error", turn.Outcome.Text, eventTime, map[string]any{
+				"turnId":      turn.ID,
+				"turnKey":     firstNonEmpty(turn.ID, fmt.Sprintf("turn-%d", turnIndex+1)),
+				"contentUnit": len(turn.Items),
+				"status":      turn.Outcome.Status,
+				"outcome":     turn.Outcome,
+			})
+			event.SessionID = state.Session.ID
 			event.Seq = seq
 			events = append(events, event)
 		}
 	}
 	return events
-}
-
-func turnOutcomeEvent(sessionID string, turn model.SessionTurn, turnIndex int) model.SessionEvent {
-	eventTime := time.Now().UTC()
-	if turn.CompletedAt != nil {
-		eventTime = *turn.CompletedAt
-	} else if turn.StartedAt != nil {
-		eventTime = *turn.StartedAt
-	}
-	outcome := turn.Outcome
-	return model.SessionEvent{
-		SessionID: sessionID,
-		Time:      eventTime,
-		Kind:      "error",
-		Text:      outcome.Text,
-		Data: map[string]any{
-			"turnId":      turn.ID,
-			"turnKey":     firstNonEmpty(turn.ID, fmt.Sprintf("turn-%d", turnIndex+1)),
-			"contentUnit": len(turn.Items),
-			"status":      outcome.Status,
-			"outcome":     outcome,
-		},
-	}
 }
 
 func deriveTurnOutcome(turn model.SessionTurn) *model.TurnOutcome {
@@ -1274,7 +1238,6 @@ func deriveTurnOutcome(turn model.SessionTurn) *model.TurnOutcome {
 			Type:   "error",
 			Text:   turnErrorText(turn.Error),
 			Status: firstNonEmpty(turn.Status, statusError),
-			Raw:    cloneMap(turn.Error),
 		}
 	}
 	if !turnNeedsNoResponseOutcome(turn) {
@@ -1294,7 +1257,7 @@ func deriveTurnOutcome(turn model.SessionTurn) *model.TurnOutcome {
 }
 
 func turnNeedsNoResponseOutcome(turn model.SessionTurn) bool {
-	if !isTerminalTurnStatus(turn.Status) {
+	if terminalItemStatus(turn.Status) == "" {
 		return false
 	}
 	hasUserMessage := false
@@ -1316,15 +1279,6 @@ func stateItemHasVisibleOutput(item model.SessionItem) bool {
 	}
 	switch item.Type {
 	case "commandExecution", "fileChange", "mcpToolCall", "dynamicToolCall", "webSearch", "imageView":
-		return true
-	default:
-		return false
-	}
-}
-
-func isTerminalTurnStatus(status string) bool {
-	switch strings.ToLower(strings.TrimSpace(status)) {
-	case "completed", "complete", "done", "succeeded", "success", "failed", "error", "cancelled", "canceled", "interrupted":
 		return true
 	default:
 		return false

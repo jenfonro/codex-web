@@ -41,10 +41,9 @@ type SessionTurn struct {
 }
 
 type TurnOutcome struct {
-	Type   string         `json:"type"`
-	Text   string         `json:"text"`
-	Status string         `json:"status,omitempty"`
-	Raw    map[string]any `json:"raw,omitempty"`
+	Type   string `json:"type"`
+	Text   string `json:"text"`
+	Status string `json:"status,omitempty"`
 }
 
 type SessionItem struct {
