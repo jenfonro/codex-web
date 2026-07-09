@@ -1374,12 +1374,19 @@ func eventFromStateItem(sessionID string, turn model.SessionTurn, item model.Ses
 
 func compactStateItemData(turn model.SessionTurn, item model.SessionItem) map[string]any {
 	data := map[string]any{
-		"itemId":     item.ID,
-		"itemType":   item.Type,
-		"status":     item.Status,
-		"turnId":     turn.ID,
-		"durationMs": turn.DurationMs,
-		"item":       item.Raw,
+		"itemId":         item.ID,
+		"itemType":       item.Type,
+		"status":         item.Status,
+		"turnId":         turn.ID,
+		"durationMs":     turn.DurationMs,
+		"turnDurationMs": turn.DurationMs,
+		"item":           item.Raw,
+	}
+	if turn.StartedAt != nil {
+		data["turnStartedAt"] = turn.StartedAt.UTC()
+	}
+	if turn.CompletedAt != nil {
+		data["turnCompletedAt"] = turn.CompletedAt.UTC()
 	}
 	if item.Phase != "" {
 		data["phase"] = item.Phase

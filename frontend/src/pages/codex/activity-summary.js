@@ -70,6 +70,8 @@
 
   function summaryLabel(baseEvent, split) {
     const explicit = split.summaryEvents.find((event) => String(event?.text || "").trim());
+    const structuredDuration = durationFromTurnMetadata(baseEvent, split);
+    if (structuredDuration) return `已处理 ${structuredDuration}`;
     if (explicit) return String(explicit.text).trim();
 
     const start = eventTime(baseEvent) || eventTime(split.processEvents[0]);
@@ -251,9 +253,69 @@
     }
   }
 
+  function durationFromTurnMetadata(baseEvent, split) {
+    const events = [
+      baseEvent,
+      ...(split.summaryEvents || []),
+      ...(split.processEvents || []),
+      split.finalFollowup,
+    ].filter(Boolean);
+
+    for (const event of events) {
+      const durationMs = numberFromEvent(event, "turnDurationMs", "durationMs");
+      if (durationMs > 0) return formatDurationMs(durationMs);
+    }
+
+    const start = firstTimeFromEvent(events, "turnStartedAt", "startedAt");
+    const end = firstTimeFromEvent(events, "turnCompletedAt", "completedAt");
+    return formatDuration(start, end);
+  }
+
+  function firstTimeFromEvent(events, ...fields) {
+    for (const event of events) {
+      for (const field of fields) {
+        const value = valueFromEvent(event, field);
+        const timestamp = timestampFromValue(value);
+        if (timestamp) return timestamp;
+      }
+    }
+    return 0;
+  }
+
+  function numberFromEvent(event, ...fields) {
+    for (const field of fields) {
+      const value = Number(valueFromEvent(event, field));
+      if (Number.isFinite(value) && value > 0) return value;
+    }
+    return 0;
+  }
+
+  function valueFromEvent(event, field) {
+    if (!event || !field) return undefined;
+    if (event.data && typeof event.data === "object" && Object.prototype.hasOwnProperty.call(event.data, field)) {
+      return event.data[field];
+    }
+    return event[field];
+  }
+
+  function timestampFromValue(value) {
+    if (!value) return 0;
+    if (typeof value === "number") return value > 1_000_000_000_000 ? value : value * 1000;
+    const time = new Date(value).getTime();
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  function formatDurationMs(durationMs) {
+    if (!Number.isFinite(durationMs) || durationMs <= 0) return "";
+    return formatSeconds(Math.max(1, Math.floor(durationMs / 1000)));
+  }
+
   function formatDuration(start, end) {
     if (!start || !end || end < start) return "";
-    const totalSeconds = Math.max(1, Math.floor((end - start) / 1000));
+    return formatSeconds(Math.max(1, Math.floor((end - start) / 1000)));
+  }
+
+  function formatSeconds(totalSeconds) {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     if (minutes <= 0) return `${seconds}s`;

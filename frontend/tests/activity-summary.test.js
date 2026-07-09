@@ -25,7 +25,7 @@ for (const file of ["lifecycle.js", "activity-summary.js"]) {
   );
 }
 
-const { splitTurnFollowups } = context.CodexPanelActivitySummary;
+const { splitTurnFollowups, summaryLabel } = context.CodexPanelActivitySummary;
 
 const streaming = splitTurnFollowups([
   { kind: "turn_started", data: { status: "running" } },
@@ -46,3 +46,48 @@ const completed = splitTurnFollowups([
 assert.strictEqual(completed.finalFollowup.kind, "assistant_message");
 assert.strictEqual(completed.finalFollowup.text, "final answer");
 assert.strictEqual(completed.streamFollowups.length, 0);
+
+const durationSplit = splitTurnFollowups([
+  {
+    kind: "turn_started",
+    time: "2026-07-10T00:00:00.000Z",
+    data: { status: "completed", turnDurationMs: 62000 },
+  },
+  {
+    kind: "assistant_message",
+    text: "final answer",
+    time: "2026-07-10T00:00:00.000Z",
+    data: { phase: "final_answer", streaming: false, turnDurationMs: 62000 },
+  },
+]);
+
+assert.strictEqual(
+  summaryLabel({ kind: "user_message", time: "2026-07-10T00:00:00.000Z", data: { turnDurationMs: 62000 } }, durationSplit),
+  "已处理 1m 2s",
+);
+
+const timestampSplit = splitTurnFollowups([
+  {
+    kind: "turn_started",
+    data: {
+      status: "completed",
+      turnStartedAt: "2026-07-10T00:00:00.000Z",
+      turnCompletedAt: "2026-07-10T00:00:45.000Z",
+    },
+  },
+  {
+    kind: "assistant_message",
+    text: "final answer",
+    data: {
+      phase: "final_answer",
+      streaming: false,
+      turnStartedAt: "2026-07-10T00:00:00.000Z",
+      turnCompletedAt: "2026-07-10T00:00:45.000Z",
+    },
+  },
+]);
+
+assert.strictEqual(
+  summaryLabel({ kind: "user_message", data: { turnStartedAt: "2026-07-10T00:00:00.000Z", turnCompletedAt: "2026-07-10T00:00:45.000Z" } }, timestampSplit),
+  "已处理 45s",
+);

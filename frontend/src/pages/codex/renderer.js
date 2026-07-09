@@ -389,6 +389,9 @@ function stateItemEvents(item, turn, turnIndex, itemIndex, isLastAgent) {
     phase: item.phase,
     turnId: turn?.id || "",
     turnKey: turn?.id || `turn-${turnIndex}`,
+    turnStartedAt: turn?.startedAt || "",
+    turnCompletedAt: turn?.completedAt || "",
+    turnDurationMs: turn?.durationMs ?? null,
     contentUnit: itemIndex,
     item: item.raw || item,
   };
