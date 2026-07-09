@@ -22,49 +22,11 @@
 
   function createCodexPanelRenderer(runtime) {
     const { state, mount, icons, config } = runtime;
-    let shimmerCleanups = [];
 
 function render() {
-  clearShimmerTimers();
   mount.root.innerHTML = `${state.view === "thread" ? renderThreadView() : renderListView()}${renderToastViewport()}`;
   syncComposerState();
   syncThreadScrollPosition();
-  syncCadencedShimmers();
-}
-
-function clearShimmerTimers() {
-  for (const cleanup of shimmerCleanups) cleanup();
-  shimmerCleanups = [];
-}
-
-function syncCadencedShimmers() {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const nodes = Array.from(mount.root.querySelectorAll(".codex-shimmer"));
-  for (const node of nodes) {
-    let activeTimer = 0;
-    const stopActive = () => {
-      if (activeTimer) window.clearTimeout(activeTimer);
-      activeTimer = 0;
-    };
-    const run = () => {
-      stopActive();
-      node.classList.remove("codex-shimmer-active");
-      node.classList.add("codex-shimmer-active");
-      activeTimer = window.setTimeout(() => {
-        node.classList.remove("codex-shimmer-active");
-        activeTimer = 0;
-      }, 1000);
-    };
-    const startTimer = window.setTimeout(() => {
-      run();
-      const interval = window.setInterval(run, 4000);
-      shimmerCleanups.push(() => window.clearInterval(interval));
-    }, 600);
-    shimmerCleanups.push(() => {
-      window.clearTimeout(startTimer);
-      stopActive();
-    });
-  }
 }
 
 function renderToastViewport() {

@@ -1003,17 +1003,24 @@ svg {
   display: block;
   transform: translate(50%);
 }
-.codex-shimmer-active .codex-shimmer-sweep,
-.codex-shimmer-active .codex-shimmer-highlight {
-  animation-duration: 1s;
+.codex-shimmer .codex-shimmer-sweep,
+.codex-shimmer .codex-shimmer-highlight {
+  animation-duration: 1.4s;
   animation-timing-function: steps(48, end);
-  animation-iteration-count: 1;
+  animation-iteration-count: infinite;
 }
-.codex-shimmer-active .codex-shimmer-sweep {
+.codex-shimmer .codex-shimmer-sweep {
   animation-name: codex-shimmer-sweep;
 }
-.codex-shimmer-active .codex-shimmer-highlight {
+.codex-shimmer .codex-shimmer-highlight {
   animation-name: codex-shimmer-highlight;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .codex-shimmer .codex-shimmer-sweep,
+  .codex-shimmer .codex-shimmer-highlight {
+    animation: none;
+  }
 }
 
 @keyframes codex-shimmer-sweep {
