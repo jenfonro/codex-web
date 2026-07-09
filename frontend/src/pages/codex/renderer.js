@@ -1079,6 +1079,11 @@ function renderComposerFooter() {
   const plusState = state.popover === "plus" ? "open" : "closed";
   const approvalState = state.popover === "approval" ? "open" : "closed";
   const modelState = state.popover === "model" ? "open" : "closed";
+  const running = isActiveSessionRunning();
+  const sendAction = running ? "cancel" : "send";
+  const sendLabel = running ? "停止生成" : "发送";
+  const sendClass = running ? "codex-composer-send-button codex-send-ready codex-stop-ready" : "codex-composer-send-button opacity-50";
+  const sendIcon = running ? "stop" : "send";
   return `
     <div class="codex-composer-footer select-none">
       <button type="button" class="codex-composer-button codex-composer-plus-button ${plusState === "open" ? "text-token-foreground" : "text-token-text-tertiary"}" aria-label="添加文件等内容" aria-expanded="${plusState === "open"}" data-state="${plusState}" data-popover="plus">${icons.svg("plus", "icon-sm")}</button>
@@ -1099,7 +1104,7 @@ function renderComposerFooter() {
         ${icons.svg("closeCircle", "icon-xs hidden shrink-0 group-hover:block", { ariaHidden: true })}
         <span class="codex-footer-label truncate max-w-20">运行上下文</span>
       </button>
-      <button type="button" class="codex-composer-send-button opacity-50" data-state="closed" data-action="send">${icons.svg("send", "codex-composer-send-icon")}</button>
+      <button type="button" class="${sendClass}" aria-label="${sendLabel}" data-state="${running ? "open" : "closed"}" data-action="${sendAction}">${icons.svg(sendIcon, "codex-composer-send-icon")}</button>
     </div>`;
 }
 
@@ -1256,13 +1261,15 @@ function renderExternalFooter() {
 
 function syncComposerState() {
   const input = mount.root.querySelector("[data-codex-composer]");
-  const send = mount.root.querySelector("[data-action='send']");
+  const send = mount.root.querySelector(".codex-composer-send-button");
   if (!input || !send) return;
   const hasText = Boolean(composerText(input));
   if (!hasText) ensureEmptyComposerStructure(input);
   input.dataset.codexEmpty = hasText ? "false" : "true";
-  send.classList.toggle("opacity-50", !hasText);
-  send.classList.toggle("codex-send-ready", hasText);
+  const running = isActiveSessionRunning();
+  send.classList.toggle("opacity-50", !hasText && !running);
+  send.classList.toggle("codex-send-ready", hasText || running);
+  send.classList.toggle("codex-stop-ready", running);
 }
 
 function composerText(input) {
@@ -1286,6 +1293,10 @@ function ensureEmptyComposerStructure(input) {
 
     function activeSession() {
       return state.sessions.find((session) => session.id === state.activeSessionId) || state.sessions[0];
+    }
+
+    function isActiveSessionRunning() {
+      return String(activeSession()?.status || "").toLowerCase() === "running";
     }
 
     return {

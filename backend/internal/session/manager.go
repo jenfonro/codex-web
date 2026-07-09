@@ -189,9 +189,20 @@ func (m *Manager) Cancel(id string) error {
 	}
 	m.mu.Lock()
 	managed := m.ensureSessionLocked(id)
+	turnIndex, hasTurn := managed.turnIndex[session.runningTurnID]
 	managed.runningTurnID = ""
+	if hasTurn {
+		now := time.Now().UTC()
+		managed.turns[turnIndex].Status = "interrupted"
+		managed.turns[turnIndex].CompletedAt = &now
+	}
 	m.setStatusLocked(id, statusIdle)
 	update := m.sessionUpdateLocked(managed, "session")
+	if hasTurn {
+		turn := cloneTurn(managed.turns[turnIndex])
+		update.Type = "turn"
+		update.Turn = &turn
+	}
 	subscribers := m.subscriberListLocked()
 	m.mu.Unlock()
 	m.publishToSubscribers(subscribers, update)

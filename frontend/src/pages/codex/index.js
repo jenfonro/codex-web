@@ -336,6 +336,11 @@ function handleClick(event) {
     return;
   }
 
+  if (action === "cancel") {
+    void cancelActiveSession();
+    return;
+  }
+
   if (action === "toggle-model-submenu") {
     state.modelMenuExpanded = !state.modelMenuExpanded;
     renderer.render();
@@ -376,6 +381,7 @@ function handleBeforeInput(event) {
 }
 
 async function submitComposer() {
+  if (isActiveSessionRunning()) return;
   const input = mount.root.querySelector("[data-codex-composer]");
   const prompt = renderer.composerText(input);
   if (!prompt) return;
@@ -426,6 +432,21 @@ async function submitComposer() {
   }
 }
 
+async function cancelActiveSession() {
+  const sessionID = state.activeSessionId;
+  if (!sessionID || !state.apiAvailable) return;
+  try {
+    await api.fetchJSON(`/api/sessions/${encodeURIComponent(sessionID)}/cancel`, {
+      method: "POST",
+    });
+    await loadState(sessionID);
+    await loadSessions(true);
+  } catch (error) {
+    applyErrorUpdate(sessionID, error.message);
+  }
+  renderer.render();
+}
+
 function createLocalSession(prompt, errorText = "") {
   const id = `local-${Date.now()}`;
   const session = {
@@ -469,6 +490,11 @@ function appendLocalEvent(sessionID, partial) {
       timeLabel: utils.relativeTime(updatedAt),
     };
   }
+}
+
+function isActiveSessionRunning() {
+  const session = state.sessions.find((item) => item.id === state.activeSessionId);
+  return String(session?.status || "").toLowerCase() === "running";
 }
 
 })(window);
