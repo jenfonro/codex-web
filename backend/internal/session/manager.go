@@ -1184,6 +1184,11 @@ func eventsFromState(state model.SessionState) []model.SessionEvent {
 			event := turnErrorEvent(state.Session.ID, turn, turnIndex)
 			event.Seq = seq
 			events = append(events, event)
+		} else if shouldEmitEmptyTurnResult(turn) {
+			seq++
+			event := emptyTurnResultEvent(state.Session.ID, turn, turnIndex)
+			event.Seq = seq
+			events = append(events, event)
 		}
 	}
 	return events
@@ -1208,6 +1213,66 @@ func turnErrorEvent(sessionID string, turn model.SessionTurn, turnIndex int) mod
 			"status":      turn.Status,
 			"error":       turn.Error,
 		},
+	}
+}
+
+func emptyTurnResultEvent(sessionID string, turn model.SessionTurn, turnIndex int) model.SessionEvent {
+	eventTime := time.Now().UTC()
+	if turn.CompletedAt != nil {
+		eventTime = *turn.CompletedAt
+	} else if turn.StartedAt != nil {
+		eventTime = *turn.StartedAt
+	}
+	return model.SessionEvent{
+		SessionID: sessionID,
+		Time:      eventTime,
+		Kind:      "error",
+		Text:      "No response was produced for this turn.",
+		Data: map[string]any{
+			"turnId":      turn.ID,
+			"turnKey":     firstNonEmpty(turn.ID, fmt.Sprintf("turn-%d", turnIndex+1)),
+			"contentUnit": len(turn.Items),
+			"status":      turn.Status,
+			"emptyResult": true,
+		},
+	}
+}
+
+func shouldEmitEmptyTurnResult(turn model.SessionTurn) bool {
+	if !isTerminalTurnStatus(turn.Status) {
+		return false
+	}
+	hasUserMessage := false
+	for _, item := range turn.Items {
+		if item.Type == "userMessage" {
+			hasUserMessage = true
+			continue
+		}
+		if stateItemHasVisibleOutput(item) {
+			return false
+		}
+	}
+	return hasUserMessage
+}
+
+func stateItemHasVisibleOutput(item model.SessionItem) bool {
+	if strings.TrimSpace(item.Text) != "" || strings.TrimSpace(item.Output) != "" || len(item.Items) > 0 {
+		return true
+	}
+	switch item.Type {
+	case "commandExecution", "fileChange", "mcpToolCall", "dynamicToolCall", "webSearch", "imageView":
+		return true
+	default:
+		return false
+	}
+}
+
+func isTerminalTurnStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "completed", "complete", "done", "succeeded", "success", "failed", "error", "cancelled", "canceled", "interrupted":
+		return true
+	default:
+		return false
 	}
 }
 

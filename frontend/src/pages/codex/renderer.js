@@ -290,6 +290,7 @@ function stateTurnEvents(turn, turnIndex) {
   const lastAgentIndex = lastIndexOfType(sourceItems, "agentMessage");
   const events = sourceItems.flatMap((item, itemIndex) => stateItemEvents(item, turn, turnIndex, itemIndex, itemIndex === lastAgentIndex));
   if (hasTurnError(turn)) events.push(turnErrorEvent(turn, turnIndex, sourceItems.length));
+  else if (shouldShowEmptyTurnResult(turn, events)) events.push(emptyTurnResultEvent(turn, turnIndex, sourceItems.length));
   return events;
 }
 
@@ -416,6 +417,33 @@ function turnErrorEvent(turn, turnIndex, itemIndex = 0) {
       error: turn?.error || null,
     },
   };
+}
+
+function emptyTurnResultEvent(turn, turnIndex, itemIndex = 0) {
+  return {
+    sessionId: activeSession()?.id || "",
+    kind: "error",
+    text: "No response was produced for this turn.",
+    time: turn?.completedAt || turn?.startedAt || new Date().toISOString(),
+    data: {
+      status: turn?.status || "completed",
+      turnId: turn?.id || "",
+      turnKey: turn?.id || `turn-${turnIndex}`,
+      contentUnit: itemIndex,
+      emptyResult: true,
+    },
+  };
+}
+
+function shouldShowEmptyTurnResult(turn, events) {
+  if (!isTerminalTurn(turn)) return false;
+  const hasUser = events.some((event) => event.kind === "user_message");
+  const hasOutput = events.some((event) => event.kind !== "user_message" && event.kind !== "turn_started");
+  return hasUser && !hasOutput;
+}
+
+function isTerminalTurn(turn) {
+  return ["completed", "complete", "done", "succeeded", "success", "failed", "error", "cancelled", "canceled", "interrupted"].includes(String(turn?.status || "").trim().toLowerCase());
 }
 
 function hasTurnError(turn) {

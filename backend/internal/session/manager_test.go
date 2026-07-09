@@ -251,6 +251,48 @@ func TestManagerEventsIncludesTurnError(t *testing.T) {
 	}
 }
 
+func TestManagerEventsIncludesEmptyTurnResult(t *testing.T) {
+	backend := newFakeBackend()
+	backend.readThread = appserver.Thread{
+		ID:        "thread-1",
+		Preview:   "empty result",
+		CWD:       "/workspace",
+		Status:    appserver.ThreadStatus{Type: "idle"},
+		CreatedAt: 100,
+		UpdatedAt: 130,
+		Turns: []appserver.Turn{{
+			ID:          "turn-1",
+			Status:      "completed",
+			StartedAt:   int64Ptr(100),
+			CompletedAt: int64Ptr(101),
+			Items: []map[string]any{
+				{
+					"type": "userMessage",
+					"id":   "user-1",
+					"content": []any{
+						map[string]any{"type": "text", "text": "empty now"},
+					},
+				},
+			},
+		}},
+	}
+	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+
+	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
+	if err != nil {
+		t.Fatalf("Events() error = %v", err)
+	}
+	if got := eventKinds(page.Events); got != "user_message,error" {
+		t.Fatalf("kinds = %s, want user_message,error", got)
+	}
+	if page.Events[1].Text != "No response was produced for this turn." {
+		t.Fatalf("empty result text = %q", page.Events[1].Text)
+	}
+	if page.Events[1].Data["emptyResult"] != true {
+		t.Fatalf("empty result data = %#v", page.Events[1].Data)
+	}
+}
+
 func TestManagerAssistantDeltaUpdatesSameSequence(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
