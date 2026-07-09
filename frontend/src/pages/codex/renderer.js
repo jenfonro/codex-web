@@ -240,12 +240,12 @@ function renderActiveConversation() {
   const sessionID = activeSession()?.id || "sample-thread";
   const sessionState = state.statesBySession.get(sessionID);
   if (sessionState) return renderConversationState(sessionState);
-  const fallbackEvents = runtime.samples?.eventsBySession?.get("sample-thread") || [];
+  const sampleEvents = runtime.samples?.eventsBySession?.get("sample-thread") || [];
   const events = state.eventsBySession.has(sessionID)
     ? state.eventsBySession.get(sessionID)
     : state.apiAvailable
       ? []
-      : fallbackEvents;
+      : sampleEvents;
   return renderConversationEvents(events);
 }
 
@@ -383,12 +383,13 @@ function stateItemEvents(item, turn, turnIndex, itemIndex, isLastAgent) {
   const eventTime = item.time || turn?.startedAt || turn?.completedAt || new Date().toISOString();
   const data = {
     itemId: item.id,
-    status: item.status,
-    phase: item.phase,
     turnId: turn?.id || "",
-    durationMs: turnDurationMs(turn),
     contentUnit: itemIndex,
   };
+  if (item.status) data.status = item.status;
+  if (item.phase) data.phase = item.phase;
+  const durationMs = turnDurationMs(turn);
+  if (durationMs !== null) data.durationMs = durationMs;
 
   if (type === "userMessage") {
     return [{ sessionId: activeSession()?.id || "", kind: "user_message", text: item.text || "", time: eventTime, data }];
@@ -439,8 +440,7 @@ function stateItemEvents(item, turn, turnIndex, itemIndex, isLastAgent) {
           ...data,
           itemId: `${item.id}:output`,
           callId: item.id,
-          output: item.output || "",
-          status: item.status,
+          ...(item.status ? { status: item.status } : {}),
         },
       },
     ];
@@ -497,11 +497,11 @@ function lastIndexOfType(items, type) {
 }
 
 function isTurnRunning(turn) {
-  return ["running", "active", "pending", "starting", "inprogress", "in_progress"].includes(String(turn?.status || "").trim().toLowerCase());
+  return String(turn?.status || "").trim().toLowerCase() === "running";
 }
 
 function isItemRunning(item) {
-  return ["running", "active", "pending", "starting", "inprogress", "in_progress"].includes(String(item?.status || "").trim().toLowerCase());
+  return String(item?.status || "").trim().toLowerCase() === "running";
 }
 
 function isPendingEvent(event) {
@@ -633,8 +633,8 @@ function turnIdFromEvent(event, index) {
   return event?.data?.turnId || `codex-turn-${index}`;
 }
 
-function contentUnitFor(event, fallback) {
-  return event?.data?.contentUnit ?? fallback;
+function contentUnitFor(event, defaultUnit) {
+  return event?.data?.contentUnit ?? defaultUnit;
 }
 
 function contentSearchKey(turnId, unit, role) {
@@ -809,10 +809,11 @@ function renderAssistantContent(event, index, isError, includeActions = true) {
 }
 
 function renderDiffCard(card) {
-  const files = Array.isArray(card?.files) && card.files.length ? card.files : ["frontend/src/app/bootstrap.js", "frontend/src/app/layout.css", "frontend/src/pages/codex/index.js"];
-  const total = card?.total || files.length;
-  const additions = card?.additions || "+1,198";
-  const deletions = card?.deletions || "-2";
+  const files = Array.isArray(card?.files) ? card.files : [];
+  if (!files.length) return "";
+  const total = card?.total ?? files.length;
+  const additions = card?.additions || "";
+  const deletions = card?.deletions || "";
   return `
       <div class="mt-3">
         <div class="flex w-full flex-col gap-3">
@@ -879,8 +880,8 @@ function normalizeDiffFile(file) {
     path: pathValue || name,
     dir,
     name,
-    additions: typeof file === "object" && file?.additions ? file.additions : "+1",
-    deletions: typeof file === "object" && file?.deletions ? file.deletions : "-0",
+    additions: typeof file === "object" && file?.additions ? file.additions : "",
+    deletions: typeof file === "object" && file?.deletions ? file.deletions : "",
   };
 }
 
@@ -1085,7 +1086,7 @@ function toolSummaryText(event) {
 
 function toolSummaryItemText(item) {
   if (item && typeof item === "object") {
-    return String(item.text || item.path || item.file || item.name || "");
+    return String(item.text || item.path || "");
   }
   return String(item || "");
 }

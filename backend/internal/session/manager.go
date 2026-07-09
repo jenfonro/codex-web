@@ -20,6 +20,8 @@ const (
 	statusRunning = "running"
 	statusIdle    = "idle"
 	statusError   = "error"
+	statusDone    = "completed"
+	statusStopped = "interrupted"
 )
 
 type Config struct {
@@ -445,7 +447,7 @@ func (m *Manager) applyTurnStarted(sessionID string, turn appserver.Turn) {
 	turnID := firstNonEmpty(turn.ID, session.runningTurnID, fmt.Sprintf("turn-%d", session.lastSeq+1))
 	turn.ID = turnID
 	modelTurn := turnFromAppServer(turn)
-	modelTurn.Status = firstNonEmpty(modelTurn.Status, statusRunning)
+	modelTurn.Status = normalizeRuntimeStatus(modelTurn.Status, statusRunning)
 	index := session.upsertTurn(modelTurn)
 	session.runningTurnID = turnID
 	m.setStatusLocked(sessionID, statusRunning)
@@ -465,14 +467,12 @@ func (m *Manager) applyTurnCompleted(sessionID string, turn appserver.Turn) {
 	}
 	turn.ID = turnID
 	modelTurn := turnFromAppServer(turn)
-	if modelTurn.Status == "" {
-		modelTurn.Status = "completed"
-	}
+	modelTurn.Status = normalizeRuntimeStatus(modelTurn.Status, statusDone)
 	index := session.upsertTurn(modelTurn)
 	if session.runningTurnID == turnID {
 		session.runningTurnID = ""
 	}
-	if strings.EqualFold(modelTurn.Status, "failed") {
+	if modelTurn.Status == statusError {
 		m.setStatusLocked(sessionID, statusError)
 	} else {
 		m.setStatusLocked(sessionID, statusIdle)
@@ -483,7 +483,7 @@ func (m *Manager) applyTurnCompleted(sessionID string, turn appserver.Turn) {
 	m.publishToSubscribers(subscribers, update)
 }
 
-func (m *Manager) applyItemNotification(notification appserver.Notification, fallbackStatus string) {
+func (m *Manager) applyItemNotification(notification appserver.Notification, defaultStatus string) {
 	threadID := strAny(notification.Params["threadId"])
 	rawItem := itemMap(notification.Params["item"])
 	if threadID == "" || rawItem == nil {
@@ -494,7 +494,7 @@ func (m *Manager) applyItemNotification(notification appserver.Notification, fal
 		item.ID = fmt.Sprintf("%s-%d", firstNonEmpty(item.Type, "item"), time.Now().UnixNano())
 	}
 	if item.Status == "" {
-		item.Status = fallbackStatus
+		item.Status = defaultStatus
 	}
 	m.mu.Lock()
 	session := m.ensureSessionLocked(threadID)
@@ -680,7 +680,7 @@ func recordFromThread(thread appserver.Thread) model.SessionRecord {
 }
 
 func statusFromThreadStatus(status appserver.ThreadStatus) string {
-	switch strings.ToLower(status.Type) {
+	switch strings.ToLower(strings.TrimSpace(status.Type)) {
 	case "active", "running":
 		return statusRunning
 	case "systemerror", "error":
@@ -724,13 +724,13 @@ func turnFromAppServer(turn appserver.Turn) model.SessionTurn {
 		itemTime = *completedAt
 	}
 	items := make([]model.SessionItem, 0, len(turn.Items))
-	for index, raw := range turn.Items {
-		item := itemFromMap(raw, itemTime.Add(time.Duration(index)*time.Millisecond))
+	for index, sourceItem := range turn.Items {
+		item := itemFromMap(sourceItem, itemTime.Add(time.Duration(index)*time.Millisecond))
 		items = append(items, item)
 	}
 	return model.SessionTurn{
 		ID:          turn.ID,
-		Status:      firstNonEmpty(turn.Status, statusIdle),
+		Status:      normalizeRuntimeStatus(turn.Status, statusIdle),
 		StartedAt:   startedAt,
 		CompletedAt: completedAt,
 		DurationMs:  normalizedTurnDurationMs(turn.DurationMs, startedAt, completedAt),
@@ -747,7 +747,7 @@ func itemFromMap(item map[string]any, itemTime time.Time) model.SessionItem {
 	out := model.SessionItem{
 		ID:      strAny(item["id"]),
 		Type:    itemKind,
-		Status:  strAny(item["status"]),
+		Status:  normalizeRuntimeStatus(strAny(item["status"]), ""),
 		Time:    itemTime.UTC(),
 		Phase:   strAny(item["phase"]),
 		Command: strAny(item["command"]),
@@ -939,12 +939,12 @@ func finalizeTerminalTurnItems(turn *model.SessionTurn) {
 
 func terminalItemStatus(turnStatus string) string {
 	switch strings.ToLower(strings.TrimSpace(turnStatus)) {
-	case "failed", "error":
+	case statusError:
 		return statusError
-	case "cancelled", "canceled", "interrupted":
-		return "interrupted"
-	case "completed", "complete", "done", "succeeded", "success":
-		return "completed"
+	case statusStopped:
+		return statusStopped
+	case statusDone:
+		return statusDone
 	default:
 		return ""
 	}
@@ -1320,7 +1320,9 @@ func eventFromStateItem(sessionID string, turn model.SessionTurn, item model.Ses
 		outputData := map[string]any{
 			"itemId": item.ID + ":output",
 			"callId": item.ID,
-			"status": item.Status,
+		}
+		if item.Status != "" {
+			outputData["status"] = item.Status
 		}
 		return event, []model.SessionEvent{newParsedEvent("tool_output", item.Output, eventTime.Add(time.Millisecond), outputData)}
 	case "fileChange":
@@ -1348,10 +1350,14 @@ func eventFromStateItem(sessionID string, turn model.SessionTurn, item model.Ses
 
 func compactStateItemData(turn model.SessionTurn, item model.SessionItem) map[string]any {
 	data := map[string]any{
-		"itemId":     item.ID,
-		"status":     item.Status,
-		"turnId":     turn.ID,
-		"durationMs": turnDurationMillis(turn),
+		"itemId": item.ID,
+		"turnId": turn.ID,
+	}
+	if item.Status != "" {
+		data["status"] = item.Status
+	}
+	if duration := turnDurationMillis(turn); duration != nil {
+		data["durationMs"] = *duration
 	}
 	if item.Phase != "" {
 		data["phase"] = item.Phase
@@ -1399,21 +1405,21 @@ func newParsedEvent(kind, text string, eventTime time.Time, data map[string]any)
 
 func threadFromParams(params map[string]any, key string) appserver.Thread {
 	var thread appserver.Thread
-	raw, err := json.Marshal(params[key])
+	payload, err := json.Marshal(params[key])
 	if err != nil {
 		return thread
 	}
-	_ = json.Unmarshal(raw, &thread)
+	_ = json.Unmarshal(payload, &thread)
 	return thread
 }
 
 func turnFromAny(value any) appserver.Turn {
 	var turn appserver.Turn
-	raw, err := json.Marshal(value)
+	payload, err := json.Marshal(value)
 	if err != nil {
 		return turn
 	}
-	_ = json.Unmarshal(raw, &turn)
+	_ = json.Unmarshal(payload, &turn)
 	return turn
 }
 
@@ -1489,11 +1495,23 @@ func fileChangeSummary(files []map[string]any) string {
 }
 
 func isRunningStatus(status string) bool {
+	return strings.EqualFold(strings.TrimSpace(status), statusRunning)
+}
+
+func normalizeRuntimeStatus(status string, defaultStatus string) string {
 	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "":
+		return defaultStatus
 	case "running", "active", "pending", "starting", "inprogress", "in_progress":
-		return true
+		return statusRunning
+	case "completed", "complete", "done", "succeeded", "success":
+		return statusDone
+	case "failed", "error":
+		return statusError
+	case "cancelled", "canceled", "interrupted", "skipped":
+		return statusStopped
 	default:
-		return false
+		return defaultStatus
 	}
 }
 

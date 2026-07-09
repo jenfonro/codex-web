@@ -61,7 +61,7 @@ assert.strictEqual(
   "已处理 1m 2s",
 );
 
-const fallbackSplit = splitTurnFollowups([
+const noDurationSplit = splitTurnFollowups([
   {
     kind: "turn_started",
     time: "2026-07-10T00:00:00.000Z",
@@ -76,6 +76,6 @@ const fallbackSplit = splitTurnFollowups([
 ]);
 
 assert.strictEqual(
-  summaryLabel({ kind: "user_message", time: "2026-07-10T00:00:00.000Z" }, fallbackSplit),
+  summaryLabel({ kind: "user_message", time: "2026-07-10T00:00:00.000Z" }, noDurationSplit),
   "已处理",
 );

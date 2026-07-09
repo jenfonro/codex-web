@@ -17,7 +17,7 @@ func TestManagerListUsesAppServerThreads(t *testing.T) {
 	backend.threads = []appserver.Thread{
 		{
 			ID:        "thread-1",
-			Preview:   "first prompt fallback",
+			Preview:   "first prompt preview",
 			Name:      &name,
 			CWD:       "/workspace",
 			Status:    appserver.ThreadStatus{Type: "idle"},
@@ -252,7 +252,7 @@ func TestManagerEventsIncludesTurnError(t *testing.T) {
 		t.Fatalf("state items = %#v", state.Turns)
 	}
 	terminal := state.Turns[0].Items[1]
-	if terminal.Type != "error" || terminal.Text != "invalid codex request" || terminal.Status != "failed" {
+	if terminal.Type != "error" || terminal.Text != "invalid codex request" || terminal.Status != statusError {
 		t.Fatalf("terminal item = %#v", terminal)
 	}
 

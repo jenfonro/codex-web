@@ -158,7 +158,7 @@
   }
 
   function isTerminalToolStatus(status) {
-    return ["completed", "complete", "done", "succeeded", "success"].includes(String(status || "").toLowerCase());
+    return String(status || "").toLowerCase() === "completed";
   }
 
   function isCommandToolCall(item) {
@@ -166,7 +166,7 @@
     const name = String(data.name || "").trim();
     if (name === "exec_command") return true;
     const args = eventArgs(item.event) || {};
-    return Boolean(String(args.cmd || args.command || "").trim());
+    return Boolean(String(args.cmd || "").trim());
   }
 
   function isExplicitFinalAssistant(event) {
@@ -208,8 +208,8 @@
     );
   }
 
-  function eventKind(event, fallback = "") {
-    return lifecycle.eventKind ? lifecycle.eventKind(event, fallback) : String(event?.kind || fallback || "");
+  function eventKind(event, defaultKind = "") {
+    return lifecycle.eventKind ? lifecycle.eventKind(event, defaultKind) : String(event?.kind || defaultKind || "");
   }
 
   function isHeaderSummaryEvent(event) {

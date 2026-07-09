@@ -4,11 +4,10 @@
   const activityKinds = ["turn_started", "reasoning", "tool_call"];
   const defaultPendingActivityKinds = ["turn_started", "reasoning"];
   const controlKinds = ["turn_completed", "thread_started", "thread_status"];
-  const runningStatuses = ["pending", "running", "active", "starting"];
-  const terminalStatuses = ["completed", "complete", "done", "succeeded", "success", "failed", "error", "cancelled", "canceled", "skipped"];
+  const terminalStatuses = ["completed", "error", "interrupted", "idle"];
 
-  function eventKind(event, fallback = "") {
-    return String(event?.kind || fallback || "");
+  function eventKind(event, defaultKind = "") {
+    return String(event?.kind || defaultKind || "");
   }
 
   function eventStatus(event) {
@@ -16,7 +15,7 @@
   }
 
   function isRunningStatus(status) {
-    return runningStatuses.includes(String(status || "").toLowerCase());
+    return String(status || "").toLowerCase() === "running";
   }
 
   function isTerminalStatus(status) {
@@ -73,19 +72,19 @@
     return isControlEvent(event) || isEmptyTransientActivity(event);
   }
 
-  function sessionStatusFromEvent(event, fallback = "idle") {
+  function sessionStatusFromEvent(event, currentStatus = "idle") {
     const kind = eventKind(event);
     if (kind === "error") return "error";
     if (isStreamingAssistantEvent(event)) return "running";
     if (kind === "turn_completed" || isFinalAssistantEvent(event)) return "idle";
     if (kind === "user_message") return "running";
     if (isActivityPending(event)) return "running";
-    if (isActivityEvent(event)) return fallback || "idle";
+    if (isActivityEvent(event)) return currentStatus || "idle";
 
     const status = eventStatus(event);
     if (isRunningStatus(status)) return "running";
-    if (isTerminalStatus(status)) return fallback || "idle";
-    return fallback || "idle";
+    if (isTerminalStatus(status)) return currentStatus || "idle";
+    return currentStatus || "idle";
   }
 
   function visibleConversationEvents(events) {
