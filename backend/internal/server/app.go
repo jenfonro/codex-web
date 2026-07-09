@@ -71,6 +71,8 @@ func (a *App) handleAPI(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case path == "/sessions":
 		a.handleSessions(w, r)
+	case path == "/sessions/state-events":
+		a.handleSessionStateEvents(w, r)
 	case path == "/sessions/events":
 		a.handleSessionEvents(w, r)
 	case strings.HasPrefix(path, "/sessions/"):

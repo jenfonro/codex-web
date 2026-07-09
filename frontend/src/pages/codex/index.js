@@ -12,9 +12,6 @@
   const panel = document.getElementById("codexPanel");
   if (!panel || !icons || !config || !api || !fixtures || !utils || !lifecycle || !store || !rendererFactory) return;
 
-  const EVENT_PAGE_SIZE = 100;
-  const LOAD_OLDER_EDGE_PX = 480;
-
   const mount = config.createPanelMount(panel);
   const fixtureMode = new URLSearchParams(global.location.search).get("codexFixture") || "";
   const useDynamicFixture = fixtureMode === "dynamic";
@@ -71,8 +68,9 @@
     try {
       const payload = await api.fetchJSON("/api/sessions");
       const sessions = api.normalizeSessions(payload.sessions);
-      state.sessions = sessions;
+    state.sessions = sessions;
       if (!preserveEvents) {
+        state.statesBySession = new Map();
         state.eventsBySession = new Map();
         state.eventPagesBySession = new Map();
       }
@@ -84,6 +82,7 @@
 
   function useSampleSessions(apiAvailable) {
     state.sessions = runtime.samples.sessions.slice();
+    state.statesBySession = new Map();
     state.eventsBySession = new Map(runtime.samples.eventsBySession);
     state.eventPagesBySession = new Map();
     state.apiAvailable = apiAvailable;
@@ -94,74 +93,24 @@
     state.view = "thread";
     state.popover = "";
     state.threadWindows.delete(sessionID);
-    if (!state.eventsBySession.has(sessionID)) state.eventsBySession.set(sessionID, []);
     renderer.render();
-    await loadEvents(sessionID);
+    await loadState(sessionID);
     subscribeSession(sessionID);
     renderer.render();
   }
 
-  async function loadEvents(sessionID) {
+  async function loadState(sessionID) {
     if (!state.apiAvailable) return;
     try {
-      const qs = new URLSearchParams({ limit: String(EVENT_PAGE_SIZE) });
-      const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(sessionID)}/events?${qs.toString()}`);
-      const events = api.normalizeEvents(payload.events);
-      state.eventsBySession.set(sessionID, events);
-      updateEventPage(sessionID, payload, events);
+      const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(sessionID)}/state`);
+      applySessionState(api.normalizeSessionState(payload));
     } catch {
-      if (!state.eventsBySession.has(sessionID)) {
-        state.eventsBySession.set(sessionID, runtime.samples.eventsBySession.get("sample-thread") || []);
-      }
+      // Keep the existing view; a later SSE reconnect or session reload may recover.
     }
   }
 
   async function maybeLoadOlderEvents(scroll) {
-    if (!state.apiAvailable || state.view !== "thread" || !state.activeSessionId) return;
-    if (!scroll || scroll.scrollTop > LOAD_OLDER_EDGE_PX) return;
-    const page = state.eventPagesBySession.get(state.activeSessionId);
-    if (!page?.hasMoreBefore || page.loadingBefore) return;
-    await loadOlderEvents(state.activeSessionId);
-  }
-
-  async function loadOlderEvents(sessionID) {
-    const page = state.eventPagesBySession.get(sessionID);
-    if (!page?.hasMoreBefore || page.loadingBefore) return;
-    page.loadingBefore = true;
-    state.eventPagesBySession.set(sessionID, page);
-    renderPreservingThreadScroll();
-    try {
-      const beforeSeq = firstLoadedSeq(sessionID);
-      if (!beforeSeq || beforeSeq <= 1) {
-        state.eventPagesBySession.set(sessionID, { ...page, hasMoreBefore: false, loadingBefore: false });
-        renderPreservingThreadScroll();
-        return;
-      }
-      const qs = new URLSearchParams({ beforeSeq: String(beforeSeq), limit: String(EVENT_PAGE_SIZE) });
-      const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(sessionID)}/events?${qs.toString()}`);
-      const olderEvents = api.normalizeEvents(payload.events);
-      const events = mergeSessionEvents(olderEvents, state.eventsBySession.get(sessionID) || []);
-      state.eventsBySession.set(sessionID, events);
-      updateEventPage(sessionID, payload, events);
-      renderPreservingThreadScroll();
-    } catch {
-      state.eventPagesBySession.set(sessionID, { ...page, loadingBefore: false });
-      renderPreservingThreadScroll();
-    }
-  }
-
-  function updateEventPage(sessionID, payload, events) {
-    const eventFirstSeq = firstSeqOf(events);
-    const eventLastSeq = lastSeqOf(events);
-    const firstSeq = Number(payload.firstSeq || eventFirstSeq || firstLoadedSeq(sessionID) || 0);
-    const lastSeq = Math.max(Number(payload.lastSeq || 0), eventLastSeq, latestSeqForSession(sessionID));
-    state.eventPagesBySession.set(sessionID, {
-      firstSeq,
-      lastSeq,
-      hasMoreBefore: Boolean(payload.hasMoreBefore),
-      loadingBefore: false,
-      loaded: true,
-    });
+    return;
   }
 
   function subscribeSessionList() {
@@ -170,10 +119,10 @@
       state.sessionEventSource = null;
     }
     if (!state.apiAvailable) return;
-    const source = new EventSource("/api/sessions/events");
+    const source = new EventSource("/api/sessions/state-events");
     source.onmessage = (event) => {
       try {
-        applyIncomingSessionEvent(api.normalizeEvent(JSON.parse(event.data)));
+        applyStateUpdate(api.normalizeStateUpdate(JSON.parse(event.data)));
       } catch {
         // Keep the stream alive if one row is malformed.
       }
@@ -188,12 +137,12 @@
     }
     if (!state.apiAvailable) return;
     const qs = new URLSearchParams({ sessionId: sessionID });
-    const lastSeq = latestSeqForSession(sessionID);
+    const lastSeq = latestStateSeqForSession(sessionID);
     if (lastSeq > 0) qs.set("lastSeq", String(lastSeq));
-    const source = new EventSource(`/api/sessions/events?${qs.toString()}`);
+    const source = new EventSource(`/api/sessions/state-events?${qs.toString()}`);
     source.onmessage = (event) => {
       try {
-        applyIncomingSessionEvent(api.normalizeEvent(JSON.parse(event.data)));
+        applyStateUpdate(api.normalizeStateUpdate(JSON.parse(event.data)));
       } catch {
         // Keep the stream alive if one row is malformed.
       }
@@ -205,98 +154,115 @@
     state.eventSource = source;
   }
 
-function applyIncomingSessionEvent(incoming) {
-  if (!incoming?.sessionId) return;
-  const events = state.eventsBySession.get(incoming.sessionId) || [];
-  if (replaceSessionEvent(events, incoming)) {
-    state.eventsBySession.set(incoming.sessionId, events);
-    touchEventPage(incoming.sessionId, incoming);
-    if (!updateSessionFromEvent(incoming)) scheduleSessionReload();
-    if (state.view === "list" || state.activeSessionId === incoming.sessionId) requestRender();
-    return;
+function applyStateUpdate(update) {
+  if (!update?.sessionId) return;
+  if (update.state) {
+    applySessionState(update.state);
+  } else {
+    if (update.session) upsertSession(update.session);
+    if (update.turn) applyTurnUpdate(update.sessionId, update.turn, update.seq);
+    if (update.item) applyItemUpdate(update.sessionId, update.turn, update.item, update.seq);
+    if (update.error) applyErrorUpdate(update.sessionId, update.error, update.seq);
   }
-  if (hasSessionEvent(events, incoming)) return;
-  events.push(incoming);
-  events.sort(compareEvents);
-  state.eventsBySession.set(incoming.sessionId, events);
-  touchEventPage(incoming.sessionId, incoming);
-  if (!updateSessionFromEvent(incoming)) scheduleSessionReload();
-  if (state.view === "list" || state.activeSessionId === incoming.sessionId) requestRender();
+  if (state.view === "list" || state.activeSessionId === update.sessionId) requestRender();
 }
 
-function replaceSessionEvent(events, incoming) {
-  const seq = Number(incoming.seq || 0);
-  if (!seq || !incoming.data?.replace) return false;
-  const index = events.findIndex((event) => Number(event.seq || 0) === seq);
-  if (index < 0) return false;
-  events[index] = { ...events[index], ...incoming };
-  return true;
+function applySessionState(sessionState) {
+  if (!sessionState?.session?.id) return;
+  state.statesBySession.set(sessionState.session.id, sessionState);
+  upsertSession(sessionState.session);
 }
 
-function hasSessionEvent(events, incoming) {
-  const seq = Number(incoming.seq || 0);
-  if (seq > 0) return events.some((event) => Number(event.seq || 0) === seq);
-  return events.some((event) =>
-    event.kind === incoming.kind &&
-    event.time === incoming.time &&
-    event.text === incoming.text
-  );
-}
-
-function latestSeqForSession(sessionID) {
-  const events = state.eventsBySession.get(sessionID) || [];
-  return events.reduce((latest, event) => Math.max(latest, Number(event.seq || 0)), 0);
-}
-
-function firstLoadedSeq(sessionID) {
-  return firstSeqOf(state.eventsBySession.get(sessionID) || []);
-}
-
-function firstSeqOf(events) {
-  return events.reduce((first, event) => {
-    const seq = Number(event.seq || 0);
-    if (!seq) return first;
-    return first ? Math.min(first, seq) : seq;
-  }, 0);
-}
-
-function lastSeqOf(events) {
-  return events.reduce((last, event) => Math.max(last, Number(event.seq || 0)), 0);
-}
-
-function mergeSessionEvents(...groups) {
-  const byKey = new Map();
-  for (const events of groups) {
-    for (const event of events || []) {
-      byKey.set(sessionEventKey(event), event);
-    }
+function applyTurnUpdate(sessionID, turn, seq) {
+  if (!turn?.id) return;
+  const sessionState = ensureSessionState(sessionID, seq);
+  const index = sessionState.turns.findIndex((item) => item.id === turn.id);
+  if (index >= 0) {
+    sessionState.turns[index] = mergeTurn(sessionState.turns[index], turn);
+  } else {
+    sessionState.turns.push(turn);
   }
-  return Array.from(byKey.values()).sort(compareEvents);
+  sessionState.lastSeq = Math.max(sessionState.lastSeq || 0, Number(seq || 0));
+  state.statesBySession.set(sessionID, sessionState);
 }
 
-function sessionEventKey(event) {
-  const seq = Number(event?.seq || 0);
-  if (seq > 0) return `seq:${seq}`;
-  return `event:${event?.kind || ""}:${event?.time || ""}:${event?.text || ""}`;
+function applyItemUpdate(sessionID, turn, item, seq) {
+  if (!item?.id) return;
+  const sessionState = ensureSessionState(sessionID, seq);
+  const turnID = turn?.id || sessionState.turns[sessionState.turns.length - 1]?.id || `turn-${seq || Date.now()}`;
+  let turnIndex = sessionState.turns.findIndex((entry) => entry.id === turnID);
+  if (turnIndex < 0) {
+    sessionState.turns.push(turn || { id: turnID, status: "running", items: [] });
+    turnIndex = sessionState.turns.length - 1;
+  } else if (turn) {
+    sessionState.turns[turnIndex] = mergeTurn(sessionState.turns[turnIndex], turn);
+  }
+  const items = sessionState.turns[turnIndex].items || [];
+  const itemIndex = items.findIndex((entry) => entry.id === item.id);
+  if (itemIndex >= 0) {
+    items[itemIndex] = mergeStateItem(items[itemIndex], item);
+  } else {
+    items.push(item);
+  }
+  sessionState.turns[turnIndex].items = items;
+  sessionState.lastSeq = Math.max(sessionState.lastSeq || 0, Number(seq || 0));
+  state.statesBySession.set(sessionID, sessionState);
 }
 
-function compareEvents(a, b) {
-  const aSeq = Number(a?.seq || 0);
-  const bSeq = Number(b?.seq || 0);
-  if (aSeq && bSeq && aSeq !== bSeq) return aSeq - bSeq;
-  return String(a?.time || "").localeCompare(String(b?.time || ""));
+function applyErrorUpdate(sessionID, message, seq) {
+  const sessionState = ensureSessionState(sessionID, seq);
+  sessionState.session.status = "error";
+  sessionState.session.updatedAt = new Date().toISOString();
+  state.statesBySession.set(sessionID, sessionState);
+  upsertSession(sessionState.session);
 }
 
-function touchEventPage(sessionID, event) {
-  const page = state.eventPagesBySession.get(sessionID);
-  if (!page) return;
-  const seq = Number(event?.seq || 0);
-  if (!seq) return;
-  state.eventPagesBySession.set(sessionID, {
-    ...page,
-    firstSeq: page.firstSeq ? Math.min(page.firstSeq, seq) : seq,
-    lastSeq: Math.max(page.lastSeq || 0, seq),
-  });
+function ensureSessionState(sessionID, seq) {
+  const existing = state.statesBySession.get(sessionID);
+  if (existing) return existing;
+  const session = state.sessions.find((item) => item.id === sessionID) || {
+    id: sessionID,
+    title: "New session",
+    status: "idle",
+    updatedAt: new Date().toISOString(),
+    timeLabel: "刚刚",
+  };
+  const sessionState = { session, turns: [], lastSeq: Number(seq || 0) };
+  state.statesBySession.set(sessionID, sessionState);
+  return sessionState;
+}
+
+function mergeTurn(existing, incoming) {
+  const merged = { ...existing, ...incoming };
+  const existingItems = Array.isArray(existing?.items) ? existing.items : [];
+  const incomingItems = Array.isArray(incoming?.items) ? incoming.items : [];
+  if (!incomingItems.length) {
+    merged.items = existingItems;
+    return merged;
+  }
+  const items = existingItems.slice();
+  for (const item of incomingItems) {
+    const index = items.findIndex((entry) => entry.id === item.id);
+    if (index >= 0) items[index] = mergeStateItem(items[index], item);
+    else items.push(item);
+  }
+  merged.items = items;
+  return merged;
+}
+
+function mergeStateItem(existing, incoming) {
+  return {
+    ...existing,
+    ...incoming,
+    text: incoming.text !== "" ? incoming.text : existing.text,
+    output: incoming.output !== "" ? incoming.output : existing.output,
+    raw: { ...(existing.raw || {}), ...(incoming.raw || {}) },
+    items: incoming.items || existing.items || null,
+  };
+}
+
+function latestStateSeqForSession(sessionID) {
+  return Number(state.statesBySession.get(sessionID)?.lastSeq || 0);
 }
 
 function requestRender() {
@@ -305,22 +271,6 @@ function requestRender() {
     renderFrame = 0;
     renderer.render();
   });
-}
-
-function updateSessionFromEvent(event) {
-  const index = state.sessions.findIndex((session) => session.id === event.sessionId);
-  if (index < 0) return false;
-  const session = state.sessions[index];
-  const status = lifecycle.sessionStatusFromEvent(event, session.status);
-  const updatedAt = event.time || session.updatedAt || new Date().toISOString();
-  state.sessions[index] = {
-    ...session,
-    status,
-    updatedAt,
-    timeLabel: utils.relativeTime(updatedAt),
-  };
-  state.sessions.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-  return true;
 }
 
 function scheduleSessionReload() {
@@ -441,8 +391,9 @@ async function submitComposer() {
           body: JSON.stringify({ prompt }),
         });
         upsertSession(api.normalizeSession(payload.session));
+        await loadState(state.activeSessionId);
       } catch (error) {
-        appendLocalEvent(state.activeSessionId, { kind: "error", text: error.message });
+        applyErrorUpdate(state.activeSessionId, error.message);
         renderer.render();
       }
     } else {
@@ -464,7 +415,7 @@ async function submitComposer() {
       const session = api.normalizeSession(payload.session);
       if (session?.id) {
         upsertSession(session);
-        state.eventsBySession.set(session.id, []);
+        state.statesBySession.set(session.id, { session, turns: [], lastSeq: 0 });
         await openSession(session.id);
       }
     } catch (error) {
@@ -508,7 +459,16 @@ function appendLocalEvent(sessionID, partial) {
   const event = { ...partial, sessionId: sessionID, seq: events.length + 1, time: partial.time || new Date().toISOString() };
   events.push(event);
   state.eventsBySession.set(sessionID, events);
-  updateSessionFromEvent(event);
+  const index = state.sessions.findIndex((session) => session.id === sessionID);
+  if (index >= 0) {
+    const updatedAt = event.time || new Date().toISOString();
+    state.sessions[index] = {
+      ...state.sessions[index],
+      status: event.kind === "error" ? "error" : state.sessions[index].status,
+      updatedAt,
+      timeLabel: utils.relativeTime(updatedAt),
+    };
+  }
 }
 
 })(window);

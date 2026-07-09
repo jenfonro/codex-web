@@ -9,6 +9,7 @@
       modelMenuExpanded: false,
       sessions: [],
       activeSessionId: "",
+      statesBySession: new Map(),
       eventsBySession: new Map(),
       eventPagesBySession: new Map(),
       threadWindows: new Map(),

@@ -161,12 +161,16 @@ function renderSessionList() {
 function renderThreadView() {
   const session = activeSession();
   const sessionID = session?.id || "sample-thread";
+  const sessionState = state.statesBySession.get(sessionID);
   const fallbackEvents = runtime.samples?.eventsBySession?.get("sample-thread") || [];
   const events = state.eventsBySession.has(sessionID)
     ? state.eventsBySession.get(sessionID)
     : state.apiAvailable
       ? []
       : fallbackEvents;
+  const conversation = sessionState
+    ? renderConversationState(sessionState)
+    : renderConversationEvents(events);
   return `
     <div class="codex-panel-view codex-panel-view-thread relative flex h-full flex-col min-h-0" data-codex-panel-root data-codex-view="thread">
       <div class="sticky top-0 z-10">${renderHeader(session?.title || "任务", "thread")}</div>
@@ -178,7 +182,7 @@ function renderThreadView() {
                   <div class="codex-thread-content-frame flex min-h-full shrink-0 flex-col justify-start" data-thread-content-frame>
                     <div data-codex-thread-content="true" class="codex-thread-content mx-auto w-full max-w-(--thread-content-max-width) px-toolbar relative flex flex-1 shrink-0 flex-col pb-8">
                       <div data-thread-find-target="conversation" class="relative flex flex-col gap-3">
-                        ${renderConversationEvents(events)}
+                        ${conversation}
                       </div>
                     </div>
                   </div>
@@ -241,6 +245,178 @@ function renderConversationEvents(events) {
       </div>
       ${virtualList.bottomPadding ? `<div aria-hidden="true" data-codex-virtual-spacer="bottom" style="height:${escapeAttr(virtualList.bottomPadding)}px"></div>` : ""}
     </div>`;
+}
+
+function renderConversationState(sessionState) {
+  const turns = Array.isArray(sessionState?.turns) ? sessionState.turns : [];
+  const items = conversationItemsFromState(turns);
+  const virtualList = conversationVirtualList([], items);
+  const innerStyle = `gap: ${virtualList.gap}px; margin-top: ${virtualList.marginTop || "0px"};`;
+  return `
+    <div class="relative shrink-0">
+      <div class="flex flex-col" style="${innerStyle}">
+        ${virtualList.topPadding ? `<div aria-hidden="true" data-codex-virtual-spacer="top" style="height:${escapeAttr(virtualList.topPadding)}px"></div>` : ""}
+        ${virtualList.items.map((item, offset) => `<div data-codex-virtual-turn="${virtualList.start + offset}">${renderConversationItem(item, virtualList.start + offset)}</div>`).join("")}
+        ${virtualList.bottomPadding ? `<div aria-hidden="true" data-codex-virtual-spacer="bottom" style="height:${escapeAttr(virtualList.bottomPadding)}px"></div>` : ""}
+      </div>
+    </div>`;
+}
+
+function conversationItemsFromState(turns) {
+  const items = [];
+  for (let turnIndex = 0; turnIndex < turns.length; turnIndex += 1) {
+    const turn = turns[turnIndex];
+    const events = stateTurnEvents(turn, turnIndex);
+    const userIndex = events.findIndex((event) => (event.kind || "") === "user_message");
+    if (userIndex < 0) {
+      for (const event of events) items.push({ type: "event", event });
+      if (isTurnRunning(turn) && !events.some(isPendingEvent)) {
+        items.push({ type: "event", event: turnPendingEvent(turn, turnIndex) });
+      }
+      continue;
+    }
+    const userEvent = events[userIndex];
+    const followups = events.filter((_, index) => index !== userIndex);
+    if (isTurnRunning(turn) && !followups.some(isPendingEvent)) {
+      followups.push(turnPendingEvent(turn, turnIndex));
+    }
+    items.push({ type: "user-turn", event: userEvent, followups });
+  }
+  return items;
+}
+
+function stateTurnEvents(turn, turnIndex) {
+  const sourceItems = Array.isArray(turn?.items) ? turn.items : [];
+  const lastAgentIndex = lastIndexOfType(sourceItems, "agentMessage");
+  return sourceItems.flatMap((item, itemIndex) => stateItemEvents(item, turn, turnIndex, itemIndex, itemIndex === lastAgentIndex));
+}
+
+function stateItemEvents(item, turn, turnIndex, itemIndex, isLastAgent) {
+  if (!item || typeof item !== "object") return [];
+  const type = item.type || item.raw?.type || "";
+  const eventTime = item.time || turn?.startedAt || turn?.completedAt || new Date().toISOString();
+  const data = {
+    itemId: item.id,
+    itemType: type,
+    status: item.status,
+    phase: item.phase,
+    turnId: turn?.id || "",
+    turnKey: turn?.id || `turn-${turnIndex}`,
+    contentUnit: itemIndex,
+    item: item.raw || item,
+  };
+
+  if (type === "userMessage") {
+    return [{ sessionId: activeSession()?.id || "", kind: "user_message", text: item.text || "", time: eventTime, data }];
+  }
+  if (type === "agentMessage") {
+    if (!String(item.text || "").trim() && isItemRunning(item)) {
+      return [turnPendingEvent(turn, turnIndex, itemIndex)];
+    }
+    const phase = item.phase || (!isTurnRunning(turn) && isLastAgent ? "final_answer" : "");
+    return [{
+      sessionId: activeSession()?.id || "",
+      kind: "assistant_message",
+      text: item.text || "",
+      time: eventTime,
+      data: { ...data, phase, streaming: isItemRunning(item) },
+    }];
+  }
+  if (type === "reasoning") {
+    return [{
+      sessionId: activeSession()?.id || "",
+      kind: "reasoning",
+      text: item.text || "",
+      time: eventTime,
+      data: { ...data, status: item.status || (isTurnRunning(turn) ? "running" : "completed") },
+    }];
+  }
+  if (type === "commandExecution") {
+    const call = {
+      sessionId: activeSession()?.id || "",
+      kind: "tool_call",
+      text: "exec_command",
+      time: eventTime,
+      data: {
+        ...data,
+        name: "exec_command",
+        args: { cmd: item.command || "", workdir: item.cwd || "" },
+      },
+    };
+    if (!item.output) return [call];
+    return [
+      call,
+      {
+        sessionId: activeSession()?.id || "",
+        kind: "tool_output",
+        text: item.output || "",
+        time: eventTime,
+        data: {
+          ...data,
+          itemId: `${item.id}:output`,
+          call_id: item.id,
+          output: item.output || "",
+          status: item.status,
+        },
+      },
+    ];
+  }
+  if (type === "fileChange") {
+    const files = Array.isArray(item.items) ? item.items : [];
+    return [{
+      sessionId: activeSession()?.id || "",
+      kind: "tool_summary",
+      text: item.text || toolSummaryText({ items: files }),
+      items: files,
+      time: eventTime,
+      data: { ...data, items: files },
+    }];
+  }
+  if (type === "mcpToolCall" || type === "dynamicToolCall" || type === "webSearch") {
+    const name = item.name || item.tool || type;
+    return [{ sessionId: activeSession()?.id || "", kind: "tool_call", text: name, time: eventTime, data: { ...data, name } }];
+  }
+  if (type === "plan" || type === "contextCompaction") {
+    return [{ sessionId: activeSession()?.id || "", kind: "summary", text: item.text || "", time: eventTime, data }];
+  }
+  if (item.text) {
+    return [{ sessionId: activeSession()?.id || "", kind: type || "assistant_message", text: item.text, time: eventTime, data }];
+  }
+  return [];
+}
+
+function turnPendingEvent(turn, turnIndex, itemIndex = 0) {
+  return {
+    sessionId: activeSession()?.id || "",
+    kind: "turn_started",
+    text: "",
+    time: turn?.startedAt || new Date().toISOString(),
+    data: {
+      status: "running",
+      turnId: turn?.id || "",
+      turnKey: turn?.id || `turn-${turnIndex}`,
+      contentUnit: itemIndex,
+    },
+  };
+}
+
+function lastIndexOfType(items, type) {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if ((items[index]?.type || items[index]?.raw?.type) === type) return index;
+  }
+  return -1;
+}
+
+function isTurnRunning(turn) {
+  return ["running", "active", "pending", "starting", "inprogress", "in_progress"].includes(String(turn?.status || "").trim().toLowerCase());
+}
+
+function isItemRunning(item) {
+  return ["running", "active", "pending", "starting", "inprogress", "in_progress"].includes(String(item?.status || "").trim().toLowerCase());
+}
+
+function isPendingEvent(event) {
+  return isActivityPending(event) || event?.data?.streaming === true;
 }
 
 function renderOlderEventsLoader(page) {

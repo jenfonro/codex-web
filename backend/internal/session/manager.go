@@ -44,16 +44,23 @@ type Manager struct {
 
 	mu          sync.Mutex
 	sessions    map[string]*managedSession
-	subscribers map[int]chan model.SessionEvent
+	subscribers map[int]chan model.SessionStateUpdate
 	nextSubID   int
 }
 
 type managedSession struct {
 	record        model.SessionRecord
-	events        []model.SessionEvent
-	eventsLoaded  bool
+	turns         []model.SessionTurn
+	stateLoaded   bool
 	runningTurnID string
-	itemSeq       map[string]int64
+	lastSeq       int64
+	turnIndex     map[string]int
+	itemIndex     map[string]itemLocation
+}
+
+type itemLocation struct {
+	Turn int
+	Item int
 }
 
 func New(cfg Config) *Manager {
@@ -69,7 +76,7 @@ func NewWithBackend(cfg Config, backend codexBackend) *Manager {
 		cfg:         cfg,
 		backend:     backend,
 		sessions:    map[string]*managedSession{},
-		subscribers: map[int]chan model.SessionEvent{},
+		subscribers: map[int]chan model.SessionStateUpdate{},
 	}
 	manager.watchBackend()
 	return manager
@@ -80,6 +87,7 @@ func (m *Manager) List(ctx context.Context) ([]model.SessionRecord, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	m.mu.Lock()
 	for _, thread := range threads {
 		m.applyThreadLocked(thread)
@@ -112,16 +120,19 @@ func (m *Manager) Create(ctx context.Context, req model.SessionCreateRequest) (m
 	}
 	m.mu.Lock()
 	session := m.applyThreadLocked(thread)
-	session.eventsLoaded = true
+	if session != nil {
+		session.stateLoaded = true
+	}
 	m.mu.Unlock()
+	threadID := firstNonEmpty(thread.ID, thread.SessionID)
 
-	turn, err := m.backend.StartTurn(ctx, thread.ID, prompt, cwd)
+	turn, err := m.backend.StartTurn(ctx, threadID, prompt, cwd)
 	if err != nil {
-		m.finishWithError(thread.ID, err)
+		m.finishWithError(threadID, err)
 		return model.SessionRecord{}, err
 	}
-	m.setRunningTurn(thread.ID, turn.ID)
-	return m.record(thread.ID)
+	m.applyTurnStarted(threadID, turn)
+	return m.record(threadID)
 }
 
 func (m *Manager) Send(ctx context.Context, req model.SessionSendRequest) (model.SessionRecord, error) {
@@ -148,16 +159,17 @@ func (m *Manager) Send(ctx context.Context, req model.SessionSendRequest) (model
 	}
 	m.mu.Lock()
 	m.applyThreadLocked(thread)
+	resumedThreadID := firstNonEmpty(thread.ID, thread.SessionID, threadID)
+	m.setStatusLocked(resumedThreadID, statusRunning)
 	m.mu.Unlock()
 
-	m.setStatus(thread.ID, statusRunning)
-	turn, err := m.backend.StartTurn(ctx, thread.ID, prompt, session.record.CWD)
+	turn, err := m.backend.StartTurn(ctx, resumedThreadID, prompt, session.record.CWD)
 	if err != nil {
-		m.finishWithError(thread.ID, err)
+		m.finishWithError(resumedThreadID, err)
 		return model.SessionRecord{}, err
 	}
-	m.setRunningTurn(thread.ID, turn.ID)
-	return m.record(thread.ID)
+	m.applyTurnStarted(resumedThreadID, turn)
+	return m.record(resumedThreadID)
 }
 
 func (m *Manager) Cancel(id string) error {
@@ -167,7 +179,7 @@ func (m *Manager) Cancel(id string) error {
 	}
 	threadID := firstNonEmpty(session.record.CodexThreadID, session.record.ID)
 	if threadID == "" || session.runningTurnID == "" {
-		m.setStatus(id, statusIdle)
+		m.applyStatus(id, statusIdle)
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -175,29 +187,43 @@ func (m *Manager) Cancel(id string) error {
 	if err := m.backend.InterruptTurn(ctx, threadID, session.runningTurnID); err != nil {
 		return err
 	}
-	m.setRunningTurn(id, "")
-	m.setStatus(id, statusIdle)
-	m.appendEvent(id, "system", "Session cancelled.", nil)
+	m.mu.Lock()
+	managed := m.ensureSessionLocked(id)
+	managed.runningTurnID = ""
+	m.setStatusLocked(id, statusIdle)
+	update := m.sessionUpdateLocked(managed, "session")
+	subscribers := m.subscriberListLocked()
+	m.mu.Unlock()
+	m.publishToSubscribers(subscribers, update)
 	return nil
 }
 
-func (m *Manager) Events(req model.SessionEventsRequest) (model.SessionEventsPage, error) {
-	if err := m.ensureEventsLoaded(req.SessionID); err != nil {
-		return model.SessionEventsPage{}, err
+func (m *Manager) State(sessionID string) (model.SessionState, error) {
+	if err := m.ensureStateLoaded(sessionID); err != nil {
+		return model.SessionState{}, err
 	}
 	m.mu.Lock()
-	session := m.sessions[req.SessionID]
+	session := m.sessions[sessionID]
 	if session == nil {
 		m.mu.Unlock()
-		return model.SessionEventsPage{}, errors.New("session not found")
+		return model.SessionState{}, errors.New("session not found")
 	}
-	events := eventsInRange(session.events, req)
+	state := stateCopyLocked(session)
 	m.mu.Unlock()
+	return state, nil
+}
+
+func (m *Manager) Events(req model.SessionEventsRequest) (model.SessionEventsPage, error) {
+	state, err := m.State(req.SessionID)
+	if err != nil {
+		return model.SessionEventsPage{}, err
+	}
+	events := eventsInRange(eventsFromState(state), req)
 	return sessionEventsPage(events), nil
 }
 
-func (m *Manager) Subscribe() (<-chan model.SessionEvent, func()) {
-	ch := make(chan model.SessionEvent, 256)
+func (m *Manager) Subscribe() (<-chan model.SessionStateUpdate, func()) {
+	ch := make(chan model.SessionStateUpdate, 256)
 	m.mu.Lock()
 	id := m.nextSubID
 	m.nextSubID++
@@ -213,10 +239,10 @@ func (m *Manager) Subscribe() (<-chan model.SessionEvent, func()) {
 	}
 }
 
-func (m *Manager) ensureEventsLoaded(sessionID string) error {
+func (m *Manager) ensureStateLoaded(sessionID string) error {
 	m.mu.Lock()
 	session := m.sessions[sessionID]
-	if session != nil && session.eventsLoaded {
+	if session != nil && session.stateLoaded {
 		m.mu.Unlock()
 		return nil
 	}
@@ -241,16 +267,21 @@ func (m *Manager) ensureEventsLoaded(sessionID string) error {
 		}
 		return errors.New("session not found")
 	}
-	events := eventsFromThread(thread)
 
 	m.mu.Lock()
 	managed := m.applyThreadLocked(thread)
-	managed.events = events
-	managed.eventsLoaded = true
-	managed.itemSeq = itemSeqIndex(events)
-	if len(events) > 0 {
-		managed.record.LastSeq = events[len(events)-1].Seq
-		managed.record.UpdatedAt = events[len(events)-1].Time
+	if managed != nil {
+		managed.turns = turnsFromThread(thread)
+		managed.stateLoaded = true
+		managed.rebuildIndexes()
+		managed.runningTurnID = runningTurnID(managed.turns)
+		if managed.lastSeq == 0 {
+			managed.lastSeq = int64(countStateItems(managed.turns))
+		}
+		managed.record.LastSeq = managed.lastSeq
+		if managed.runningTurnID != "" {
+			managed.record.Status = statusRunning
+		}
 	}
 	m.mu.Unlock()
 	return nil
@@ -295,8 +326,7 @@ func (m *Manager) lookup(id string) (*managedSession, error) {
 	if session == nil {
 		return nil, errors.New("session not found")
 	}
-	copySession := *session
-	return &copySession, nil
+	return sessionCopyLocked(session), nil
 }
 
 func (m *Manager) record(id string) (model.SessionRecord, error) {
@@ -326,17 +356,17 @@ func (m *Manager) handleNotification(notification appserver.Notification) {
 			return
 		}
 		m.mu.Lock()
-		m.applyThreadLocked(thread)
+		session := m.applyThreadLocked(thread)
+		update := m.sessionUpdateLocked(session, "session")
+		subscribers := m.subscriberListLocked()
 		m.mu.Unlock()
-		m.appendEvent(thread.ID, "thread_started", "", map[string]any{"thread": notification.Params["thread"]})
+		m.publishToSubscribers(subscribers, update)
 	case "thread/status/changed":
 		threadID := strAny(notification.Params["threadId"])
 		if threadID == "" {
 			return
 		}
-		status := threadStatusFromAny(notification.Params["status"])
-		m.setStatus(threadID, status)
-		m.appendEvent(threadID, "thread_status", "", map[string]any{"status": status, "rawStatus": notification.Params["status"]})
+		m.applyStatus(threadID, threadStatusFromAny(notification.Params["status"]))
 	case "thread/name/updated":
 		threadID := strAny(notification.Params["threadId"])
 		name := strAny(notification.Params["threadName"])
@@ -344,57 +374,29 @@ func (m *Manager) handleNotification(notification appserver.Notification) {
 			return
 		}
 		m.mu.Lock()
-		if session := m.ensureSessionLocked(threadID); session != nil {
-			session.record.Title = name
-			session.record.UpdatedAt = time.Now().UTC()
-		}
+		session := m.ensureSessionLocked(threadID)
+		session.record.Title = name
+		session.record.UpdatedAt = time.Now().UTC()
+		update := m.sessionUpdateLocked(session, "session")
+		subscribers := m.subscriberListLocked()
 		m.mu.Unlock()
+		m.publishToSubscribers(subscribers, update)
 	case "turn/started":
 		threadID := strAny(notification.Params["threadId"])
-		turn := turnFromAny(notification.Params["turn"])
 		if threadID == "" {
 			return
 		}
-		m.setRunningTurn(threadID, turn.ID)
-		m.appendEvent(threadID, "turn_started", "", map[string]any{"status": statusRunning, "turn": notification.Params["turn"]})
+		m.applyTurnStarted(threadID, turnFromAny(notification.Params["turn"]))
 	case "turn/completed":
 		threadID := strAny(notification.Params["threadId"])
-		turn := turnFromAny(notification.Params["turn"])
 		if threadID == "" {
 			return
 		}
-		m.setRunningTurn(threadID, "")
-		if turn.Status == "failed" {
-			m.setStatus(threadID, statusError)
-		} else {
-			m.setStatus(threadID, statusIdle)
-		}
-		m.appendEvent(threadID, "turn_completed", "", map[string]any{"status": turn.Status, "turn": notification.Params["turn"]})
-	case "item/started", "item/completed":
-		threadID := strAny(notification.Params["threadId"])
-		if threadID == "" {
-			return
-		}
-		event, extra := eventFromThreadItem(threadID, itemMap(notification.Params["item"]), time.Now().UTC())
-		if event.Kind == "" {
-			return
-		}
-		if notification.Method == "item/started" {
-			if event.Kind == "assistant_message" && strings.TrimSpace(event.Text) == "" {
-				return
-			}
-			if event.Data == nil {
-				event.Data = map[string]any{}
-			}
-			event.Data["status"] = firstNonEmpty(strAny(event.Data["status"]), statusRunning)
-			if event.Kind == "assistant_message" {
-				event.Data["streaming"] = true
-			}
-		}
-		m.upsertItemEvent(threadID, event)
-		for _, followup := range extra {
-			m.upsertItemEvent(threadID, followup)
-		}
+		m.applyTurnCompleted(threadID, turnFromAny(notification.Params["turn"]))
+	case "item/started":
+		m.applyItemNotification(notification, statusRunning)
+	case "item/completed":
+		m.applyItemNotification(notification, "completed")
 	case "item/agentMessage/delta":
 		threadID := strAny(notification.Params["threadId"])
 		itemID := strAny(notification.Params["itemId"])
@@ -407,7 +409,7 @@ func (m *Manager) handleNotification(notification appserver.Notification) {
 		itemID := strAny(notification.Params["itemId"])
 		delta := textAny(notification.Params["delta"])
 		if threadID != "" && itemID != "" && delta != "" {
-			m.appendToolOutputDelta(threadID, itemID, delta)
+			m.appendCommandOutputDelta(threadID, itemID, delta)
 		}
 	case "error":
 		threadID := strAny(notification.Params["threadId"])
@@ -424,6 +426,121 @@ func (m *Manager) handleNotification(notification appserver.Notification) {
 	}
 }
 
+func (m *Manager) applyTurnStarted(sessionID string, turn appserver.Turn) {
+	m.mu.Lock()
+	session := m.ensureSessionLocked(sessionID)
+	turnID := firstNonEmpty(turn.ID, session.runningTurnID, fmt.Sprintf("turn-%d", session.lastSeq+1))
+	turn.ID = turnID
+	modelTurn := turnFromAppServer(turn)
+	modelTurn.Status = firstNonEmpty(modelTurn.Status, statusRunning)
+	index := session.upsertTurn(modelTurn)
+	session.runningTurnID = turnID
+	m.setStatusLocked(sessionID, statusRunning)
+	update := m.turnUpdateLocked(session, index)
+	subscribers := m.subscriberListLocked()
+	m.mu.Unlock()
+	m.publishToSubscribers(subscribers, update)
+}
+
+func (m *Manager) applyTurnCompleted(sessionID string, turn appserver.Turn) {
+	m.mu.Lock()
+	session := m.ensureSessionLocked(sessionID)
+	turnID := firstNonEmpty(turn.ID, session.runningTurnID)
+	if turnID == "" {
+		m.mu.Unlock()
+		return
+	}
+	turn.ID = turnID
+	modelTurn := turnFromAppServer(turn)
+	if modelTurn.Status == "" {
+		modelTurn.Status = "completed"
+	}
+	index := session.upsertTurn(modelTurn)
+	if session.runningTurnID == turnID {
+		session.runningTurnID = ""
+	}
+	if strings.EqualFold(modelTurn.Status, "failed") {
+		m.setStatusLocked(sessionID, statusError)
+	} else {
+		m.setStatusLocked(sessionID, statusIdle)
+	}
+	update := m.turnUpdateLocked(session, index)
+	subscribers := m.subscriberListLocked()
+	m.mu.Unlock()
+	m.publishToSubscribers(subscribers, update)
+}
+
+func (m *Manager) applyItemNotification(notification appserver.Notification, fallbackStatus string) {
+	threadID := strAny(notification.Params["threadId"])
+	rawItem := itemMap(notification.Params["item"])
+	if threadID == "" || rawItem == nil {
+		return
+	}
+	item := itemFromMap(rawItem, time.Now().UTC())
+	if item.ID == "" {
+		item.ID = fmt.Sprintf("%s-%d", firstNonEmpty(item.Type, "item"), time.Now().UnixNano())
+	}
+	if item.Status == "" {
+		item.Status = fallbackStatus
+	}
+	m.mu.Lock()
+	session := m.ensureSessionLocked(threadID)
+	turnID := m.turnIDForItemLocked(session, notification.Params, rawItem)
+	turnIndex := session.ensureTurn(turnID)
+	itemIndex := session.upsertItem(turnIndex, item)
+	if item.Status == statusRunning {
+		session.runningTurnID = session.turns[turnIndex].ID
+		m.setStatusLocked(threadID, statusRunning)
+	}
+	update := m.itemUpdateLocked(session, turnIndex, itemIndex)
+	subscribers := m.subscriberListLocked()
+	m.mu.Unlock()
+	m.publishToSubscribers(subscribers, update)
+}
+
+func (m *Manager) appendAssistantDelta(sessionID, itemID, delta string) {
+	m.mu.Lock()
+	session := m.ensureSessionLocked(sessionID)
+	turnIndex, itemIndex := session.ensureItem(m.turnIDForItemLocked(session, nil, nil), model.SessionItem{
+		ID:     itemID,
+		Type:   "agentMessage",
+		Status: statusRunning,
+		Phase:  "final_answer",
+		Time:   time.Now().UTC(),
+	})
+	item := &session.turns[turnIndex].Items[itemIndex]
+	item.Text += delta
+	item.Status = statusRunning
+	item.Time = time.Now().UTC()
+	session.runningTurnID = session.turns[turnIndex].ID
+	m.setStatusLocked(sessionID, statusRunning)
+	update := m.itemUpdateLocked(session, turnIndex, itemIndex)
+	subscribers := m.subscriberListLocked()
+	m.mu.Unlock()
+	m.publishToSubscribers(subscribers, update)
+}
+
+func (m *Manager) appendCommandOutputDelta(sessionID, itemID, delta string) {
+	m.mu.Lock()
+	session := m.ensureSessionLocked(sessionID)
+	turnIndex, itemIndex := session.ensureItem(m.turnIDForItemLocked(session, nil, nil), model.SessionItem{
+		ID:     itemID,
+		Type:   "commandExecution",
+		Status: statusRunning,
+		Time:   time.Now().UTC(),
+	})
+	item := &session.turns[turnIndex].Items[itemIndex]
+	item.Output += delta
+	item.Status = statusRunning
+	item.Time = time.Now().UTC()
+	session.runningTurnID = session.turns[turnIndex].ID
+	m.setStatusLocked(sessionID, statusRunning)
+	update := m.itemUpdateLocked(session, turnIndex, itemIndex)
+	subscribers := m.subscriberListLocked()
+	m.mu.Unlock()
+	m.publishToSubscribers(subscribers, update)
+}
+
 func (m *Manager) handleServerRequestNotification(notification appserver.Notification) {
 	threadID := strAny(notification.Params["threadId"])
 	if threadID == "" {
@@ -436,12 +553,61 @@ func (m *Manager) handleServerRequestNotification(notification appserver.Notific
 	if command := strAny(notification.Params["command"]); command != "" {
 		text = "Approval requested for command: " + command
 	}
-	m.appendEvent(threadID, "approval_request", text, map[string]any{
-		"method":    notification.Method,
-		"requestId": notification.RequestID,
-		"params":    notification.Params,
-		"decision":  "decline",
-	})
+	now := time.Now().UTC()
+	item := model.SessionItem{
+		ID:     firstNonEmpty(notification.RequestID, fmt.Sprintf("approval-%d", now.UnixNano())),
+		Type:   "approvalRequest",
+		Status: "declined",
+		Text:   text,
+		Time:   now,
+		Raw: map[string]any{
+			"method":    notification.Method,
+			"requestId": notification.RequestID,
+			"params":    notification.Params,
+			"decision":  "decline",
+		},
+	}
+	m.mu.Lock()
+	session := m.ensureSessionLocked(threadID)
+	turnIndex, itemIndex := session.ensureItem(m.turnIDForItemLocked(session, notification.Params, nil), item)
+	update := m.itemUpdateLocked(session, turnIndex, itemIndex)
+	subscribers := m.subscriberListLocked()
+	m.mu.Unlock()
+	m.publishToSubscribers(subscribers, update)
+}
+
+func (m *Manager) applyStatus(sessionID, status string) {
+	m.mu.Lock()
+	session := m.ensureSessionLocked(sessionID)
+	m.setStatusLocked(sessionID, status)
+	update := m.sessionUpdateLocked(session, "session")
+	subscribers := m.subscriberListLocked()
+	m.mu.Unlock()
+	m.publishToSubscribers(subscribers, update)
+}
+
+func (m *Manager) finishWithError(sessionID string, err error) {
+	m.mu.Lock()
+	session := m.ensureSessionLocked(sessionID)
+	session.runningTurnID = ""
+	m.setStatusLocked(sessionID, statusError)
+	update := m.sessionUpdateLocked(session, "error")
+	update.Error = err.Error()
+	subscribers := m.subscriberListLocked()
+	m.mu.Unlock()
+	m.publishToSubscribers(subscribers, update)
+}
+
+func (m *Manager) broadcastSystemError(text string) {
+	m.mu.Lock()
+	ids := make([]string, 0, len(m.sessions))
+	for id := range m.sessions {
+		ids = append(ids, id)
+	}
+	m.mu.Unlock()
+	for _, id := range ids {
+		m.finishWithError(id, errors.New(text))
+	}
 }
 
 func (m *Manager) applyThreadLocked(thread appserver.Thread) *managedSession {
@@ -455,21 +621,26 @@ func (m *Manager) applyThreadLocked(thread appserver.Thread) *managedSession {
 	session := m.sessions[id]
 	if session == nil {
 		session = &managedSession{
-			itemSeq: map[string]int64{},
+			turnIndex: map[string]int{},
+			itemIndex: map[string]itemLocation{},
 		}
 		m.sessions[id] = session
 	}
 	record := recordFromThread(thread)
-	if session.record.LastSeq > 0 {
-		record.LastSeq = session.record.LastSeq
+	if session.lastSeq > 0 {
+		record.LastSeq = session.lastSeq
 	}
-	if len(session.events) > 0 && session.events[len(session.events)-1].Time.After(record.UpdatedAt) {
-		record.UpdatedAt = session.events[len(session.events)-1].Time
+	if !session.record.UpdatedAt.IsZero() && session.record.UpdatedAt.After(record.UpdatedAt) {
+		record.UpdatedAt = session.record.UpdatedAt
 	}
 	session.record = record
-	if session.itemSeq == nil {
-		session.itemSeq = map[string]int64{}
+	if len(thread.Turns) > 0 && !session.stateLoaded {
+		session.turns = turnsFromThread(thread)
+		session.stateLoaded = true
+		session.rebuildIndexes()
+		session.runningTurnID = runningTurnID(session.turns)
 	}
+	session.ensureIndexes()
 	return session
 }
 
@@ -503,7 +674,7 @@ func recordFromThread(thread appserver.Thread) model.SessionRecord {
 
 func statusFromThreadStatus(status appserver.ThreadStatus) string {
 	switch strings.ToLower(status.Type) {
-	case "active":
+	case "active", "running":
 		return statusRunning
 	case "systemerror", "error":
 		return statusError
@@ -519,322 +690,323 @@ func threadStatusFromAny(value any) string {
 	})
 }
 
-func eventsFromThread(thread appserver.Thread) []model.SessionEvent {
-	events := []model.SessionEvent{}
-	sessionID := firstNonEmpty(thread.ID, thread.SessionID)
-	var seq int64
-	for _, turn := range thread.Turns {
-		eventTime := turnTime(turn)
-		for _, item := range turn.Items {
-			event, extra := eventFromThreadItem(sessionID, item, eventTime.Add(time.Duration(seq)*time.Millisecond))
-			if event.Kind == "" {
-				continue
-			}
-			seq++
-			event.SessionID = sessionID
-			event.Seq = seq
-			events = append(events, event)
-			for _, followup := range extra {
-				seq++
-				followup.SessionID = sessionID
-				followup.Seq = seq
-				events = append(events, followup)
+func turnsFromThread(thread appserver.Thread) []model.SessionTurn {
+	turns := make([]model.SessionTurn, 0, len(thread.Turns))
+	for turnIndex, turn := range thread.Turns {
+		modelTurn := turnFromAppServer(turn)
+		if modelTurn.ID == "" {
+			modelTurn.ID = fmt.Sprintf("turn-%d", turnIndex+1)
+		}
+		for itemIndex := range modelTurn.Items {
+			if modelTurn.Items[itemIndex].ID == "" {
+				modelTurn.Items[itemIndex].ID = fmt.Sprintf("%s-%d", firstNonEmpty(modelTurn.Items[itemIndex].Type, "item"), itemIndex+1)
 			}
 		}
+		turns = append(turns, modelTurn)
 	}
-	return events
+	return turns
 }
 
-func eventFromThreadItem(sessionID string, item map[string]any, eventTime time.Time) (model.SessionEvent, []model.SessionEvent) {
-	itemType := strAny(item["type"])
-	itemID := strAny(item["id"])
-	data := compactItemData(item)
-	if itemID != "" {
-		data["itemId"] = itemID
+func turnFromAppServer(turn appserver.Turn) model.SessionTurn {
+	startedAt := timePtrFromUnix(turn.StartedAt)
+	completedAt := timePtrFromUnix(turn.CompletedAt)
+	itemTime := time.Now().UTC()
+	if startedAt != nil {
+		itemTime = *startedAt
+	} else if completedAt != nil {
+		itemTime = *completedAt
 	}
-	data["itemType"] = itemType
+	items := make([]model.SessionItem, 0, len(turn.Items))
+	for index, raw := range turn.Items {
+		item := itemFromMap(raw, itemTime.Add(time.Duration(index)*time.Millisecond))
+		items = append(items, item)
+	}
+	return model.SessionTurn{
+		ID:          turn.ID,
+		Status:      firstNonEmpty(turn.Status, statusIdle),
+		StartedAt:   startedAt,
+		CompletedAt: completedAt,
+		DurationMs:  turn.DurationMs,
+		Error:       turn.Error,
+		Items:       items,
+	}
+}
 
+func itemFromMap(item map[string]any, itemTime time.Time) model.SessionItem {
+	if itemTime.IsZero() {
+		itemTime = time.Now().UTC()
+	}
+	itemType := strAny(item["type"])
+	out := model.SessionItem{
+		ID:      strAny(item["id"]),
+		Type:    itemType,
+		Status:  strAny(item["status"]),
+		Time:    itemTime.UTC(),
+		Phase:   strAny(item["phase"]),
+		Command: strAny(item["command"]),
+		CWD:     strAny(item["cwd"]),
+		Server:  strAny(item["server"]),
+		Tool:    strAny(item["tool"]),
+		Name:    strAny(item["name"]),
+		Raw:     cloneMap(item),
+	}
 	switch itemType {
 	case "userMessage":
-		return newParsedEvent("user_message", userInputText(item["content"]), eventTime, data), nil
+		out.Text = userInputText(item["content"])
 	case "agentMessage":
-		text := strAny(item["text"])
-		data["streaming"] = false
-		if phase := strAny(item["phase"]); phase != "" {
-			data["phase"] = phase
-		}
-		return newParsedEvent("assistant_message", text, eventTime, data), nil
+		out.Text = textAny(item["text"])
 	case "reasoning":
-		if text := stringListText(item["summary"]); text != "" {
-			return newParsedEvent("summary", text, eventTime, data), nil
-		}
-		if text := stringListText(item["content"]); text != "" {
-			return newParsedEvent("reasoning", text, eventTime, data), nil
-		}
-		data["status"] = firstNonEmpty(strAny(data["status"]), statusRunning)
-		return newParsedEvent("reasoning", "", eventTime, data), nil
+		out.Text = firstNonEmpty(stringListText(item["summary"]), stringListText(item["content"]))
 	case "commandExecution":
-		command := strAny(item["command"])
-		data["name"] = "exec_command"
-		data["args"] = map[string]any{
-			"cmd":     command,
-			"workdir": strAny(item["cwd"]),
+		out.Text = out.Command
+		out.Output = textAny(item["aggregatedOutput"])
+		if out.Name == "" {
+			out.Name = "exec_command"
 		}
-		event := newParsedEvent("tool_call", "exec_command", eventTime, data)
-		output := strAny(item["aggregatedOutput"])
-		if output == "" {
-			return event, nil
-		}
-		outputData := map[string]any{
-			"itemId":    itemID + ":output",
-			"call_id":   itemID,
-			"output":    output,
-			"status":    strAny(item["status"]),
-			"streaming": false,
-		}
-		return event, []model.SessionEvent{newParsedEvent("tool_output", output, eventTime.Add(time.Millisecond), outputData)}
 	case "fileChange":
-		files := fileChangeItems(item["changes"])
-		data["items"] = files
-		return model.SessionEvent{
-			Kind:  "tool_summary",
-			Text:  fileChangeSummary(files),
-			Time:  eventTime,
-			Data:  data,
-			Items: files,
-		}, nil
+		out.Items = fileChangeItems(item["changes"])
+		out.Text = fileChangeSummary(out.Items)
 	case "mcpToolCall":
-		server := strAny(item["server"])
-		tool := strAny(item["tool"])
-		data["name"] = firstNonEmpty(server+"/"+tool, tool, "mcp_tool")
-		return newParsedEvent("tool_call", data["name"].(string), eventTime, data), nil
+		out.Name = firstNonEmpty(out.Server+"/"+out.Tool, out.Tool, "mcp_tool")
+		out.Text = out.Name
 	case "dynamicToolCall":
-		tool := strAny(item["tool"])
-		data["name"] = firstNonEmpty(tool, "dynamic_tool")
-		return newParsedEvent("tool_call", data["name"].(string), eventTime, data), nil
+		out.Name = firstNonEmpty(strAny(item["tool"]), "dynamic_tool")
+		out.Text = out.Name
 	case "plan":
-		return newParsedEvent("summary", strAny(item["text"]), eventTime, data), nil
+		out.Text = textAny(item["text"])
 	case "contextCompaction":
-		return newParsedEvent("summary", "Context compacted", eventTime, data), nil
+		out.Text = "Context compacted"
 	case "webSearch":
-		data["name"] = "web_search"
-		return newParsedEvent("tool_call", "web_search", eventTime, data), nil
+		out.Name = "web_search"
+		out.Text = "web_search"
 	case "imageView":
-		return newParsedEvent("tool_summary", strAny(item["path"]), eventTime, data), nil
+		out.Text = strAny(item["path"])
 	default:
-		if text := strAny(item["text"]); text != "" {
-			return newParsedEvent(itemType, text, eventTime, data), nil
+		out.Text = textAny(item["text"])
+	}
+	return out
+}
+
+func runningTurnID(turns []model.SessionTurn) string {
+	for index := len(turns) - 1; index >= 0; index-- {
+		if isRunningStatus(turns[index].Status) {
+			return turns[index].ID
 		}
-		return model.SessionEvent{}, nil
 	}
+	return ""
 }
 
-func newParsedEvent(kind, text string, eventTime time.Time, data map[string]any) model.SessionEvent {
-	if eventTime.IsZero() {
-		eventTime = time.Now().UTC()
+func countStateItems(turns []model.SessionTurn) int {
+	count := 0
+	for _, turn := range turns {
+		count++
+		count += len(turn.Items)
 	}
-	return model.SessionEvent{
-		Time: eventTime.UTC(),
-		Kind: kind,
-		Text: strings.TrimSpace(text),
-		Data: data,
-	}
+	return count
 }
 
-func (m *Manager) appendEvent(sessionID, kind, text string, data map[string]any) {
-	m.appendParsedEvent(sessionID, model.SessionEvent{
-		Kind: kind,
-		Text: text,
-		Time: time.Now().UTC(),
-		Data: data,
-	})
-}
-
-func (m *Manager) appendParsedEvent(sessionID string, event model.SessionEvent) {
-	m.mu.Lock()
-	if event.Time.IsZero() {
-		event.Time = time.Now().UTC()
-	}
-	session := m.ensureSessionLocked(sessionID)
-	seq := session.record.LastSeq + 1
-	event.SessionID = sessionID
-	event.Seq = seq
-	session.record.LastSeq = seq
-	session.record.UpdatedAt = event.Time
-	session.events = append(session.events, event)
-	if itemID := eventItemID(event); itemID != "" {
-		session.itemSeq[itemID] = seq
-	}
-	subscribers := m.subscriberListLocked()
-	m.mu.Unlock()
-	m.publishToSubscribers(subscribers, event)
-}
-
-func (m *Manager) upsertItemEvent(sessionID string, event model.SessionEvent) {
-	itemID := eventItemID(event)
-	if itemID == "" {
-		m.appendParsedEvent(sessionID, event)
-		return
-	}
-
-	m.mu.Lock()
-	session := m.ensureSessionLocked(sessionID)
-	if seq := session.itemSeq[itemID]; seq > 0 {
-		event.SessionID = sessionID
-		event.Seq = seq
-		if event.Time.IsZero() {
-			event.Time = time.Now().UTC()
+func (m *Manager) turnIDForItemLocked(session *managedSession, params map[string]any, rawItem map[string]any) string {
+	if params != nil {
+		if turnID := firstNonEmpty(strAny(params["turnId"]), strAny(params["turnID"])); turnID != "" {
+			return turnID
 		}
-		for index := range session.events {
-			if session.events[index].Seq == seq {
-				session.events[index] = mergeEventUpdate(session.events[index], event)
-				event = session.events[index]
-				break
+	}
+	if rawItem != nil {
+		if turnID := firstNonEmpty(strAny(rawItem["turnId"]), strAny(rawItem["turnID"])); turnID != "" {
+			return turnID
+		}
+	}
+	if session.runningTurnID != "" {
+		return session.runningTurnID
+	}
+	if len(session.turns) > 0 {
+		return session.turns[len(session.turns)-1].ID
+	}
+	return fmt.Sprintf("turn-%d", session.lastSeq+1)
+}
+
+func (s *managedSession) ensureIndexes() {
+	if s.turnIndex == nil {
+		s.turnIndex = map[string]int{}
+	}
+	if s.itemIndex == nil {
+		s.itemIndex = map[string]itemLocation{}
+	}
+}
+
+func (s *managedSession) rebuildIndexes() {
+	s.ensureIndexes()
+	clear(s.turnIndex)
+	clear(s.itemIndex)
+	for turnIndex := range s.turns {
+		turn := &s.turns[turnIndex]
+		if turn.ID != "" {
+			s.turnIndex[turn.ID] = turnIndex
+		}
+		for itemIndex := range turn.Items {
+			item := &turn.Items[itemIndex]
+			if item.ID != "" {
+				s.itemIndex[item.ID] = itemLocation{Turn: turnIndex, Item: itemIndex}
 			}
 		}
-		session.record.UpdatedAt = event.Time
-		subscribers := m.subscriberListLocked()
-		m.mu.Unlock()
-		m.publishToSubscribers(subscribers, event)
-		return
 	}
-	if event.Time.IsZero() {
-		event.Time = time.Now().UTC()
-	}
-	seq := session.record.LastSeq + 1
-	event.SessionID = sessionID
-	event.Seq = seq
-	session.record.LastSeq = seq
-	session.record.UpdatedAt = event.Time
-	session.events = append(session.events, event)
-	session.itemSeq[itemID] = seq
-	subscribers := m.subscriberListLocked()
-	m.mu.Unlock()
-	m.publishToSubscribers(subscribers, event)
 }
 
-func mergeEventUpdate(existing, incoming model.SessionEvent) model.SessionEvent {
-	if incoming.Kind != "" {
-		existing.Kind = incoming.Kind
+func (s *managedSession) ensureTurn(turnID string) int {
+	s.ensureIndexes()
+	turnID = strings.TrimSpace(turnID)
+	if turnID == "" {
+		turnID = fmt.Sprintf("turn-%d", len(s.turns)+1)
 	}
-	if incoming.Text != "" || existing.Text == "" {
-		existing.Text = incoming.Text
+	if index, ok := s.turnIndex[turnID]; ok {
+		return index
+	}
+	now := time.Now().UTC()
+	turn := model.SessionTurn{
+		ID:        turnID,
+		Status:    statusRunning,
+		StartedAt: &now,
+		Items:     []model.SessionItem{},
+	}
+	s.turns = append(s.turns, turn)
+	index := len(s.turns) - 1
+	s.turnIndex[turnID] = index
+	return index
+}
+
+func (s *managedSession) upsertTurn(turn model.SessionTurn) int {
+	s.ensureIndexes()
+	if turn.ID == "" {
+		turn.ID = fmt.Sprintf("turn-%d", len(s.turns)+1)
+	}
+	if index, ok := s.turnIndex[turn.ID]; ok {
+		existing := &s.turns[index]
+		mergeTurn(existing, turn)
+		s.rebuildIndexes()
+		return index
+	}
+	s.turns = append(s.turns, turn)
+	index := len(s.turns) - 1
+	s.turnIndex[turn.ID] = index
+	for itemIndex := range turn.Items {
+		if itemID := turn.Items[itemIndex].ID; itemID != "" {
+			s.itemIndex[itemID] = itemLocation{Turn: index, Item: itemIndex}
+		}
+	}
+	return index
+}
+
+func (s *managedSession) upsertItem(turnIndex int, item model.SessionItem) int {
+	s.ensureIndexes()
+	if item.ID != "" {
+		if location, ok := s.itemIndex[item.ID]; ok {
+			existing := &s.turns[location.Turn].Items[location.Item]
+			mergeItem(existing, item)
+			return location.Item
+		}
+	}
+	if item.Time.IsZero() {
+		item.Time = time.Now().UTC()
+	}
+	s.turns[turnIndex].Items = append(s.turns[turnIndex].Items, item)
+	itemIndex := len(s.turns[turnIndex].Items) - 1
+	if item.ID != "" {
+		s.itemIndex[item.ID] = itemLocation{Turn: turnIndex, Item: itemIndex}
+	}
+	return itemIndex
+}
+
+func (s *managedSession) ensureItem(turnID string, item model.SessionItem) (int, int) {
+	s.ensureIndexes()
+	if item.ID != "" {
+		if location, ok := s.itemIndex[item.ID]; ok {
+			return location.Turn, location.Item
+		}
+	}
+	turnIndex := s.ensureTurn(turnID)
+	itemIndex := s.upsertItem(turnIndex, item)
+	return turnIndex, itemIndex
+}
+
+func mergeTurn(existing *model.SessionTurn, incoming model.SessionTurn) {
+	if incoming.Status != "" {
+		existing.Status = incoming.Status
+	}
+	if incoming.StartedAt != nil {
+		existing.StartedAt = incoming.StartedAt
+	}
+	if incoming.CompletedAt != nil {
+		existing.CompletedAt = incoming.CompletedAt
+	}
+	if incoming.DurationMs != nil {
+		existing.DurationMs = incoming.DurationMs
+	}
+	if incoming.Error != nil {
+		existing.Error = cloneMap(incoming.Error)
+	}
+	if len(incoming.Items) > 0 {
+		for _, item := range incoming.Items {
+			index := -1
+			for existingIndex := range existing.Items {
+				if item.ID != "" && existing.Items[existingIndex].ID == item.ID {
+					index = existingIndex
+					break
+				}
+			}
+			if index >= 0 {
+				mergeItem(&existing.Items[index], item)
+			} else {
+				existing.Items = append(existing.Items, item)
+			}
+		}
+	}
+}
+
+func mergeItem(existing *model.SessionItem, incoming model.SessionItem) {
+	if incoming.Type != "" {
+		existing.Type = incoming.Type
+	}
+	if incoming.Status != "" {
+		existing.Status = incoming.Status
 	}
 	if !incoming.Time.IsZero() {
 		existing.Time = incoming.Time
 	}
-	if incoming.Data != nil {
-		if existing.Data == nil {
-			existing.Data = map[string]any{}
-		}
-		for key, value := range incoming.Data {
-			existing.Data[key] = value
-		}
+	if incoming.Text != "" || existing.Text == "" {
+		existing.Text = incoming.Text
+	}
+	if incoming.Output != "" || existing.Output == "" {
+		existing.Output = incoming.Output
+	}
+	if incoming.Command != "" {
+		existing.Command = incoming.Command
+	}
+	if incoming.CWD != "" {
+		existing.CWD = incoming.CWD
+	}
+	if incoming.Phase != "" {
+		existing.Phase = incoming.Phase
+	}
+	if incoming.Server != "" {
+		existing.Server = incoming.Server
+	}
+	if incoming.Tool != "" {
+		existing.Tool = incoming.Tool
+	}
+	if incoming.Name != "" {
+		existing.Name = incoming.Name
 	}
 	if incoming.Items != nil {
-		existing.Items = incoming.Items
+		existing.Items = cloneMapSlice(incoming.Items)
 	}
-	return existing
-}
-
-func (m *Manager) appendAssistantDelta(sessionID, itemID, delta string) {
-	m.mu.Lock()
-	session := m.ensureSessionLocked(sessionID)
-	now := time.Now().UTC()
-	if seq := session.itemSeq[itemID]; seq > 0 {
-		var event model.SessionEvent
-		for index := range session.events {
-			if session.events[index].Seq == seq {
-				session.events[index].Text += delta
-				session.events[index].Time = now
-				if session.events[index].Data == nil {
-					session.events[index].Data = map[string]any{}
-				}
-				session.events[index].Data["streaming"] = true
-				session.events[index].Data["replace"] = true
-				event = session.events[index]
-				break
-			}
+	if incoming.Raw != nil {
+		if existing.Raw == nil {
+			existing.Raw = map[string]any{}
 		}
-		session.record.UpdatedAt = now
-		subscribers := m.subscriberListLocked()
-		m.mu.Unlock()
-		if event.Kind != "" {
-			m.publishToSubscribers(subscribers, event)
+		for key, value := range incoming.Raw {
+			existing.Raw[key] = value
 		}
-		return
 	}
-	event := model.SessionEvent{
-		SessionID: sessionID,
-		Seq:       session.record.LastSeq + 1,
-		Time:      now,
-		Kind:      "assistant_message",
-		Text:      delta,
-		Data: map[string]any{
-			"itemId":    itemID,
-			"streaming": true,
-			"replace":   true,
-		},
-	}
-	session.record.LastSeq = event.Seq
-	session.record.UpdatedAt = now
-	session.events = append(session.events, event)
-	session.itemSeq[itemID] = event.Seq
-	subscribers := m.subscriberListLocked()
-	m.mu.Unlock()
-	m.publishToSubscribers(subscribers, event)
-}
-
-func (m *Manager) appendToolOutputDelta(sessionID, itemID, delta string) {
-	outputID := itemID + ":output"
-	m.mu.Lock()
-	session := m.ensureSessionLocked(sessionID)
-	now := time.Now().UTC()
-	if seq := session.itemSeq[outputID]; seq > 0 {
-		var event model.SessionEvent
-		for index := range session.events {
-			if session.events[index].Seq == seq {
-				session.events[index].Text += delta
-				session.events[index].Time = now
-				if session.events[index].Data == nil {
-					session.events[index].Data = map[string]any{}
-				}
-				session.events[index].Data["output"] = session.events[index].Text
-				session.events[index].Data["streaming"] = true
-				session.events[index].Data["replace"] = true
-				event = session.events[index]
-				break
-			}
-		}
-		session.record.UpdatedAt = now
-		subscribers := m.subscriberListLocked()
-		m.mu.Unlock()
-		if event.Kind != "" {
-			m.publishToSubscribers(subscribers, event)
-		}
-		return
-	}
-	event := model.SessionEvent{
-		SessionID: sessionID,
-		Seq:       session.record.LastSeq + 1,
-		Time:      now,
-		Kind:      "tool_output",
-		Text:      delta,
-		Data: map[string]any{
-			"itemId":    outputID,
-			"call_id":   itemID,
-			"output":    delta,
-			"streaming": true,
-			"replace":   true,
-		},
-	}
-	session.record.LastSeq = event.Seq
-	session.record.UpdatedAt = now
-	session.events = append(session.events, event)
-	session.itemSeq[outputID] = event.Seq
-	subscribers := m.subscriberListLocked()
-	m.mu.Unlock()
-	m.publishToSubscribers(subscribers, event)
 }
 
 func (m *Manager) ensureSessionLocked(sessionID string) *managedSession {
@@ -850,87 +1022,247 @@ func (m *Manager) ensureSessionLocked(sessionID string) *managedSession {
 				CreatedAt:     now,
 				UpdatedAt:     now,
 			},
-			itemSeq: map[string]int64{},
+			turnIndex: map[string]int{},
+			itemIndex: map[string]itemLocation{},
 		}
 		m.sessions[sessionID] = session
 	}
-	if session.itemSeq == nil {
-		session.itemSeq = map[string]int64{}
-	}
+	session.ensureIndexes()
 	return session
 }
 
-func (m *Manager) setRunningTurn(sessionID, turnID string) {
-	m.mu.Lock()
-	if session := m.ensureSessionLocked(sessionID); session != nil {
-		session.runningTurnID = turnID
-		if turnID != "" {
-			session.record.Status = statusRunning
-		}
-		session.record.UpdatedAt = time.Now().UTC()
-	}
-	m.mu.Unlock()
+func (m *Manager) setStatusLocked(sessionID, status string) {
+	session := m.ensureSessionLocked(sessionID)
+	session.record.Status = status
+	session.record.UpdatedAt = time.Now().UTC()
 }
 
-func (m *Manager) setStatus(sessionID, status string) {
-	m.mu.Lock()
-	if session := m.ensureSessionLocked(sessionID); session != nil {
-		session.record.Status = status
-		session.record.UpdatedAt = time.Now().UTC()
-	}
-	m.mu.Unlock()
-}
-
-func (m *Manager) finishWithError(sessionID string, err error) {
-	m.setRunningTurn(sessionID, "")
-	m.setStatus(sessionID, statusError)
-	m.appendEvent(sessionID, "error", err.Error(), nil)
-}
-
-func (m *Manager) broadcastSystemError(text string) {
-	m.mu.Lock()
-	ids := make([]string, 0, len(m.sessions))
-	for id := range m.sessions {
-		ids = append(ids, id)
-	}
-	m.mu.Unlock()
-	for _, id := range ids {
-		m.finishWithError(id, errors.New(text))
+func (m *Manager) sessionUpdateLocked(session *managedSession, updateType string) model.SessionStateUpdate {
+	now := time.Now().UTC()
+	session.lastSeq++
+	session.record.LastSeq = session.lastSeq
+	session.record.UpdatedAt = now
+	record := session.record
+	return model.SessionStateUpdate{
+		SessionID: record.ID,
+		Seq:       session.lastSeq,
+		Time:      now,
+		Type:      updateType,
+		Session:   &record,
 	}
 }
 
-func (m *Manager) subscriberListLocked() []chan model.SessionEvent {
-	subscribers := make([]chan model.SessionEvent, 0, len(m.subscribers))
+func (m *Manager) turnUpdateLocked(session *managedSession, turnIndex int) model.SessionStateUpdate {
+	update := m.sessionUpdateLocked(session, "turn")
+	turn := cloneTurn(session.turns[turnIndex])
+	update.Turn = &turn
+	return update
+}
+
+func (m *Manager) itemUpdateLocked(session *managedSession, turnIndex, itemIndex int) model.SessionStateUpdate {
+	update := m.sessionUpdateLocked(session, "item")
+	turn := cloneTurn(session.turns[turnIndex])
+	item := cloneItem(session.turns[turnIndex].Items[itemIndex])
+	update.Turn = &turn
+	update.Item = &item
+	return update
+}
+
+func (m *Manager) subscriberListLocked() []chan model.SessionStateUpdate {
+	subscribers := make([]chan model.SessionStateUpdate, 0, len(m.subscribers))
 	for _, ch := range m.subscribers {
 		subscribers = append(subscribers, ch)
 	}
 	return subscribers
 }
 
-func (m *Manager) publishToSubscribers(subscribers []chan model.SessionEvent, event model.SessionEvent) {
+func (m *Manager) publishToSubscribers(subscribers []chan model.SessionStateUpdate, update model.SessionStateUpdate) {
 	for _, ch := range subscribers {
 		select {
-		case ch <- event:
+		case ch <- update:
 		default:
 		}
 	}
 }
 
-func itemSeqIndex(events []model.SessionEvent) map[string]int64 {
-	index := map[string]int64{}
-	for _, event := range events {
-		if itemID := eventItemID(event); itemID != "" {
-			index[itemID] = event.Seq
-		}
+func stateCopyLocked(session *managedSession) model.SessionState {
+	turns := make([]model.SessionTurn, 0, len(session.turns))
+	for _, turn := range session.turns {
+		turns = append(turns, cloneTurn(turn))
 	}
-	return index
+	return model.SessionState{
+		Session: session.record,
+		Turns:   turns,
+		LastSeq: session.lastSeq,
+	}
 }
 
-func eventItemID(event model.SessionEvent) string {
-	if event.Data == nil {
-		return ""
+func sessionCopyLocked(session *managedSession) *managedSession {
+	copySession := *session
+	copySession.turns = make([]model.SessionTurn, 0, len(session.turns))
+	for _, turn := range session.turns {
+		copySession.turns = append(copySession.turns, cloneTurn(turn))
 	}
-	return strAny(event.Data["itemId"])
+	copySession.turnIndex = map[string]int{}
+	copySession.itemIndex = map[string]itemLocation{}
+	copySession.rebuildIndexes()
+	return &copySession
+}
+
+func cloneTurn(turn model.SessionTurn) model.SessionTurn {
+	out := turn
+	if turn.StartedAt != nil {
+		startedAt := *turn.StartedAt
+		out.StartedAt = &startedAt
+	}
+	if turn.CompletedAt != nil {
+		completedAt := *turn.CompletedAt
+		out.CompletedAt = &completedAt
+	}
+	if turn.DurationMs != nil {
+		duration := *turn.DurationMs
+		out.DurationMs = &duration
+	}
+	out.Error = cloneMap(turn.Error)
+	out.Items = make([]model.SessionItem, 0, len(turn.Items))
+	for _, item := range turn.Items {
+		out.Items = append(out.Items, cloneItem(item))
+	}
+	return out
+}
+
+func cloneItem(item model.SessionItem) model.SessionItem {
+	out := item
+	out.Items = cloneMapSlice(item.Items)
+	out.Raw = cloneMap(item.Raw)
+	return out
+}
+
+func eventsFromState(state model.SessionState) []model.SessionEvent {
+	events := []model.SessionEvent{}
+	var seq int64
+	for turnIndex, turn := range state.Turns {
+		for itemIndex, item := range turn.Items {
+			eventTime := item.Time
+			if eventTime.IsZero() && turn.StartedAt != nil {
+				eventTime = *turn.StartedAt
+			}
+			event, extra := eventFromStateItem(state.Session.ID, turn, item, eventTime)
+			if event.Kind == "" {
+				continue
+			}
+			seq++
+			event.SessionID = state.Session.ID
+			event.Seq = seq
+			if event.Data == nil {
+				event.Data = map[string]any{}
+			}
+			event.Data["turnId"] = turn.ID
+			event.Data["turnKey"] = firstNonEmpty(turn.ID, fmt.Sprintf("turn-%d", turnIndex+1))
+			event.Data["contentUnit"] = itemIndex
+			events = append(events, event)
+			for _, followup := range extra {
+				seq++
+				followup.SessionID = state.Session.ID
+				followup.Seq = seq
+				events = append(events, followup)
+			}
+		}
+	}
+	return events
+}
+
+func eventFromStateItem(sessionID string, turn model.SessionTurn, item model.SessionItem, eventTime time.Time) (model.SessionEvent, []model.SessionEvent) {
+	data := compactStateItemData(turn, item)
+	switch item.Type {
+	case "userMessage":
+		return newParsedEvent("user_message", item.Text, eventTime, data), nil
+	case "agentMessage":
+		if item.Phase != "" {
+			data["phase"] = item.Phase
+		}
+		data["streaming"] = isRunningStatus(item.Status)
+		return newParsedEvent("assistant_message", item.Text, eventTime, data), nil
+	case "reasoning":
+		return newParsedEvent("reasoning", item.Text, eventTime, data), nil
+	case "commandExecution":
+		data["name"] = "exec_command"
+		data["args"] = map[string]any{
+			"cmd":     item.Command,
+			"workdir": item.CWD,
+		}
+		event := newParsedEvent("tool_call", "exec_command", eventTime, data)
+		if item.Output == "" {
+			return event, nil
+		}
+		outputData := map[string]any{
+			"itemId":  item.ID + ":output",
+			"call_id": item.ID,
+			"output":  item.Output,
+			"status":  item.Status,
+		}
+		return event, []model.SessionEvent{newParsedEvent("tool_output", item.Output, eventTime.Add(time.Millisecond), outputData)}
+	case "fileChange":
+		data["items"] = item.Items
+		return model.SessionEvent{
+			Kind:  "tool_summary",
+			Text:  item.Text,
+			Time:  eventTime,
+			Data:  data,
+			Items: item.Items,
+		}, nil
+	case "mcpToolCall", "dynamicToolCall", "webSearch":
+		data["name"] = firstNonEmpty(item.Name, item.Tool, item.Type)
+		return newParsedEvent("tool_call", data["name"].(string), eventTime, data), nil
+	case "plan", "contextCompaction":
+		return newParsedEvent("summary", item.Text, eventTime, data), nil
+	case "approvalRequest":
+		return newParsedEvent("approval_request", item.Text, eventTime, data), nil
+	default:
+		if item.Text != "" {
+			return newParsedEvent(item.Type, item.Text, eventTime, data), nil
+		}
+		return model.SessionEvent{}, nil
+	}
+}
+
+func compactStateItemData(turn model.SessionTurn, item model.SessionItem) map[string]any {
+	data := map[string]any{
+		"itemId":     item.ID,
+		"itemType":   item.Type,
+		"status":     item.Status,
+		"turnId":     turn.ID,
+		"durationMs": turn.DurationMs,
+		"item":       item.Raw,
+	}
+	if item.Phase != "" {
+		data["phase"] = item.Phase
+	}
+	if item.Command != "" {
+		data["command"] = item.Command
+	}
+	if item.CWD != "" {
+		data["cwd"] = item.CWD
+	}
+	if item.Output != "" {
+		data["output"] = item.Output
+	}
+	if item.Name != "" {
+		data["name"] = item.Name
+	}
+	return data
+}
+
+func newParsedEvent(kind, text string, eventTime time.Time, data map[string]any) model.SessionEvent {
+	if eventTime.IsZero() {
+		eventTime = time.Now().UTC()
+	}
+	return model.SessionEvent{
+		Time: eventTime.UTC(),
+		Kind: kind,
+		Text: strings.TrimSpace(text),
+		Data: data,
+	}
 }
 
 func threadFromParams(params map[string]any, key string) appserver.Thread {
@@ -956,32 +1288,6 @@ func turnFromAny(value any) appserver.Turn {
 func itemMap(value any) map[string]any {
 	item, _ := value.(map[string]any)
 	return item
-}
-
-func compactItemData(item map[string]any) map[string]any {
-	data := map[string]any{}
-	for _, key := range []string{
-		"type",
-		"id",
-		"status",
-		"phase",
-		"command",
-		"cwd",
-		"aggregatedOutput",
-		"exitCode",
-		"durationMs",
-		"server",
-		"tool",
-		"arguments",
-		"result",
-		"error",
-		"changes",
-	} {
-		if value, ok := item[key]; ok && value != nil {
-			data[key] = value
-		}
-	}
-	return data
 }
 
 func userInputText(value any) string {
@@ -1050,14 +1356,21 @@ func fileChangeSummary(files []map[string]any) string {
 	return fmt.Sprintf("Edited %d files", len(files))
 }
 
-func turnTime(turn appserver.Turn) time.Time {
-	if turn.StartedAt != nil && *turn.StartedAt > 0 {
-		return unixSeconds(*turn.StartedAt)
+func isRunningStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "running", "active", "pending", "starting", "inprogress", "in_progress":
+		return true
+	default:
+		return false
 	}
-	if turn.CompletedAt != nil && *turn.CompletedAt > 0 {
-		return unixSeconds(*turn.CompletedAt)
+}
+
+func timePtrFromUnix(value *int64) *time.Time {
+	if value == nil || *value <= 0 {
+		return nil
 	}
-	return time.Now().UTC()
+	t := unixSeconds(*value)
+	return &t
 }
 
 func unixSeconds(value int64) time.Time {
@@ -1084,6 +1397,28 @@ func safePath(root, requested string) (string, error) {
 		return "", errors.New("invalid cwd")
 	}
 	return clean, nil
+}
+
+func cloneMap(in map[string]any) map[string]any {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
+}
+
+func cloneMapSlice(in []map[string]any) []map[string]any {
+	if in == nil {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(in))
+	for _, item := range in {
+		out = append(out, cloneMap(item))
+	}
+	return out
 }
 
 func firstNonEmpty(values ...string) string {

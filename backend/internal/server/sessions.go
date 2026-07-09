@@ -89,6 +89,13 @@ func (a *App) handleSessionItem(w http.ResponseWriter, r *http.Request, tail str
 			return
 		}
 		writeJSON(w, map[string]bool{"ok": true})
+	case r.Method == http.MethodGet && action == "state":
+		state, err := a.sessions.State(sessionID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, state)
 	case r.Method == http.MethodGet && action == "events":
 		a.writeSessionBacklog(w, r, sessionID)
 	default:
@@ -147,20 +154,92 @@ func (a *App) handleSessionEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	flusher.Flush()
 
-	events, unsubscribe := a.sessions.Subscribe()
+	updates, unsubscribe := a.sessions.Subscribe()
+	defer unsubscribe()
+	currentLastSeq := lastSeq
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case update, ok := <-updates:
+			if !ok {
+				return
+			}
+			if sessionID != "" && update.SessionID != sessionID {
+				continue
+			}
+			page, err := a.sessions.Events(model.SessionEventsRequest{
+				SessionID: update.SessionID,
+				LastSeq:   currentLastSeq,
+			})
+			if err != nil {
+				continue
+			}
+			for _, event := range page.Events {
+				writeSSE(w, event)
+				if event.Seq > currentLastSeq {
+					currentLastSeq = event.Seq
+				}
+			}
+			flusher.Flush()
+		}
+	}
+}
+
+func (a *App) handleSessionStateEvents(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		methodNotAllowed(w)
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "streaming is not supported")
+		return
+	}
+
+	sessionID := strings.TrimSpace(r.URL.Query().Get("sessionId"))
+	lastSeq, _ := strconv.ParseInt(r.URL.Query().Get("lastSeq"), 10, 64)
+
+	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	if sessionID != "" {
+		state, err := a.sessions.State(sessionID)
+		if err != nil {
+			writeSSE(w, map[string]any{"type": "error", "error": err.Error(), "sessionId": sessionID})
+			flusher.Flush()
+			return
+		}
+		if state.LastSeq > lastSeq {
+			writeSSE(w, map[string]any{
+				"type":      "state",
+				"sessionId": sessionID,
+				"seq":       state.LastSeq,
+				"time":      state.Session.UpdatedAt,
+				"state":     state,
+			})
+		}
+	}
+	flusher.Flush()
+
+	updates, unsubscribe := a.sessions.Subscribe()
 	defer unsubscribe()
 	for {
 		select {
 		case <-r.Context().Done():
 			return
-		case event, ok := <-events:
+		case update, ok := <-updates:
 			if !ok {
 				return
 			}
-			if sessionID != "" && event.SessionID != sessionID {
+			if update.Seq <= lastSeq {
 				continue
 			}
-			writeSSE(w, event)
+			if sessionID != "" && update.SessionID != sessionID {
+				continue
+			}
+			writeSSE(w, update)
 			flusher.Flush()
 		}
 	}

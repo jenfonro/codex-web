@@ -194,7 +194,7 @@ func TestManagerEventsLoadsThreadReadItems(t *testing.T) {
 		t.Fatalf("Events() error = %v", err)
 	}
 	kinds := eventKinds(page.Events)
-	want := "user_message,summary,tool_call,tool_output,assistant_message"
+	want := "user_message,reasoning,tool_call,tool_output,assistant_message"
 	if kinds != want {
 		t.Fatalf("kinds = %s, want %s", kinds, want)
 	}
@@ -280,8 +280,11 @@ func TestManagerToolOutputDeltaPreservesWhitespace(t *testing.T) {
 		},
 	})
 	waitForCondition(t, func() bool {
-		page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
-		return err == nil && len(page.Events) == 1 && page.Events[0].Text == "line one\n  line two"
+		state, err := manager.State("thread-1")
+		return err == nil &&
+			len(state.Turns) == 1 &&
+			len(state.Turns[0].Items) == 1 &&
+			state.Turns[0].Items[0].Output == "line one\n  line two"
 	})
 }
 
@@ -319,14 +322,9 @@ func TestManagerAgentMessageCompletedClearsStreamingState(t *testing.T) {
 	})
 }
 
-func TestManagerSkipsEmptyStartedAgentMessage(t *testing.T) {
+func TestManagerAgentMessageStartedCreatesRunningState(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
-	manager.sessions["thread-1"] = &managedSession{
-		record:       model.SessionRecord{ID: "thread-1", CodexThreadID: "thread-1", Title: "Thread", Status: statusRunning, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
-		eventsLoaded: true,
-		itemSeq:      map[string]int64{},
-	}
 	backend.emit(appserver.Notification{
 		Method: "item/started",
 		Params: map[string]any{
@@ -339,14 +337,14 @@ func TestManagerSkipsEmptyStartedAgentMessage(t *testing.T) {
 		},
 	})
 
-	time.Sleep(20 * time.Millisecond)
-	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
-	if err != nil {
-		t.Fatalf("Events() error = %v", err)
-	}
-	if len(page.Events) != 0 {
-		t.Fatalf("events after empty start = %#v, want none", page.Events)
-	}
+	waitForCondition(t, func() bool {
+		state, err := manager.State("thread-1")
+		return err == nil &&
+			len(state.Turns) == 1 &&
+			len(state.Turns[0].Items) == 1 &&
+			state.Turns[0].Items[0].Type == "agentMessage" &&
+			state.Turns[0].Items[0].Status == statusRunning
+	})
 
 	backend.emit(appserver.Notification{
 		Method: "item/agentMessage/delta",
@@ -357,29 +355,36 @@ func TestManagerSkipsEmptyStartedAgentMessage(t *testing.T) {
 		},
 	})
 	waitForCondition(t, func() bool {
-		page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
+		state, err := manager.State("thread-1")
 		return err == nil &&
-			len(page.Events) == 1 &&
-			page.Events[0].Text == "partial" &&
-			page.Events[0].Data["streaming"] == true
+			len(state.Turns) == 1 &&
+			len(state.Turns[0].Items) == 1 &&
+			state.Turns[0].Items[0].Text == "partial" &&
+			state.Turns[0].Items[0].Status == statusRunning
 	})
 }
 
 func TestManagerEventsPaginatesFromTailAndBeforeSeq(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
-	manager.sessions["session-1"] = &managedSession{
-		record:       model.SessionRecord{ID: "session-1", LastSeq: 5, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
-		eventsLoaded: true,
-		itemSeq:      map[string]int64{},
-		events: []model.SessionEvent{
-			{SessionID: "session-1", Seq: 1, Kind: "user_message", Text: "one"},
-			{SessionID: "session-1", Seq: 2, Kind: "assistant_message", Text: "two"},
-			{SessionID: "session-1", Seq: 3, Kind: "user_message", Text: "three"},
-			{SessionID: "session-1", Seq: 4, Kind: "assistant_message", Text: "four"},
-			{SessionID: "session-1", Seq: 5, Kind: "assistant_message", Text: "five"},
+	session := &managedSession{
+		record:      model.SessionRecord{ID: "session-1", LastSeq: 5, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
+		stateLoaded: true,
+		lastSeq:     5,
+		turns: []model.SessionTurn{
+			{ID: "turn-1", Status: "completed", Items: []model.SessionItem{
+				{ID: "user-1", Type: "userMessage", Text: "one"},
+				{ID: "agent-1", Type: "agentMessage", Text: "two"},
+			}},
+			{ID: "turn-2", Status: "completed", Items: []model.SessionItem{
+				{ID: "user-2", Type: "userMessage", Text: "three"},
+				{ID: "agent-2", Type: "agentMessage", Text: "four"},
+				{ID: "agent-3", Type: "agentMessage", Text: "five"},
+			}},
 		},
 	}
+	session.rebuildIndexes()
+	manager.sessions["session-1"] = session
 
 	page, err := manager.Events(model.SessionEventsRequest{SessionID: "session-1", Limit: 2})
 	if err != nil {
