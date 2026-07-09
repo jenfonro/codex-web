@@ -553,6 +553,7 @@ func eventFromThreadItem(sessionID string, item map[string]any, eventTime time.T
 		return newParsedEvent("user_message", userInputText(item["content"]), eventTime, data), nil
 	case "agentMessage":
 		text := strAny(item["text"])
+		data["streaming"] = false
 		if phase := strAny(item["phase"]); phase != "" {
 			data["phase"] = phase
 		}
@@ -579,10 +580,11 @@ func eventFromThreadItem(sessionID string, item map[string]any, eventTime time.T
 			return event, nil
 		}
 		outputData := map[string]any{
-			"itemId":  itemID + ":output",
-			"call_id": itemID,
-			"output":  output,
-			"status":  strAny(item["status"]),
+			"itemId":    itemID + ":output",
+			"call_id":   itemID,
+			"output":    output,
+			"status":    strAny(item["status"]),
+			"streaming": false,
 		}
 		return event, []model.SessionEvent{newParsedEvent("tool_output", output, eventTime.Add(time.Millisecond), outputData)}
 	case "fileChange":

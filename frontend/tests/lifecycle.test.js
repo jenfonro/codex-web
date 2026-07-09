@@ -23,7 +23,7 @@ vm.runInContext(
   { filename: "lifecycle.js" },
 );
 
-const { visibleConversationEvents } = context.CodexPanelLifecycle;
+const { sessionStatusFromEvent, visibleConversationEvents } = context.CodexPanelLifecycle;
 
 function kinds(events) {
   return visibleConversationEvents(events).map((event) => event.kind).join(",");
@@ -36,6 +36,16 @@ assert.strictEqual(
     { kind: "user_message", text: "hello" },
   ]),
   "user_message,turn_started",
+);
+
+assert.strictEqual(
+  kinds([
+    { kind: "thread_status", data: { status: "running" } },
+    { kind: "turn_started", data: { status: "running" } },
+    { kind: "user_message", text: "hello" },
+    { kind: "assistant_message", text: "partial answer", data: { streaming: true } },
+  ]),
+  "user_message,turn_started,assistant_message",
 );
 
 assert.strictEqual(
@@ -56,4 +66,14 @@ assert.strictEqual(
     { kind: "user_message", text: "next" },
   ]),
   "assistant_message,user_message",
+);
+
+assert.strictEqual(
+  sessionStatusFromEvent({ kind: "assistant_message", text: "partial", data: { streaming: true } }, "running"),
+  "running",
+);
+
+assert.strictEqual(
+  sessionStatusFromEvent({ kind: "assistant_message", text: "done", data: { phase: "final_answer", streaming: false } }, "running"),
+  "idle",
 );

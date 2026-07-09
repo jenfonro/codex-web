@@ -42,18 +42,22 @@
     return controlKinds.includes(eventKind(event));
   }
 
+  function isStreamingAssistantEvent(event) {
+    return eventKind(event) === "assistant_message" && event?.data?.streaming === true;
+  }
+
   function assistantEventHasContent(event) {
     return eventKind(event) === "assistant_message" && Boolean(String(event?.text || utils.assistantTextFromData(event?.data)).trim());
   }
 
   function isFinalAssistantEvent(event) {
-    return eventKind(event) === "assistant_message" && event?.data?.phase === "final_answer";
+    return eventKind(event) === "assistant_message" && !isStreamingAssistantEvent(event) && event?.data?.phase === "final_answer";
   }
 
   function isTurnSettlingEvent(event) {
     const kind = eventKind(event);
     if (kind === "turn_completed" || kind === "error") return true;
-    return assistantEventHasContent(event) || isFinalAssistantEvent(event);
+    return isFinalAssistantEvent(event);
   }
 
   function isEmptyTransientActivity(event) {
@@ -69,7 +73,8 @@
   function sessionStatusFromEvent(event, fallback = "idle") {
     const kind = eventKind(event);
     if (kind === "error") return "error";
-    if (kind === "turn_completed" || assistantEventHasContent(event) || isFinalAssistantEvent(event)) return "idle";
+    if (isStreamingAssistantEvent(event)) return "running";
+    if (kind === "turn_completed" || isFinalAssistantEvent(event)) return "idle";
     if (kind === "user_message") return "running";
     if (isActivityPending(event)) return "running";
     if (isActivityEvent(event)) return fallback || "idle";
@@ -137,6 +142,7 @@
     isActivityEvent,
     isActivityPending,
     isControlEvent,
+    isStreamingAssistantEvent,
     isTurnSettlingEvent,
     sessionStatusFromEvent,
     visibleConversationEvents,

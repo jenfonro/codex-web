@@ -60,9 +60,10 @@
     }
 
     const assistantEntries = entries.filter((entry) => assistantEventHasContent(entry.event));
+    const completeAssistantEntries = assistantEntries.filter((entry) => !isStreamingAssistant(entry.event));
     if (assistantEntries.length === 1 && entries.length === 1) return assistantEntries[0];
-    if (entries.some((entry) => isProcessSignal(entry.event)) && assistantEntries.length) {
-      return assistantEntries[assistantEntries.length - 1];
+    if (entries.some((entry) => isProcessSignal(entry.event)) && completeAssistantEntries.length) {
+      return completeAssistantEntries[completeAssistantEntries.length - 1];
     }
     return null;
   }
@@ -171,7 +172,12 @@
 
   function isExplicitFinalAssistant(event) {
     if (!isAssistantMessage(event)) return false;
+    if (isStreamingAssistant(event)) return false;
     return event?.placement === "final" || event?.data?.placement === "final" || event?.data?.phase === "final_answer";
+  }
+
+  function isStreamingAssistant(event) {
+    return isAssistantMessage(event) && event?.data?.streaming === true;
   }
 
   function assistantEventHasContent(event) {

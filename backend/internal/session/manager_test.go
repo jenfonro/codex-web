@@ -285,6 +285,40 @@ func TestManagerToolOutputDeltaPreservesWhitespace(t *testing.T) {
 	})
 }
 
+func TestManagerAgentMessageCompletedClearsStreamingState(t *testing.T) {
+	backend := newFakeBackend()
+	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+	backend.emit(appserver.Notification{
+		Method: "item/agentMessage/delta",
+		Params: map[string]any{
+			"threadId": "thread-1",
+			"itemId":   "agent-1",
+			"delta":    "partial",
+		},
+	})
+	backend.emit(appserver.Notification{
+		Method: "item/completed",
+		Params: map[string]any{
+			"threadId": "thread-1",
+			"item": map[string]any{
+				"type":  "agentMessage",
+				"id":    "agent-1",
+				"text":  "partial answer",
+				"phase": "final_answer",
+			},
+		},
+	})
+	waitForCondition(t, func() bool {
+		page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
+		if err != nil || len(page.Events) != 1 {
+			return false
+		}
+		return page.Events[0].Text == "partial answer" &&
+			page.Events[0].Data["phase"] == "final_answer" &&
+			page.Events[0].Data["streaming"] == false
+	})
+}
+
 func TestManagerEventsPaginatesFromTailAndBeforeSeq(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
