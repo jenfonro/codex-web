@@ -985,28 +985,41 @@ svg {
   -webkit-text-fill-color: currentColor;
   background: transparent;
   background-clip: border-box;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
   position: relative;
+  vertical-align: bottom;
+  white-space: nowrap;
 }
 .codex-shimmer-sweep {
   pointer-events: none;
-  width: 100%;
+  display: block;
   position: absolute;
-  inset: 0 auto 0 0;
+  inset: 0;
   overflow: hidden;
-  transform: translate(-50%);
-  mask-image: linear-gradient(90deg, transparent 0%, #000 20% 30%, transparent 50% 100%);
+  transform: translateX(-110%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 38%, #000 62%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 38%, #000 62%, transparent 100%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  will-change: transform;
 }
 .codex-shimmer-highlight {
-  width: 100%;
   color: var(--codex-thinking-shimmer, var(--color-token-text-tertiary));
   -webkit-text-fill-color: currentColor;
   display: block;
-  transform: translate(50%);
+  min-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: translateX(110%);
+  white-space: inherit;
+  will-change: transform;
 }
 .codex-shimmer .codex-shimmer-sweep,
 .codex-shimmer .codex-shimmer-highlight {
-  animation-duration: 1.4s;
-  animation-timing-function: steps(48, end);
+  animation-duration: 1.6s;
+  animation-timing-function: steps(56, end);
   animation-iteration-count: infinite;
 }
 .codex-shimmer .codex-shimmer-sweep {
@@ -1024,13 +1037,13 @@ svg {
 }
 
 @keyframes codex-shimmer-sweep {
-  from { transform: translate(-50%); }
-  to { transform: translate(125%); }
+  from { transform: translateX(-110%); }
+  to { transform: translateX(110%); }
 }
 
 @keyframes codex-shimmer-highlight {
-  from { transform: translate(50%); }
-  to { transform: translate(-125%); }
+  from { transform: translateX(110%); }
+  to { transform: translateX(-110%); }
 }
 
 .codex-composer-multiline-surface {
