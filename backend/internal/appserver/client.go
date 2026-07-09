@@ -460,8 +460,6 @@ func automaticServerRequestResult(method string) (map[string]any, bool) {
 		return map[string]any{"decision": "decline"}, true
 	case "item/fileChange/requestApproval":
 		return map[string]any{"decision": "decline"}, true
-	case "execCommandApproval", "applyPatchApproval":
-		return map[string]any{"decision": "denied"}, true
 	case "tool/requestUserInput":
 		return map[string]any{"answers": map[string]any{}}, true
 	default:

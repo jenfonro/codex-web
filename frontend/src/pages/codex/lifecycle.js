@@ -3,7 +3,7 @@
 (function defineCodexPanelLifecycle(global) {
   const utils = global.CodexPanelUtils;
 
-  const activityKinds = ["turn_started", "reasoning", "tool_call", "stdout", "stderr"];
+  const activityKinds = ["turn_started", "reasoning", "tool_call"];
   const defaultPendingActivityKinds = ["turn_started", "reasoning"];
   const controlKinds = ["turn_completed", "thread_started", "thread_status"];
   const runningStatuses = ["pending", "running", "active", "starting"];

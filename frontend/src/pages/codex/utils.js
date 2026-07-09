@@ -8,10 +8,6 @@ function activityLabel(event) {
       return event.text || "正在思考";
     case "tool_call":
       return summarizeToolActivity(event.text || "正在编辑文件");
-    case "stdout":
-      return event.text || "已运行命令";
-    case "stderr":
-      return event.text || "命令输出";
     default:
       return event.text || "正在思考";
   }

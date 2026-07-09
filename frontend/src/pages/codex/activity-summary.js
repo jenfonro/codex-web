@@ -198,8 +198,6 @@
       kind === "tool_call" ||
       kind === "tool_output" ||
       kind === "summary" ||
-      kind === "stdout" ||
-      kind === "stderr" ||
       kind === "tool_summary" ||
       assistantEventHasContent(event)
     );
