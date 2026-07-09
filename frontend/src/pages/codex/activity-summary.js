@@ -70,14 +70,14 @@
 
   function summaryLabel(baseEvent, split) {
     const explicit = split.summaryEvents.find((event) => String(event?.text || "").trim());
-    const structuredDuration = durationFromTurnMetadata(baseEvent, split);
-    if (structuredDuration) return `已处理 ${structuredDuration}`;
+    const duration = durationFromEvents(baseEvent, split);
+    if (duration) return `已处理 ${duration}`;
     if (explicit) return String(explicit.text).trim();
 
     const start = eventTime(baseEvent) || eventTime(split.processEvents[0]);
     const end = eventTime(split.finalFollowup) || eventTime(split.processEvents[split.processEvents.length - 1]);
-    const duration = formatDuration(start, end);
-    return duration ? `已处理 ${duration}` : "已处理";
+    const fallbackDuration = formatDuration(start, end);
+    return fallbackDuration ? `已处理 ${fallbackDuration}` : "已处理";
   }
 
   function buildProcessFollowups(events) {
@@ -253,7 +253,7 @@
     }
   }
 
-  function durationFromTurnMetadata(baseEvent, split) {
+  function durationFromEvents(baseEvent, split) {
     const events = [
       baseEvent,
       ...(split.summaryEvents || []),
@@ -262,47 +262,10 @@
     ].filter(Boolean);
 
     for (const event of events) {
-      const durationMs = numberFromEvent(event, "turnDurationMs", "durationMs");
+      const durationMs = Number(event?.data?.durationMs ?? event?.durationMs ?? 0);
       if (durationMs > 0) return formatDurationMs(durationMs);
     }
-
-    const start = firstTimeFromEvent(events, "turnStartedAt", "startedAt");
-    const end = firstTimeFromEvent(events, "turnCompletedAt", "completedAt");
-    return formatDuration(start, end);
-  }
-
-  function firstTimeFromEvent(events, ...fields) {
-    for (const event of events) {
-      for (const field of fields) {
-        const value = valueFromEvent(event, field);
-        const timestamp = timestampFromValue(value);
-        if (timestamp) return timestamp;
-      }
-    }
     return 0;
-  }
-
-  function numberFromEvent(event, ...fields) {
-    for (const field of fields) {
-      const value = Number(valueFromEvent(event, field));
-      if (Number.isFinite(value) && value > 0) return value;
-    }
-    return 0;
-  }
-
-  function valueFromEvent(event, field) {
-    if (!event || !field) return undefined;
-    if (event.data && typeof event.data === "object" && Object.prototype.hasOwnProperty.call(event.data, field)) {
-      return event.data[field];
-    }
-    return event[field];
-  }
-
-  function timestampFromValue(value) {
-    if (!value) return 0;
-    if (typeof value === "number") return value > 1_000_000_000_000 ? value : value * 1000;
-    const time = new Date(value).getTime();
-    return Number.isFinite(time) ? time : 0;
   }
 
   function formatDurationMs(durationMs) {

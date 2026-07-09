@@ -51,43 +51,36 @@ const durationSplit = splitTurnFollowups([
   {
     kind: "turn_started",
     time: "2026-07-10T00:00:00.000Z",
-    data: { status: "completed", turnDurationMs: 62000 },
+    data: { status: "completed", durationMs: 62000 },
   },
   {
     kind: "assistant_message",
     text: "final answer",
     time: "2026-07-10T00:00:00.000Z",
-    data: { phase: "final_answer", streaming: false, turnDurationMs: 62000 },
+    data: { phase: "final_answer", streaming: false, durationMs: 62000 },
   },
 ]);
 
 assert.strictEqual(
-  summaryLabel({ kind: "user_message", time: "2026-07-10T00:00:00.000Z", data: { turnDurationMs: 62000 } }, durationSplit),
+  summaryLabel({ kind: "user_message", time: "2026-07-10T00:00:00.000Z", data: { durationMs: 62000 } }, durationSplit),
   "已处理 1m 2s",
 );
 
-const timestampSplit = splitTurnFollowups([
+const fallbackSplit = splitTurnFollowups([
   {
     kind: "turn_started",
-    data: {
-      status: "completed",
-      turnStartedAt: "2026-07-10T00:00:00.000Z",
-      turnCompletedAt: "2026-07-10T00:00:45.000Z",
-    },
+    time: "2026-07-10T00:00:00.000Z",
+    data: { status: "completed" },
   },
   {
     kind: "assistant_message",
     text: "final answer",
-    data: {
-      phase: "final_answer",
-      streaming: false,
-      turnStartedAt: "2026-07-10T00:00:00.000Z",
-      turnCompletedAt: "2026-07-10T00:00:45.000Z",
-    },
+    time: "2026-07-10T00:00:45.000Z",
+    data: { phase: "final_answer", streaming: false },
   },
 ]);
 
 assert.strictEqual(
-  summaryLabel({ kind: "user_message", data: { turnStartedAt: "2026-07-10T00:00:00.000Z", turnCompletedAt: "2026-07-10T00:00:45.000Z" } }, timestampSplit),
+  summaryLabel({ kind: "user_message", time: "2026-07-10T00:00:00.000Z" }, fallbackSplit),
   "已处理 45s",
 );

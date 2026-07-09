@@ -1374,19 +1374,12 @@ func eventFromStateItem(sessionID string, turn model.SessionTurn, item model.Ses
 
 func compactStateItemData(turn model.SessionTurn, item model.SessionItem) map[string]any {
 	data := map[string]any{
-		"itemId":         item.ID,
-		"itemType":       item.Type,
-		"status":         item.Status,
-		"turnId":         turn.ID,
-		"durationMs":     turn.DurationMs,
-		"turnDurationMs": turn.DurationMs,
-		"item":           item.Raw,
-	}
-	if turn.StartedAt != nil {
-		data["turnStartedAt"] = turn.StartedAt.UTC()
-	}
-	if turn.CompletedAt != nil {
-		data["turnCompletedAt"] = turn.CompletedAt.UTC()
+		"itemId":     item.ID,
+		"itemType":   item.Type,
+		"status":     item.Status,
+		"turnId":     turn.ID,
+		"durationMs": turnDurationMillis(turn),
+		"item":       item.Raw,
 	}
 	if item.Phase != "" {
 		data["phase"] = item.Phase
@@ -1404,6 +1397,21 @@ func compactStateItemData(turn model.SessionTurn, item model.SessionItem) map[st
 		data["name"] = item.Name
 	}
 	return data
+}
+
+func turnDurationMillis(turn model.SessionTurn) *int64 {
+	if turn.DurationMs != nil && *turn.DurationMs > 0 {
+		duration := *turn.DurationMs
+		return &duration
+	}
+	if turn.StartedAt == nil || turn.CompletedAt == nil || turn.CompletedAt.Before(*turn.StartedAt) {
+		return nil
+	}
+	duration := turn.CompletedAt.Sub(*turn.StartedAt).Milliseconds()
+	if duration <= 0 {
+		return nil
+	}
+	return &duration
 }
 
 func newParsedEvent(kind, text string, eventTime time.Time, data map[string]any) model.SessionEvent {

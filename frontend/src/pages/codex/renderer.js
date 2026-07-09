@@ -389,9 +389,7 @@ function stateItemEvents(item, turn, turnIndex, itemIndex, isLastAgent) {
     phase: item.phase,
     turnId: turn?.id || "",
     turnKey: turn?.id || `turn-${turnIndex}`,
-    turnStartedAt: turn?.startedAt || "",
-    turnCompletedAt: turn?.completedAt || "",
-    turnDurationMs: turn?.durationMs ?? null,
+    durationMs: turnDurationMs(turn),
     contentUnit: itemIndex,
     item: item.raw || item,
   };
@@ -488,6 +486,16 @@ function turnPendingEvent(turn, turnIndex, itemIndex = 0) {
       contentUnit: itemIndex,
     },
   };
+}
+
+function turnDurationMs(turn) {
+  const explicit = Number(turn?.durationMs || 0);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+  const start = new Date(turn?.startedAt || "").getTime();
+  const end = new Date(turn?.completedAt || "").getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+  const duration = end - start;
+  return duration > 0 ? duration : null;
 }
 
 function lastIndexOfType(items, type) {
