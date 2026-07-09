@@ -288,9 +288,7 @@ function conversationItemsFromState(turns) {
 function stateTurnEvents(turn, turnIndex) {
   const sourceItems = Array.isArray(turn?.items) ? turn.items : [];
   const lastAgentIndex = lastIndexOfType(sourceItems, "agentMessage");
-  const events = sourceItems.flatMap((item, itemIndex) => stateItemEvents(item, turn, turnIndex, itemIndex, itemIndex === lastAgentIndex));
-  if (turn?.outcome) events.push(turnOutcomeEvent(turn, turnIndex, sourceItems.length));
-  return events;
+  return sourceItems.flatMap((item, itemIndex) => stateItemEvents(item, turn, turnIndex, itemIndex, itemIndex === lastAgentIndex));
 }
 
 function stateItemEvents(item, turn, turnIndex, itemIndex, isLastAgent) {
@@ -398,23 +396,6 @@ function turnPendingEvent(turn, turnIndex, itemIndex = 0) {
       turnId: turn?.id || "",
       turnKey: turn?.id || `turn-${turnIndex}`,
       contentUnit: itemIndex,
-    },
-  };
-}
-
-function turnOutcomeEvent(turn, turnIndex, itemIndex = 0) {
-  const outcome = turn.outcome;
-  return {
-    sessionId: activeSession()?.id || "",
-    kind: "error",
-    text: outcome.text,
-    time: turn?.completedAt || turn?.startedAt || new Date().toISOString(),
-    data: {
-      status: outcome.status || turn?.status || "",
-      turnId: turn?.id || "",
-      turnKey: turn?.id || `turn-${turnIndex}`,
-      contentUnit: itemIndex,
-      outcome,
     },
   };
 }

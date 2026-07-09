@@ -36,14 +36,7 @@ type SessionTurn struct {
 	CompletedAt *time.Time     `json:"completedAt,omitempty"`
 	DurationMs  *int64         `json:"durationMs,omitempty"`
 	Error       map[string]any `json:"error,omitempty"`
-	Outcome     *TurnOutcome   `json:"outcome,omitempty"`
 	Items       []SessionItem  `json:"items"`
-}
-
-type TurnOutcome struct {
-	Type   string `json:"type"`
-	Text   string `json:"text"`
-	Status string `json:"status,omitempty"`
 }
 
 type SessionItem struct {

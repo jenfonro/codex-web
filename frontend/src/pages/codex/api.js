@@ -75,19 +75,9 @@ function normalizeTurn(value) {
     completedAt: value.completedAt || value.CompletedAt || "",
     durationMs: value.durationMs ?? value.DurationMs ?? null,
     error: value.error || value.Error || null,
-    outcome: normalizeTurnOutcome(value.outcome || value.Outcome),
     items: Array.isArray(value.items || value.Items)
       ? (value.items || value.Items).map(normalizeStateItem).filter(Boolean)
       : [],
-  };
-}
-
-function normalizeTurnOutcome(value) {
-  if (!value || typeof value !== "object") return null;
-  return {
-    type: String(value.type || value.Type || ""),
-    text: String(value.text || value.Text || ""),
-    status: String(value.status || value.Status || ""),
   };
 }
 

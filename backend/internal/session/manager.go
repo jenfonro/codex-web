@@ -1168,7 +1168,9 @@ func cloneTurn(turn model.SessionTurn) model.SessionTurn {
 		out.Items = append(out.Items, cloneItem(item))
 	}
 	finalizeTerminalTurnItems(&out)
-	out.Outcome = deriveTurnOutcome(out)
+	if item := terminalTurnItem(out); item != nil {
+		out.Items = append(out.Items, *item)
+	}
 	return out
 }
 
@@ -1209,54 +1211,56 @@ func eventsFromState(state model.SessionState) []model.SessionEvent {
 				events = append(events, followup)
 			}
 		}
-		if turn.Outcome != nil {
-			seq++
-			eventTime := time.Now().UTC()
-			if turn.CompletedAt != nil {
-				eventTime = *turn.CompletedAt
-			} else if turn.StartedAt != nil {
-				eventTime = *turn.StartedAt
-			}
-			event := newParsedEvent("error", turn.Outcome.Text, eventTime, map[string]any{
-				"turnId":      turn.ID,
-				"turnKey":     firstNonEmpty(turn.ID, fmt.Sprintf("turn-%d", turnIndex+1)),
-				"contentUnit": len(turn.Items),
-				"status":      turn.Outcome.Status,
-				"outcome":     turn.Outcome,
-			})
-			event.SessionID = state.Session.ID
-			event.Seq = seq
-			events = append(events, event)
-		}
 	}
 	return events
 }
 
-func deriveTurnOutcome(turn model.SessionTurn) *model.TurnOutcome {
+func terminalTurnItem(turn model.SessionTurn) *model.SessionItem {
 	if len(turn.Error) > 0 {
-		return &model.TurnOutcome{
+		return &model.SessionItem{
+			ID:     firstNonEmpty(turn.ID, "turn") + "-terminal",
 			Type:   "error",
-			Text:   turnErrorText(turn.Error),
 			Status: firstNonEmpty(turn.Status, statusError),
+			Time:   terminalTurnTime(turn),
+			Text:   turnErrorText(turn.Error),
+			Raw: map[string]any{
+				"kind":  "error",
+				"error": cloneMap(turn.Error),
+			},
 		}
 	}
-	if !turnNeedsNoResponseOutcome(turn) {
+	if !turnHasNoVisibleResponse(turn) {
 		return nil
 	}
-	outcomeType := "empty"
+	kind := "empty"
 	text := "No response was produced for this turn."
 	if strings.EqualFold(turn.Status, "interrupted") {
-		outcomeType = "interrupted"
+		kind = "interrupted"
 		text = "Generation stopped."
 	}
-	return &model.TurnOutcome{
-		Type:   outcomeType,
-		Text:   text,
+	return &model.SessionItem{
+		ID:     firstNonEmpty(turn.ID, "turn") + "-terminal",
+		Type:   "error",
 		Status: turn.Status,
+		Time:   terminalTurnTime(turn),
+		Text:   text,
+		Raw: map[string]any{
+			"kind": kind,
+		},
 	}
 }
 
-func turnNeedsNoResponseOutcome(turn model.SessionTurn) bool {
+func terminalTurnTime(turn model.SessionTurn) time.Time {
+	if turn.CompletedAt != nil {
+		return *turn.CompletedAt
+	}
+	if turn.StartedAt != nil {
+		return *turn.StartedAt
+	}
+	return time.Now().UTC()
+}
+
+func turnHasNoVisibleResponse(turn model.SessionTurn) bool {
 	if terminalItemStatus(turn.Status) == "" {
 		return false
 	}
@@ -1266,14 +1270,14 @@ func turnNeedsNoResponseOutcome(turn model.SessionTurn) bool {
 			hasUserMessage = true
 			continue
 		}
-		if stateItemHasVisibleOutput(item) {
+		if itemHasVisibleOutput(item) {
 			return false
 		}
 	}
 	return hasUserMessage
 }
 
-func stateItemHasVisibleOutput(item model.SessionItem) bool {
+func itemHasVisibleOutput(item model.SessionItem) bool {
 	if strings.TrimSpace(item.Text) != "" || strings.TrimSpace(item.Output) != "" || len(item.Items) > 0 {
 		return true
 	}

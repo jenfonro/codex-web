@@ -193,8 +193,8 @@ func TestManagerEventsLoadsThreadReadItems(t *testing.T) {
 	if err != nil {
 		t.Fatalf("State() error = %v", err)
 	}
-	if len(state.Turns) != 1 || state.Turns[0].Outcome != nil {
-		t.Fatalf("state outcome = %#v", state.Turns[0].Outcome)
+	if len(state.Turns) != 1 || hasItemType(state.Turns[0].Items, "error") {
+		t.Fatalf("state items = %#v", state.Turns[0].Items)
 	}
 
 	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
@@ -248,11 +248,12 @@ func TestManagerEventsIncludesTurnError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("State() error = %v", err)
 	}
-	if len(state.Turns) != 1 || state.Turns[0].Outcome == nil {
-		t.Fatalf("state outcome missing = %#v", state.Turns)
+	if len(state.Turns) != 1 || len(state.Turns[0].Items) != 2 {
+		t.Fatalf("state items = %#v", state.Turns)
 	}
-	if state.Turns[0].Outcome.Type != "error" || state.Turns[0].Outcome.Text != "invalid codex request" {
-		t.Fatalf("state outcome = %#v", state.Turns[0].Outcome)
+	terminal := state.Turns[0].Items[1]
+	if terminal.Type != "error" || terminal.Text != "invalid codex request" || terminal.Status != "failed" {
+		t.Fatalf("terminal item = %#v", terminal)
 	}
 
 	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
@@ -268,9 +269,8 @@ func TestManagerEventsIncludesTurnError(t *testing.T) {
 	if page.Events[1].Data["turnId"] != "turn-1" {
 		t.Fatalf("error data = %#v", page.Events[1].Data)
 	}
-	outcome, ok := page.Events[1].Data["outcome"].(*model.TurnOutcome)
-	if !ok || outcome.Type != "error" || outcome.Text != "invalid codex request" {
-		t.Fatalf("error outcome = %#v", page.Events[1].Data["outcome"])
+	if page.Events[1].Data["itemType"] != "error" {
+		t.Fatalf("error data = %#v", page.Events[1].Data)
 	}
 }
 
@@ -305,11 +305,12 @@ func TestManagerEventsIncludesEmptyTurnResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("State() error = %v", err)
 	}
-	if len(state.Turns) != 1 || state.Turns[0].Outcome == nil {
-		t.Fatalf("state outcome missing = %#v", state.Turns)
+	if len(state.Turns) != 1 || len(state.Turns[0].Items) != 2 {
+		t.Fatalf("state items = %#v", state.Turns)
 	}
-	if state.Turns[0].Outcome.Type != "empty" || state.Turns[0].Outcome.Text != "No response was produced for this turn." {
-		t.Fatalf("state outcome = %#v", state.Turns[0].Outcome)
+	terminal := state.Turns[0].Items[1]
+	if terminal.Type != "error" || terminal.Text != "No response was produced for this turn." || terminal.Status != "completed" {
+		t.Fatalf("terminal item = %#v", terminal)
 	}
 
 	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
@@ -322,9 +323,8 @@ func TestManagerEventsIncludesEmptyTurnResult(t *testing.T) {
 	if page.Events[1].Text != "No response was produced for this turn." {
 		t.Fatalf("empty result text = %q", page.Events[1].Text)
 	}
-	outcome, ok := page.Events[1].Data["outcome"].(*model.TurnOutcome)
-	if !ok || outcome.Type != "empty" || outcome.Text != "No response was produced for this turn." {
-		t.Fatalf("empty result outcome = %#v", page.Events[1].Data["outcome"])
+	if page.Events[1].Data["itemType"] != "error" {
+		t.Fatalf("empty result data = %#v", page.Events[1].Data)
 	}
 }
 
@@ -471,7 +471,6 @@ func TestManagerTurnCompletedKeepsStreamedAssistantMessage(t *testing.T) {
 		return err == nil &&
 			len(state.Turns) == 1 &&
 			state.Turns[0].Status == "completed" &&
-			state.Turns[0].Outcome == nil &&
 			len(state.Turns[0].Items) == 1 &&
 			state.Turns[0].Items[0].Text == "final answer" &&
 			state.Turns[0].Items[0].Status == "completed"
@@ -661,6 +660,15 @@ func eventSeqs(events []model.SessionEvent) string {
 		seqs = append(seqs, strconv.FormatInt(event.Seq, 10))
 	}
 	return strings.Join(seqs, ",")
+}
+
+func hasItemType(items []model.SessionItem, itemType string) bool {
+	for _, item := range items {
+		if item.Type == itemType {
+			return true
+		}
+	}
+	return false
 }
 
 func waitForCondition(t *testing.T, fn func() bool) {
