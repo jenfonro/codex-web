@@ -82,32 +82,51 @@
 
   function visibleConversationEvents(events) {
     const visible = [];
-    let turnEvents = [];
+    let pendingPreUserEvents = [];
+    let currentTurnEvents = [];
 
-    const flushTurnEvents = (beforeUser = false) => {
-      if (!turnEvents.length) return;
-      if (beforeUser && turnEvents.every(isPreUserTurnSignal)) {
-        turnEvents = [];
-        return;
-      }
+    const pushRenderableTurnEvents = (turnEvents) => {
       const settled = turnEvents.some(isTurnSettlingEvent);
       for (const event of turnEvents) {
         if (isControlEvent(event)) continue;
         if (settled && (isActivityPending(event) || isEmptyTransientActivity(event))) continue;
         visible.push(event);
       }
-      turnEvents = [];
+    };
+
+    const flushPendingPreUserEvents = () => {
+      if (!pendingPreUserEvents.length) return;
+      if (!pendingPreUserEvents.every(isPreUserTurnSignal)) {
+        pushRenderableTurnEvents(pendingPreUserEvents);
+      }
+      pendingPreUserEvents = [];
+    };
+
+    const flushCurrentTurnEvents = () => {
+      if (!currentTurnEvents.length) return;
+      pushRenderableTurnEvents(currentTurnEvents);
+      currentTurnEvents = [];
     };
 
     for (const event of Array.isArray(events) ? events : []) {
       if (eventKind(event, "assistant_message") === "user_message") {
-        flushTurnEvents(true);
-        visible.push(event);
+        flushCurrentTurnEvents();
+        const carriedSignals = pendingPreUserEvents.every(isPreUserTurnSignal)
+          ? pendingPreUserEvents.filter((pendingEvent) => !isControlEvent(pendingEvent))
+          : [];
+        if (!carriedSignals.length) flushPendingPreUserEvents();
+        pendingPreUserEvents = [];
+        currentTurnEvents = [event, ...carriedSignals];
         continue;
       }
-      turnEvents.push(event);
+      if (currentTurnEvents.length) {
+        currentTurnEvents.push(event);
+      } else {
+        pendingPreUserEvents.push(event);
+      }
     }
-    flushTurnEvents();
+    flushCurrentTurnEvents();
+    flushPendingPreUserEvents();
 
     return visible;
   }

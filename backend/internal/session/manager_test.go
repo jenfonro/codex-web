@@ -235,6 +235,56 @@ func TestManagerAssistantDeltaUpdatesSameSequence(t *testing.T) {
 	}
 }
 
+func TestManagerAssistantDeltaPreservesWhitespace(t *testing.T) {
+	backend := newFakeBackend()
+	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+	backend.emit(appserver.Notification{
+		Method: "item/agentMessage/delta",
+		Params: map[string]any{
+			"threadId": "thread-1",
+			"itemId":   "agent-1",
+			"delta":    "Streaming",
+		},
+	})
+	backend.emit(appserver.Notification{
+		Method: "item/agentMessage/delta",
+		Params: map[string]any{
+			"threadId": "thread-1",
+			"itemId":   "agent-1",
+			"delta":    " output",
+		},
+	})
+	waitForCondition(t, func() bool {
+		page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
+		return err == nil && len(page.Events) == 1 && page.Events[0].Text == "Streaming output"
+	})
+}
+
+func TestManagerToolOutputDeltaPreservesWhitespace(t *testing.T) {
+	backend := newFakeBackend()
+	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+	backend.emit(appserver.Notification{
+		Method: "item/commandExecution/outputDelta",
+		Params: map[string]any{
+			"threadId": "thread-1",
+			"itemId":   "cmd-1",
+			"delta":    "line one",
+		},
+	})
+	backend.emit(appserver.Notification{
+		Method: "item/commandExecution/outputDelta",
+		Params: map[string]any{
+			"threadId": "thread-1",
+			"itemId":   "cmd-1",
+			"delta":    "\n  line two",
+		},
+	})
+	waitForCondition(t, func() bool {
+		page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
+		return err == nil && len(page.Events) == 1 && page.Events[0].Text == "line one\n  line two"
+	})
+}
+
 func TestManagerEventsPaginatesFromTailAndBeforeSeq(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)

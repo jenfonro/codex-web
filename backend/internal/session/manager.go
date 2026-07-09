@@ -392,14 +392,14 @@ func (m *Manager) handleNotification(notification appserver.Notification) {
 	case "item/agentMessage/delta":
 		threadID := strAny(notification.Params["threadId"])
 		itemID := strAny(notification.Params["itemId"])
-		delta := strAny(notification.Params["delta"])
+		delta := textAny(notification.Params["delta"])
 		if threadID != "" && itemID != "" && delta != "" {
 			m.appendAssistantDelta(threadID, itemID, delta)
 		}
 	case "item/commandExecution/outputDelta":
 		threadID := strAny(notification.Params["threadId"])
 		itemID := strAny(notification.Params["itemId"])
-		delta := strAny(notification.Params["delta"])
+		delta := textAny(notification.Params["delta"])
 		if threadID != "" && itemID != "" && delta != "" {
 			m.appendToolOutputDelta(threadID, itemID, delta)
 		}
@@ -1093,6 +1093,19 @@ func strAny(value any) string {
 		return strings.TrimSpace(v)
 	case fmt.Stringer:
 		return strings.TrimSpace(v.String())
+	case json.Number:
+		return v.String()
+	default:
+		return ""
+	}
+}
+
+func textAny(value any) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case fmt.Stringer:
+		return v.String()
 	case json.Number:
 		return v.String()
 	default:
