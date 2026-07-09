@@ -37,7 +37,6 @@ script_sources=(
   "pages/codex/markdown.js"
   "pages/codex/lifecycle.js"
   "pages/codex/activity-summary.js"
-  "pages/codex/virtualizer.js"
   "pages/codex/api.js"
   "pages/codex/fixtures.js"
   "pages/codex/renderer.js"

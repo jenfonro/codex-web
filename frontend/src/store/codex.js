@@ -12,7 +12,6 @@
       statesBySession: new Map(),
       eventsBySession: new Map(),
       eventPagesBySession: new Map(),
-      threadWindows: new Map(),
       eventSource: null,
       sessionEventSource: null,
     };

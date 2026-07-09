@@ -25,7 +25,6 @@
     state,
     mount,
     samples: fixtures.createSampleData({ icons, useDynamicFixture, sampleAttachmentSrc: config.SAMPLE_ATTACHMENT_PLACEHOLDER }),
-    onThreadScroll: maybeLoadOlderEvents,
   };
   const renderer = rendererFactory.create(runtime);
   let initialized = false;
@@ -92,7 +91,6 @@
     state.activeSessionId = sessionID;
     state.view = "thread";
     state.popover = "";
-    state.threadWindows.delete(sessionID);
     renderer.render();
     await loadState(sessionID);
     subscribeSession(sessionID);
@@ -107,10 +105,6 @@
     } catch {
       // Keep the existing view; a later SSE reconnect or session reload may recover.
     }
-  }
-
-  async function maybeLoadOlderEvents(scroll) {
-    return;
   }
 
   function subscribeSessionList() {

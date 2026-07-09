@@ -19,20 +19,15 @@
   if (!markdown?.render) {
     throw new Error("CodexMarkdown renderer is required");
   }
-  const virtualizerFactory = global.CodexPanelVirtualizer;
 
   function createCodexPanelRenderer(runtime) {
     const { state, mount, icons, config } = runtime;
-    const virtualizer = virtualizerFactory.create(state, activeSession);
     let shimmerCleanups = [];
-    let threadScrollFrame = 0;
-    let suppressThreadScroll = false;
 
 function render() {
   clearShimmerTimers();
   mount.root.innerHTML = `${state.view === "thread" ? renderThreadView() : renderListView()}${renderToastViewport()}`;
   syncComposerState();
-  bindThreadScrollHandler();
   syncThreadScrollPosition();
   syncCadencedShimmers();
 }
@@ -81,42 +76,7 @@ function syncThreadScrollPosition() {
   requestAnimationFrame(() => {
     const scroll = mount.root.querySelector("[data-thread-scroll]");
     if (!scroll) return;
-    const windowState = virtualizer.activeWindow();
-    if (windowState?.pendingScrollTop != null) {
-      setThreadScrollTop(scroll, Math.max(0, windowState.pendingScrollTop));
-      windowState.pendingScrollTop = null;
-      return;
-    }
-    if (!windowState || windowState.stickToBottom) {
-      setThreadScrollTop(scroll, scroll.scrollHeight);
-    }
-  });
-}
-
-function bindThreadScrollHandler() {
-  if (state.view !== "thread") return;
-  const scroll = mount.root.querySelector("[data-thread-scroll]");
-  if (!scroll) return;
-  scroll.addEventListener("scroll", () => {
-    if (suppressThreadScroll) return;
-    if (threadScrollFrame) return;
-    threadScrollFrame = window.requestAnimationFrame(() => {
-      threadScrollFrame = 0;
-      if (suppressThreadScroll) return;
-      if (virtualizer.handleScroll(scroll)) {
-        render();
-        return;
-      }
-      runtime.onThreadScroll?.(scroll, virtualizer.activeWindow());
-    });
-  }, { passive: true });
-}
-
-function setThreadScrollTop(scroll, value) {
-  suppressThreadScroll = true;
-  scroll.scrollTop = value;
-  window.requestAnimationFrame(() => {
-    suppressThreadScroll = false;
+    scroll.scrollTop = scroll.scrollHeight;
   });
 }
 
@@ -233,31 +193,22 @@ function renderConversationEvents(events) {
   const page = state.eventPagesBySession.get(sessionID);
   const visibleEvents = visibleConversationEvents(events);
   const items = groupConversationEvents(visibleEvents);
-  const virtualList = conversationVirtualList(events, items);
-  const outerStyle = virtualList.height ? ` style="height: ${escapeAttr(virtualList.height)}"` : "";
-  const innerStyle = `gap: ${virtualList.gap}px; margin-top: ${virtualList.marginTop || "0px"};`;
   return `
-    <div class="relative shrink-0"${outerStyle}>
+    <div class="relative shrink-0">
       ${renderOlderEventsLoader(page)}
-      ${virtualList.topPadding ? `<div aria-hidden="true" data-codex-virtual-spacer="top" style="height:${escapeAttr(virtualList.topPadding)}px"></div>` : ""}
-      <div class="flex flex-col" style="${innerStyle}">
-        ${virtualList.items.map((item, offset) => `<div style="" data-codex-virtual-turn="${virtualList.start + offset}">${renderConversationItem(item, virtualList.start + offset)}</div>`).join("")}
+      <div class="flex flex-col" style="gap: 12px;">
+        ${items.map((item, index) => `<div>${renderConversationItem(item, index)}</div>`).join("")}
       </div>
-      ${virtualList.bottomPadding ? `<div aria-hidden="true" data-codex-virtual-spacer="bottom" style="height:${escapeAttr(virtualList.bottomPadding)}px"></div>` : ""}
     </div>`;
 }
 
 function renderConversationState(sessionState) {
   const turns = Array.isArray(sessionState?.turns) ? sessionState.turns : [];
   const items = conversationItemsFromState(turns);
-  const virtualList = conversationVirtualList([], items);
-  const innerStyle = `gap: ${virtualList.gap}px; margin-top: ${virtualList.marginTop || "0px"};`;
   return `
     <div class="relative shrink-0">
-      <div class="flex flex-col" style="${innerStyle}">
-        ${virtualList.topPadding ? `<div aria-hidden="true" data-codex-virtual-spacer="top" style="height:${escapeAttr(virtualList.topPadding)}px"></div>` : ""}
-        ${virtualList.items.map((item, offset) => `<div data-codex-virtual-turn="${virtualList.start + offset}">${renderConversationItem(item, virtualList.start + offset)}</div>`).join("")}
-        ${virtualList.bottomPadding ? `<div aria-hidden="true" data-codex-virtual-spacer="bottom" style="height:${escapeAttr(virtualList.bottomPadding)}px"></div>` : ""}
+      <div class="flex flex-col" style="gap: 12px;">
+        ${items.map((item, index) => `<div>${renderConversationItem(item, index)}</div>`).join("")}
       </div>
     </div>`;
 }
@@ -428,17 +379,6 @@ function renderOlderEventsLoader(page) {
     </div>`;
 }
 
-function conversationVirtualList(events, items) {
-  const configEvent = events.find((event) => event.virtualList || event.data?.virtualList);
-  const config = configEvent?.virtualList || configEvent?.data?.virtualList || {};
-  const windowed = virtualizer.windowFor(items);
-  return {
-    height: config.height || "",
-    marginTop: config.marginTop || "",
-    ...windowed,
-  };
-}
-
 function groupConversationEvents(events) {
   const items = [];
   for (let index = 0; index < events.length; index += 1) {
@@ -538,7 +478,7 @@ function renderTurnContainer(index, role, content, afterContentOverride, eventFo
         <div class="flex flex-col"><div></div></div>`
     : `<div class="flex flex-col"><div></div></div>`;
   return `
-    <div class="[&_[data-virtualized-turn-content]]:[content-visibility:visible]" data-turn-key="${escapeAttr(turnKey)}">
+    <div data-turn-key="${escapeAttr(turnKey)}">
       <div class="flex flex-col gap-0">
         <div class="flex flex-col">
           <div class="scroll-mt-4" data-content-search-unit-key="${escapeAttr(contentSearchKey(turnKey, unit, role))}" ${role === "user" ? "data-local-conversation-user-anchor=\"true\"" : ""}>
@@ -777,7 +717,7 @@ function renderDiffCard(card) {
 function renderDiffFileRow(file) {
   const item = normalizeDiffFile(file);
   return `
-              <div class="thread-diff-virtualized">
+              <div class="thread-diff-file-row">
                 <span data-state="closed" class="contents">
                   <button type="button" data-state="closed" class="text-size-chat flex h-9 w-full cursor-interaction items-center gap-2 bg-token-main-surface-primary/70 px-[var(--thread-resource-card-row-padding-x)] py-[var(--turn-diff-row-padding-y)] text-left hover:bg-token-list-hover-background/60 focus-visible:ring-1 focus-visible:ring-token-focus-border focus-visible:outline-none focus-visible:ring-inset">
                     <span class="sr-only">${escapeHTML(item.path)}</span>
@@ -824,7 +764,7 @@ function renderSummary(event, index) {
   const turnKey = turnKeyFromEvent(event, index);
   const followupUnit = contentUnitFor(followup, 1);
   return `
-    <div class="[&_[data-virtualized-turn-content]]:[content-visibility:visible]" data-turn-key="${escapeAttr(turnKey)}">
+    <div data-turn-key="${escapeAttr(turnKey)}">
       <div class="flex flex-col gap-0">
         <div class="flex flex-col">
           ${renderSummaryBody(event)}
@@ -892,7 +832,7 @@ function renderCommandGroupActivity(event) {
 function renderActivity(event, index) {
   const turnKey = turnKeyFromEvent(event, index);
   return `
-    <div class="[&_[data-virtualized-turn-content]]:[content-visibility:visible]" data-turn-key="${escapeAttr(turnKey)}">
+    <div data-turn-key="${escapeAttr(turnKey)}">
       <div class="flex flex-col gap-0">
         <div class="flex flex-col"><div class="scroll-mt-4"></div></div>
         <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
