@@ -94,8 +94,18 @@ func TestManagerCreateStartsThreadAndTurn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Events() error = %v", err)
 	}
-	if len(page.Events) != 1 || page.Events[0].Kind != "user_message" || page.Events[0].Text != "new prompt" {
-		t.Fatalf("events = %#v", page.Events)
+	if len(page.Events) != 0 {
+		t.Fatalf("Create() added local events = %#v", page.Events)
+	}
+
+	backend.emitUserMessage("thread-new", "user-1", "new prompt")
+	waitForCondition(t, func() bool {
+		page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-new"})
+		return err == nil && len(page.Events) == 1 && page.Events[0].Kind == "user_message" && page.Events[0].Text == "new prompt"
+	})
+	page, _ = manager.Events(model.SessionEventsRequest{SessionID: "thread-new"})
+	if len(page.Events) != 1 {
+		t.Fatalf("events after app-server userMessage = %#v", page.Events)
 	}
 }
 
@@ -314,6 +324,22 @@ func (f *fakeBackend) Subscribe() (<-chan appserver.Notification, func()) {
 
 func (f *fakeBackend) emit(notification appserver.Notification) {
 	f.events <- notification
+}
+
+func (f *fakeBackend) emitUserMessage(threadID, itemID, text string) {
+	f.emit(appserver.Notification{
+		Method: "item/started",
+		Params: map[string]any{
+			"threadId": threadID,
+			"item": map[string]any{
+				"type": "userMessage",
+				"id":   itemID,
+				"content": []any{
+					map[string]any{"type": "text", "text": text},
+				},
+			},
+		},
+	})
 }
 
 func int64Ptr(value int64) *int64 {

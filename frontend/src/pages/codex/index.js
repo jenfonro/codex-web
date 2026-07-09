@@ -433,8 +433,6 @@ async function submitComposer() {
   renderer.syncComposerState();
 
   if (state.view === "thread" && state.activeSessionId) {
-    appendLocalEvent(state.activeSessionId, { kind: "user_message", text: prompt });
-    renderer.render();
     if (state.apiAvailable) {
       try {
         const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(state.activeSessionId)}/send`, {
@@ -448,6 +446,7 @@ async function submitComposer() {
         renderer.render();
       }
     } else {
+      appendLocalEvent(state.activeSessionId, { kind: "user_message", text: prompt });
       appendLocalEvent(state.activeSessionId, { kind: "turn_started", text: "正在思考" });
       appendLocalEvent(state.activeSessionId, { kind: "assistant_message", text: "本地预览模式已收到这个请求。", time: new Date().toISOString() });
       renderer.render();
@@ -465,7 +464,7 @@ async function submitComposer() {
       const session = api.normalizeSession(payload.session);
       if (session?.id) {
         upsertSession(session);
-        state.eventsBySession.set(session.id, [{ sessionId: session.id, kind: "user_message", text: prompt, time: new Date().toISOString() }]);
+        state.eventsBySession.set(session.id, []);
         await openSession(session.id);
       }
     } catch (error) {

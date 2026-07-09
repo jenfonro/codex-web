@@ -115,7 +115,6 @@ func (m *Manager) Create(ctx context.Context, req model.SessionCreateRequest) (m
 	session.eventsLoaded = true
 	m.mu.Unlock()
 
-	m.appendEvent(thread.ID, "user_message", prompt, map[string]any{"cwd": cwd})
 	turn, err := m.backend.StartTurn(ctx, thread.ID, prompt, cwd)
 	if err != nil {
 		m.finishWithError(thread.ID, err)
@@ -152,7 +151,6 @@ func (m *Manager) Send(ctx context.Context, req model.SessionSendRequest) (model
 	m.mu.Unlock()
 
 	m.setStatus(thread.ID, statusRunning)
-	m.appendEvent(thread.ID, "user_message", prompt, nil)
 	turn, err := m.backend.StartTurn(ctx, thread.ID, prompt, session.record.CWD)
 	if err != nil {
 		m.finishWithError(thread.ID, err)
