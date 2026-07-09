@@ -189,6 +189,14 @@ func TestManagerEventsLoadsThreadReadItems(t *testing.T) {
 	}
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
 
+	state, err := manager.State("thread-1")
+	if err != nil {
+		t.Fatalf("State() error = %v", err)
+	}
+	if len(state.Turns) != 1 || state.Turns[0].Outcome != nil {
+		t.Fatalf("state outcome = %#v", state.Turns[0].Outcome)
+	}
+
 	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
 	if err != nil {
 		t.Fatalf("Events() error = %v", err)
@@ -236,6 +244,17 @@ func TestManagerEventsIncludesTurnError(t *testing.T) {
 	}
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
 
+	state, err := manager.State("thread-1")
+	if err != nil {
+		t.Fatalf("State() error = %v", err)
+	}
+	if len(state.Turns) != 1 || state.Turns[0].Outcome == nil {
+		t.Fatalf("state outcome missing = %#v", state.Turns)
+	}
+	if state.Turns[0].Outcome.Type != "error" || state.Turns[0].Outcome.Text != "invalid codex request" {
+		t.Fatalf("state outcome = %#v", state.Turns[0].Outcome)
+	}
+
 	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
 	if err != nil {
 		t.Fatalf("Events() error = %v", err)
@@ -248,6 +267,10 @@ func TestManagerEventsIncludesTurnError(t *testing.T) {
 	}
 	if page.Events[1].Data["turnId"] != "turn-1" {
 		t.Fatalf("error data = %#v", page.Events[1].Data)
+	}
+	outcome, ok := page.Events[1].Data["outcome"].(*model.TurnOutcome)
+	if !ok || outcome.Type != "error" || outcome.Text != "invalid codex request" {
+		t.Fatalf("error outcome = %#v", page.Events[1].Data["outcome"])
 	}
 }
 
@@ -278,6 +301,17 @@ func TestManagerEventsIncludesEmptyTurnResult(t *testing.T) {
 	}
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
 
+	state, err := manager.State("thread-1")
+	if err != nil {
+		t.Fatalf("State() error = %v", err)
+	}
+	if len(state.Turns) != 1 || state.Turns[0].Outcome == nil {
+		t.Fatalf("state outcome missing = %#v", state.Turns)
+	}
+	if state.Turns[0].Outcome.Type != "empty" || state.Turns[0].Outcome.Text != "No response was produced for this turn." {
+		t.Fatalf("state outcome = %#v", state.Turns[0].Outcome)
+	}
+
 	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
 	if err != nil {
 		t.Fatalf("Events() error = %v", err)
@@ -288,8 +322,9 @@ func TestManagerEventsIncludesEmptyTurnResult(t *testing.T) {
 	if page.Events[1].Text != "No response was produced for this turn." {
 		t.Fatalf("empty result text = %q", page.Events[1].Text)
 	}
-	if page.Events[1].Data["emptyResult"] != true {
-		t.Fatalf("empty result data = %#v", page.Events[1].Data)
+	outcome, ok := page.Events[1].Data["outcome"].(*model.TurnOutcome)
+	if !ok || outcome.Type != "empty" || outcome.Text != "No response was produced for this turn." {
+		t.Fatalf("empty result outcome = %#v", page.Events[1].Data["outcome"])
 	}
 }
 
@@ -407,6 +442,50 @@ func TestManagerAgentMessageCompletedClearsStreamingState(t *testing.T) {
 			page.Events[0].Data["phase"] == "final_answer" &&
 			page.Events[0].Data["streaming"] == false
 	})
+}
+
+func TestManagerTurnCompletedKeepsStreamedAssistantMessage(t *testing.T) {
+	backend := newFakeBackend()
+	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+	backend.emit(appserver.Notification{
+		Method: "item/agentMessage/delta",
+		Params: map[string]any{
+			"threadId": "thread-1",
+			"itemId":   "agent-1",
+			"delta":    "final answer",
+		},
+	})
+	backend.emit(appserver.Notification{
+		Method: "turn/completed",
+		Params: map[string]any{
+			"threadId": "thread-1",
+			"turn": map[string]any{
+				"id":     "turn-1",
+				"status": "completed",
+			},
+		},
+	})
+
+	waitForCondition(t, func() bool {
+		state, err := manager.State("thread-1")
+		return err == nil &&
+			len(state.Turns) == 1 &&
+			state.Turns[0].Status == "completed" &&
+			state.Turns[0].Outcome == nil &&
+			len(state.Turns[0].Items) == 1 &&
+			state.Turns[0].Items[0].Text == "final answer" &&
+			state.Turns[0].Items[0].Status == "completed"
+	})
+	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
+	if err != nil {
+		t.Fatalf("Events() error = %v", err)
+	}
+	if len(page.Events) != 1 || page.Events[0].Text != "final answer" {
+		t.Fatalf("events = %#v", page.Events)
+	}
+	if page.Events[0].Data["streaming"] != false {
+		t.Fatalf("streaming = %#v", page.Events[0].Data)
+	}
 }
 
 func TestManagerAgentMessageStartedCreatesRunningState(t *testing.T) {
