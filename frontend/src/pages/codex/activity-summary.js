@@ -3,6 +3,9 @@
 (function defineCodexPanelActivitySummary(global) {
   const utils = global.CodexPanelUtils;
   const lifecycle = global.CodexPanelLifecycle;
+  if (!lifecycle?.eventKind || !lifecycle?.eventStatus || !lifecycle?.isActivityEvent) {
+    throw new Error("CodexPanelLifecycle is required");
+  }
 
   function splitTurnFollowups(followups) {
     const entries = Array.isArray(followups)
@@ -209,7 +212,7 @@
   }
 
   function eventKind(event, defaultKind = "") {
-    return lifecycle.eventKind ? lifecycle.eventKind(event, defaultKind) : String(event?.kind || defaultKind || "");
+    return lifecycle.eventKind(event, defaultKind);
   }
 
   function isHeaderSummaryEvent(event) {
@@ -221,8 +224,7 @@
   }
 
   function eventStatus(event) {
-    if (!event) return "";
-    return String(event.data?.status || "").trim();
+    return lifecycle.eventStatus(event);
   }
 
   function eventArgs(event) {

@@ -2,8 +2,6 @@ package session
 
 import (
 	"context"
-	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -34,8 +32,8 @@ func TestManagerListUsesAppServerThreads(t *testing.T) {
 	if len(got) != 1 {
 		t.Fatalf("List() len = %d, want 1", len(got))
 	}
-	if got[0].ID != "thread-1" || got[0].CodexThreadID != "thread-1" {
-		t.Fatalf("record IDs = %#v", got[0])
+	if got[0].ID != "thread-1" {
+		t.Fatalf("record ID = %#v", got[0])
 	}
 	if got[0].Title != name {
 		t.Fatalf("Title = %q, want %q", got[0].Title, name)
@@ -48,6 +46,7 @@ func TestManagerListAcceptsMillisecondTimestamps(t *testing.T) {
 		{
 			ID:        "thread-1",
 			Preview:   "timestamp probe",
+			CWD:       "/workspace",
 			Status:    appserver.ThreadStatus{Type: "idle"},
 			CreatedAt: 1_757_280_000_000,
 			UpdatedAt: 1_757_280_030_000,
@@ -90,23 +89,23 @@ func TestManagerCreateStartsThreadAndTurn(t *testing.T) {
 	if backend.startedTurnThreadID != "thread-new" || backend.startedTurnPrompt != "new prompt" {
 		t.Fatalf("turn start = %q/%q", backend.startedTurnThreadID, backend.startedTurnPrompt)
 	}
-	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-new"})
+	state, err := manager.State("thread-new")
 	if err != nil {
-		t.Fatalf("Events() error = %v", err)
+		t.Fatalf("State() error = %v", err)
 	}
-	if len(page.Events) != 0 {
-		t.Fatalf("Create() added local events = %#v", page.Events)
+	if len(state.Turns) != 1 || len(state.Turns[0].Items) != 0 {
+		t.Fatalf("Create() state = %#v", state.Turns)
 	}
 
 	backend.emitUserMessage("thread-new", "user-1", "new prompt")
 	waitForCondition(t, func() bool {
-		page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-new"})
-		return err == nil && len(page.Events) == 1 && page.Events[0].Kind == "user_message" && page.Events[0].Text == "new prompt"
+		state, err := manager.State("thread-new")
+		return err == nil &&
+			len(state.Turns) == 1 &&
+			len(state.Turns[0].Items) == 1 &&
+			state.Turns[0].Items[0].Type == "userMessage" &&
+			state.Turns[0].Items[0].Text == "new prompt"
 	})
-	page, _ = manager.Events(model.SessionEventsRequest{SessionID: "thread-new"})
-	if len(page.Events) != 1 {
-		t.Fatalf("events after app-server userMessage = %#v", page.Events)
-	}
 }
 
 func TestManagerSendResumesThreadBeforeTurnStart(t *testing.T) {
@@ -144,7 +143,7 @@ func TestManagerSendResumesThreadBeforeTurnStart(t *testing.T) {
 	}
 }
 
-func TestManagerEventsLoadsThreadReadItems(t *testing.T) {
+func TestManagerStateLoadsThreadReadItems(t *testing.T) {
 	backend := newFakeBackend()
 	backend.readThread = appserver.Thread{
 		ID:        "thread-1",
@@ -196,25 +195,19 @@ func TestManagerEventsLoadsThreadReadItems(t *testing.T) {
 	if len(state.Turns) != 1 || hasItemType(state.Turns[0].Items, "error") {
 		t.Fatalf("state items = %#v", state.Turns[0].Items)
 	}
-
-	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
-	if err != nil {
-		t.Fatalf("Events() error = %v", err)
+	items := state.Turns[0].Items
+	if len(items) != 4 {
+		t.Fatalf("state item count = %d, want 4", len(items))
 	}
-	kinds := eventKinds(page.Events)
-	want := "user_message,reasoning,tool_call,tool_output,assistant_message"
-	if kinds != want {
-		t.Fatalf("kinds = %s, want %s", kinds, want)
+	if items[2].Type != "commandExecution" || items[2].Command != "git status --short" || items[2].Output != " M file.go\n" {
+		t.Fatalf("command item = %#v", items[2])
 	}
-	if page.Events[2].Data["name"] != "exec_command" {
-		t.Fatalf("tool call data = %#v", page.Events[2].Data)
-	}
-	if page.Events[4].Data["phase"] != "final_answer" {
-		t.Fatalf("assistant data = %#v", page.Events[4].Data)
+	if items[3].Type != "agentMessage" || items[3].Phase != "final_answer" || items[3].Text != "Done." {
+		t.Fatalf("assistant item = %#v", items[3])
 	}
 }
 
-func TestManagerEventsIncludesTurnError(t *testing.T) {
+func TestManagerStateIncludesTurnError(t *testing.T) {
 	backend := newFakeBackend()
 	backend.readThread = appserver.Thread{
 		ID:        "thread-1",
@@ -248,87 +241,24 @@ func TestManagerEventsIncludesTurnError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("State() error = %v", err)
 	}
-	if len(state.Turns) != 1 || len(state.Turns[0].Items) != 2 {
+	if len(state.Turns) != 1 || len(state.Turns[0].Items) != 1 {
 		t.Fatalf("state items = %#v", state.Turns)
 	}
-	terminal := state.Turns[0].Items[1]
-	if terminal.Type != "error" || terminal.Text != "invalid codex request" || terminal.Status != statusError {
-		t.Fatalf("terminal item = %#v", terminal)
-	}
-
-	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
-	if err != nil {
-		t.Fatalf("Events() error = %v", err)
-	}
-	if got := eventKinds(page.Events); got != "user_message,error" {
-		t.Fatalf("kinds = %s, want user_message,error", got)
-	}
-	if page.Events[1].Text != "invalid codex request" {
-		t.Fatalf("error text = %q", page.Events[1].Text)
-	}
-	if page.Events[1].Data["turnId"] != "turn-1" {
-		t.Fatalf("error data = %#v", page.Events[1].Data)
-	}
-}
-
-func TestManagerEventsIncludesEmptyTurnResult(t *testing.T) {
-	backend := newFakeBackend()
-	backend.readThread = appserver.Thread{
-		ID:        "thread-1",
-		Preview:   "empty result",
-		CWD:       "/workspace",
-		Status:    appserver.ThreadStatus{Type: "idle"},
-		CreatedAt: 100,
-		UpdatedAt: 130,
-		Turns: []appserver.Turn{{
-			ID:          "turn-1",
-			Status:      "completed",
-			StartedAt:   int64Ptr(100),
-			CompletedAt: int64Ptr(101),
-			Items: []map[string]any{
-				{
-					"type": "userMessage",
-					"id":   "user-1",
-					"content": []any{
-						map[string]any{"type": "text", "text": "empty now"},
-					},
-				},
-			},
-		}},
-	}
-	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
-
-	state, err := manager.State("thread-1")
-	if err != nil {
-		t.Fatalf("State() error = %v", err)
-	}
-	if len(state.Turns) != 1 || len(state.Turns[0].Items) != 2 {
-		t.Fatalf("state items = %#v", state.Turns)
-	}
-	terminal := state.Turns[0].Items[1]
-	if terminal.Type != "error" || terminal.Text != "No response was produced for this turn." || terminal.Status != "completed" {
-		t.Fatalf("terminal item = %#v", terminal)
-	}
-
-	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
-	if err != nil {
-		t.Fatalf("Events() error = %v", err)
-	}
-	if got := eventKinds(page.Events); got != "user_message,error" {
-		t.Fatalf("kinds = %s, want user_message,error", got)
-	}
-	if page.Events[1].Text != "No response was produced for this turn." {
-		t.Fatalf("empty result text = %q", page.Events[1].Text)
+	if len(state.Turns[0].Error) == 0 {
+		t.Fatalf("turn error was not preserved: %#v", state.Turns[0])
 	}
 }
 
 func TestManagerAssistantDeltaUpdatesSameSequence(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+	seedThread(t, manager, backend)
+	startAgentMessage(backend, "agent-1")
 	backend.emit(appserver.Notification{
 		Method: "item/agentMessage/delta",
 		Params: map[string]any{
 			"threadId": "thread-1",
+			"turnId":   "turn-1",
 			"itemId":   "agent-1",
 			"delta":    "Hel",
 		},
@@ -337,27 +267,30 @@ func TestManagerAssistantDeltaUpdatesSameSequence(t *testing.T) {
 		Method: "item/agentMessage/delta",
 		Params: map[string]any{
 			"threadId": "thread-1",
+			"turnId":   "turn-1",
 			"itemId":   "agent-1",
 			"delta":    "lo",
 		},
 	})
 	waitForCondition(t, func() bool {
-		page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
-		return err == nil && len(page.Events) == 1 && page.Events[0].Text == "Hello"
+		state, err := manager.State("thread-1")
+		return err == nil &&
+			len(state.Turns) == 1 &&
+			len(state.Turns[0].Items) == 1 &&
+			state.Turns[0].Items[0].Text == "Hello"
 	})
-	page, _ := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
-	if page.Events[0].Seq != 1 {
-		t.Fatalf("delta seq = %d, want 1", page.Events[0].Seq)
-	}
 }
 
 func TestManagerAssistantDeltaPreservesWhitespace(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+	seedThread(t, manager, backend)
+	startAgentMessage(backend, "agent-1")
 	backend.emit(appserver.Notification{
 		Method: "item/agentMessage/delta",
 		Params: map[string]any{
 			"threadId": "thread-1",
+			"turnId":   "turn-1",
 			"itemId":   "agent-1",
 			"delta":    "Streaming",
 		},
@@ -366,23 +299,30 @@ func TestManagerAssistantDeltaPreservesWhitespace(t *testing.T) {
 		Method: "item/agentMessage/delta",
 		Params: map[string]any{
 			"threadId": "thread-1",
+			"turnId":   "turn-1",
 			"itemId":   "agent-1",
 			"delta":    " output",
 		},
 	})
 	waitForCondition(t, func() bool {
-		page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
-		return err == nil && len(page.Events) == 1 && page.Events[0].Text == "Streaming output"
+		state, err := manager.State("thread-1")
+		return err == nil &&
+			len(state.Turns) == 1 &&
+			len(state.Turns[0].Items) == 1 &&
+			state.Turns[0].Items[0].Text == "Streaming output"
 	})
 }
 
 func TestManagerToolOutputDeltaPreservesWhitespace(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+	seedThread(t, manager, backend)
+	startCommandExecution(backend, "cmd-1")
 	backend.emit(appserver.Notification{
 		Method: "item/commandExecution/outputDelta",
 		Params: map[string]any{
 			"threadId": "thread-1",
+			"turnId":   "turn-1",
 			"itemId":   "cmd-1",
 			"delta":    "line one",
 		},
@@ -391,6 +331,7 @@ func TestManagerToolOutputDeltaPreservesWhitespace(t *testing.T) {
 		Method: "item/commandExecution/outputDelta",
 		Params: map[string]any{
 			"threadId": "thread-1",
+			"turnId":   "turn-1",
 			"itemId":   "cmd-1",
 			"delta":    "\n  line two",
 		},
@@ -407,10 +348,13 @@ func TestManagerToolOutputDeltaPreservesWhitespace(t *testing.T) {
 func TestManagerAgentMessageCompletedClearsStreamingState(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+	seedThread(t, manager, backend)
+	startAgentMessage(backend, "agent-1")
 	backend.emit(appserver.Notification{
 		Method: "item/agentMessage/delta",
 		Params: map[string]any{
 			"threadId": "thread-1",
+			"turnId":   "turn-1",
 			"itemId":   "agent-1",
 			"delta":    "partial",
 		},
@@ -419,6 +363,7 @@ func TestManagerAgentMessageCompletedClearsStreamingState(t *testing.T) {
 		Method: "item/completed",
 		Params: map[string]any{
 			"threadId": "thread-1",
+			"turnId":   "turn-1",
 			"item": map[string]any{
 				"type":  "agentMessage",
 				"id":    "agent-1",
@@ -428,23 +373,27 @@ func TestManagerAgentMessageCompletedClearsStreamingState(t *testing.T) {
 		},
 	})
 	waitForCondition(t, func() bool {
-		page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
-		if err != nil || len(page.Events) != 1 {
+		state, err := manager.State("thread-1")
+		if err != nil || len(state.Turns) != 1 || len(state.Turns[0].Items) != 1 {
 			return false
 		}
-		return page.Events[0].Text == "partial answer" &&
-			page.Events[0].Data["phase"] == "final_answer" &&
-			page.Events[0].Data["streaming"] == false
+		item := state.Turns[0].Items[0]
+		return item.Text == "partial answer" &&
+			item.Phase == "final_answer" &&
+			item.Status == "completed"
 	})
 }
 
 func TestManagerTurnCompletedKeepsStreamedAssistantMessage(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+	seedThread(t, manager, backend)
+	startAgentMessage(backend, "agent-1")
 	backend.emit(appserver.Notification{
 		Method: "item/agentMessage/delta",
 		Params: map[string]any{
 			"threadId": "thread-1",
+			"turnId":   "turn-1",
 			"itemId":   "agent-1",
 			"delta":    "final answer",
 		},
@@ -467,27 +416,19 @@ func TestManagerTurnCompletedKeepsStreamedAssistantMessage(t *testing.T) {
 			state.Turns[0].Status == "completed" &&
 			len(state.Turns[0].Items) == 1 &&
 			state.Turns[0].Items[0].Text == "final answer" &&
-			state.Turns[0].Items[0].Status == "completed"
+			state.Turns[0].Items[0].Status == statusRunning
 	})
-	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
-	if err != nil {
-		t.Fatalf("Events() error = %v", err)
-	}
-	if len(page.Events) != 1 || page.Events[0].Text != "final answer" {
-		t.Fatalf("events = %#v", page.Events)
-	}
-	if page.Events[0].Data["streaming"] != false {
-		t.Fatalf("streaming = %#v", page.Events[0].Data)
-	}
 }
 
 func TestManagerAgentMessageStartedCreatesRunningState(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+	seedThread(t, manager, backend)
 	backend.emit(appserver.Notification{
 		Method: "item/started",
 		Params: map[string]any{
 			"threadId": "thread-1",
+			"turnId":   "turn-1",
 			"item": map[string]any{
 				"type":  "agentMessage",
 				"id":    "agent-1",
@@ -509,6 +450,7 @@ func TestManagerAgentMessageStartedCreatesRunningState(t *testing.T) {
 		Method: "item/agentMessage/delta",
 		Params: map[string]any{
 			"threadId": "thread-1",
+			"turnId":   "turn-1",
 			"itemId":   "agent-1",
 			"delta":    "partial",
 		},
@@ -521,45 +463,6 @@ func TestManagerAgentMessageStartedCreatesRunningState(t *testing.T) {
 			state.Turns[0].Items[0].Text == "partial" &&
 			state.Turns[0].Items[0].Status == statusRunning
 	})
-}
-
-func TestManagerEventsPaginatesFromTailAndBeforeSeq(t *testing.T) {
-	backend := newFakeBackend()
-	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
-	session := &managedSession{
-		record:      model.SessionRecord{ID: "session-1", LastSeq: 5, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()},
-		stateLoaded: true,
-		lastSeq:     5,
-		turns: []model.SessionTurn{
-			{ID: "turn-1", Status: "completed", Items: []model.SessionItem{
-				{ID: "user-1", Type: "userMessage", Text: "one"},
-				{ID: "agent-1", Type: "agentMessage", Text: "two"},
-			}},
-			{ID: "turn-2", Status: "completed", Items: []model.SessionItem{
-				{ID: "user-2", Type: "userMessage", Text: "three"},
-				{ID: "agent-2", Type: "agentMessage", Text: "four"},
-				{ID: "agent-3", Type: "agentMessage", Text: "five"},
-			}},
-		},
-	}
-	session.rebuildIndexes()
-	manager.sessions["session-1"] = session
-
-	page, err := manager.Events(model.SessionEventsRequest{SessionID: "session-1", Limit: 2})
-	if err != nil {
-		t.Fatalf("Events(tail) error = %v", err)
-	}
-	if got := eventSeqs(page.Events); got != "4,5" || !page.HasMoreBefore || page.FirstSeq != 4 || page.LastSeq != 5 {
-		t.Fatalf("tail page = %#v, seqs = %s", page, got)
-	}
-
-	page, err = manager.Events(model.SessionEventsRequest{SessionID: "session-1", BeforeSeq: 4, Limit: 2})
-	if err != nil {
-		t.Fatalf("Events(before) error = %v", err)
-	}
-	if got := eventSeqs(page.Events); got != "2,3" || !page.HasMoreBefore || page.FirstSeq != 2 || page.LastSeq != 3 {
-		t.Fatalf("before page = %#v, seqs = %s", page, got)
-	}
 }
 
 type fakeBackend struct {
@@ -581,6 +484,62 @@ type fakeBackend struct {
 
 func newFakeBackend() *fakeBackend {
 	return &fakeBackend{events: make(chan appserver.Notification, 32)}
+}
+
+func seedThread(t *testing.T, manager *Manager, backend *fakeBackend) {
+	t.Helper()
+	backend.threads = []appserver.Thread{{
+		ID:        "thread-1",
+		Preview:   "existing",
+		CWD:       "/workspace",
+		Status:    appserver.ThreadStatus{Type: statusIdle},
+		CreatedAt: 100,
+		UpdatedAt: 100,
+	}}
+	if _, err := manager.List(context.Background()); err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	backend.emit(appserver.Notification{
+		Method: "turn/started",
+		Params: map[string]any{
+			"threadId": "thread-1",
+			"turn": map[string]any{
+				"id":     "turn-1",
+				"status": statusRunning,
+			},
+		},
+	})
+}
+
+func startAgentMessage(backend *fakeBackend, itemID string) {
+	backend.emit(appserver.Notification{
+		Method: "item/started",
+		Params: map[string]any{
+			"threadId": "thread-1",
+			"turnId":   "turn-1",
+			"item": map[string]any{
+				"type":  "agentMessage",
+				"id":    itemID,
+				"phase": "final_answer",
+			},
+		},
+	})
+}
+
+func startCommandExecution(backend *fakeBackend, itemID string) {
+	backend.emit(appserver.Notification{
+		Method: "item/started",
+		Params: map[string]any{
+			"threadId": "thread-1",
+			"turnId":   "turn-1",
+			"item": map[string]any{
+				"type":    "commandExecution",
+				"id":      itemID,
+				"command": "printf test",
+				"cwd":     "/workspace",
+			},
+		},
+	})
 }
 
 func (f *fakeBackend) ListThreads(context.Context, int) ([]appserver.Thread, error) {
@@ -625,6 +584,7 @@ func (f *fakeBackend) emitUserMessage(threadID, itemID, text string) {
 		Method: "item/started",
 		Params: map[string]any{
 			"threadId": threadID,
+			"turnId":   "turn-1",
 			"item": map[string]any{
 				"type": "userMessage",
 				"id":   itemID,
@@ -638,22 +598,6 @@ func (f *fakeBackend) emitUserMessage(threadID, itemID, text string) {
 
 func int64Ptr(value int64) *int64 {
 	return &value
-}
-
-func eventKinds(events []model.SessionEvent) string {
-	kinds := make([]string, 0, len(events))
-	for _, event := range events {
-		kinds = append(kinds, event.Kind)
-	}
-	return strings.Join(kinds, ",")
-}
-
-func eventSeqs(events []model.SessionEvent) string {
-	seqs := make([]string, 0, len(events))
-	for _, event := range events {
-		seqs = append(seqs, strconv.FormatInt(event.Seq, 10))
-	}
-	return strings.Join(seqs, ",")
 }
 
 func hasItemType(items []model.SessionItem, itemKind string) bool {

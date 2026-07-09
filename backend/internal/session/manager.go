@@ -90,7 +90,10 @@ func (m *Manager) List(ctx context.Context) ([]model.SessionRecord, error) {
 
 	m.mu.Lock()
 	for _, thread := range threads {
-		m.applyThreadLocked(thread)
+		if _, err := m.applyThreadLocked(thread); err != nil {
+			m.mu.Unlock()
+			return nil, err
+		}
 	}
 	out := make([]model.SessionRecord, 0, len(m.sessions))
 	for _, session := range m.sessions {
@@ -119,12 +122,19 @@ func (m *Manager) Create(ctx context.Context, req model.SessionCreateRequest) (m
 		return model.SessionRecord{}, err
 	}
 	m.mu.Lock()
-	session := m.applyThreadLocked(thread)
+	session, err := m.applyThreadLocked(thread)
+	if err != nil {
+		m.mu.Unlock()
+		return model.SessionRecord{}, err
+	}
 	if session != nil {
 		session.stateLoaded = true
 	}
 	m.mu.Unlock()
-	threadID := firstNonEmpty(thread.ID, thread.SessionID)
+	threadID := strings.TrimSpace(thread.ID)
+	if threadID == "" {
+		return model.SessionRecord{}, errors.New("Codex thread id is required")
+	}
 
 	turn, err := m.backend.StartTurn(ctx, threadID, prompt, cwd)
 	if err != nil {
@@ -147,7 +157,7 @@ func (m *Manager) Send(ctx context.Context, req model.SessionSendRequest) (model
 	if session.record.Status == statusRunning {
 		return model.SessionRecord{}, errors.New("session is already running")
 	}
-	threadID := firstNonEmpty(session.record.CodexThreadID, session.record.ID)
+	threadID := strings.TrimSpace(session.record.ID)
 	if threadID == "" {
 		return model.SessionRecord{}, errors.New("session does not have a Codex thread id")
 	}
@@ -158,9 +168,21 @@ func (m *Manager) Send(ctx context.Context, req model.SessionSendRequest) (model
 		return model.SessionRecord{}, err
 	}
 	m.mu.Lock()
-	m.applyThreadLocked(thread)
-	resumedThreadID := firstNonEmpty(thread.ID, thread.SessionID, threadID)
-	m.setStatusLocked(resumedThreadID, statusRunning)
+	if _, err := m.applyThreadLocked(thread); err != nil {
+		m.mu.Unlock()
+		return model.SessionRecord{}, err
+	}
+	resumedThreadID := strings.TrimSpace(thread.ID)
+	if resumedThreadID == "" {
+		m.mu.Unlock()
+		err := errors.New("Codex thread id is required")
+		m.finishWithError(req.SessionID, err)
+		return model.SessionRecord{}, err
+	}
+	if m.setStatusLocked(resumedThreadID, statusRunning) == nil {
+		m.mu.Unlock()
+		return model.SessionRecord{}, errors.New("session not found")
+	}
 	m.mu.Unlock()
 
 	turn, err := m.backend.StartTurn(ctx, resumedThreadID, prompt, session.record.CWD)
@@ -177,7 +199,7 @@ func (m *Manager) Cancel(id string) error {
 	if err != nil {
 		return err
 	}
-	threadID := firstNonEmpty(session.record.CodexThreadID, session.record.ID)
+	threadID := strings.TrimSpace(session.record.ID)
 	if threadID == "" || session.runningTurnID == "" {
 		m.applyStatus(id, statusIdle)
 		return nil
@@ -188,7 +210,11 @@ func (m *Manager) Cancel(id string) error {
 		return err
 	}
 	m.mu.Lock()
-	managed := m.ensureSessionLocked(id)
+	managed := m.sessionLocked(id)
+	if managed == nil {
+		m.mu.Unlock()
+		return errors.New("session not found")
+	}
 	turnIndex, hasTurn := managed.turnIndex[session.runningTurnID]
 	managed.runningTurnID = ""
 	if hasTurn {
@@ -196,9 +222,12 @@ func (m *Manager) Cancel(id string) error {
 		turn := &managed.turns[turnIndex]
 		turn.Status = "interrupted"
 		turn.CompletedAt = &now
-		turn.DurationMs = normalizedTurnDurationMs(turn.DurationMs, turn.StartedAt, turn.CompletedAt)
+		turn.DurationMs = appServerTurnDurationMs(turn.DurationMs)
 	}
-	m.setStatusLocked(id, statusIdle)
+	if m.setStatusLocked(id, statusIdle) == nil {
+		m.mu.Unlock()
+		return errors.New("session not found")
+	}
 	update := m.sessionUpdateLocked(managed, "session")
 	if hasTurn {
 		turn := cloneTurn(managed.turns[turnIndex])
@@ -226,15 +255,6 @@ func (m *Manager) State(sessionID string) (model.SessionState, error) {
 	return state, nil
 }
 
-func (m *Manager) Events(req model.SessionEventsRequest) (model.SessionEventsPage, error) {
-	state, err := m.State(req.SessionID)
-	if err != nil {
-		return model.SessionEventsPage{}, err
-	}
-	events := eventsInRange(eventsFromState(state), req)
-	return sessionEventsPage(events), nil
-}
-
 func (m *Manager) Subscribe() (<-chan model.SessionStateUpdate, func()) {
 	ch := make(chan model.SessionStateUpdate, 256)
 	m.mu.Lock()
@@ -260,9 +280,6 @@ func (m *Manager) ensureStateLoaded(sessionID string) error {
 		return nil
 	}
 	threadID := sessionID
-	if session != nil && session.record.CodexThreadID != "" {
-		threadID = session.record.CodexThreadID
-	}
 	m.mu.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -271,20 +288,23 @@ func (m *Manager) ensureStateLoaded(sessionID string) error {
 	if err != nil {
 		return err
 	}
-	if thread.ID == "" && thread.SessionID == "" {
-		m.mu.Lock()
-		existing := m.sessions[sessionID]
-		m.mu.Unlock()
-		if existing != nil {
-			return nil
-		}
+	if strings.TrimSpace(thread.ID) == "" {
 		return errors.New("session not found")
 	}
 
 	m.mu.Lock()
-	managed := m.applyThreadLocked(thread)
+	managed, err := m.applyThreadLocked(thread)
+	if err != nil {
+		m.mu.Unlock()
+		return err
+	}
 	if managed != nil {
-		managed.turns = turnsFromThread(thread)
+		turns, err := turnsFromThread(thread)
+		if err != nil {
+			m.mu.Unlock()
+			return err
+		}
+		managed.turns = turns
 		managed.stateLoaded = true
 		managed.rebuildIndexes()
 		managed.runningTurnID = runningTurnID(managed.turns)
@@ -298,38 +318,6 @@ func (m *Manager) ensureStateLoaded(sessionID string) error {
 	}
 	m.mu.Unlock()
 	return nil
-}
-
-func eventsInRange(events []model.SessionEvent, req model.SessionEventsRequest) []model.SessionEvent {
-	out := make([]model.SessionEvent, 0, len(events))
-	for _, event := range events {
-		if req.LastSeq > 0 && event.Seq <= req.LastSeq {
-			continue
-		}
-		if req.BeforeSeq > 0 && event.Seq >= req.BeforeSeq {
-			continue
-		}
-		out = append(out, event)
-	}
-	if req.Limit > 0 && len(out) > req.Limit {
-		if req.BeforeSeq > 0 || req.LastSeq == 0 {
-			out = out[len(out)-req.Limit:]
-		} else {
-			out = out[:req.Limit]
-		}
-	}
-	return out
-}
-
-func sessionEventsPage(events []model.SessionEvent) model.SessionEventsPage {
-	page := model.SessionEventsPage{Events: events}
-	if len(events) == 0 {
-		return page
-	}
-	page.FirstSeq = events[0].Seq
-	page.LastSeq = events[len(events)-1].Seq
-	page.HasMoreBefore = page.FirstSeq > 1
-	return page
 }
 
 func (m *Manager) lookup(id string) (*managedSession, error) {
@@ -364,30 +352,51 @@ func (m *Manager) watchBackend() {
 func (m *Manager) handleNotification(notification appserver.Notification) {
 	switch notification.Method {
 	case "thread/started":
-		thread := threadFromParams(notification.Params, "thread")
-		if thread.ID == "" {
+		thread, err := threadFromParams(notification.Params, "thread")
+		if err != nil {
+			m.broadcastSystemError(err.Error())
 			return
 		}
 		m.mu.Lock()
-		session := m.applyThreadLocked(thread)
+		session, err := m.applyThreadLocked(thread)
+		if err != nil {
+			m.mu.Unlock()
+			m.broadcastSystemError(err.Error())
+			return
+		}
 		update := m.sessionUpdateLocked(session, "session")
 		subscribers := m.subscriberListLocked()
 		m.mu.Unlock()
 		m.publishToSubscribers(subscribers, update)
 	case "thread/status/changed":
-		threadID := strAny(notification.Params["threadId"])
-		if threadID == "" {
+		threadID, err := requiredTrimmedString(notification.Params, "threadId", "thread/status/changed threadId")
+		if err != nil {
+			m.broadcastSystemError(err.Error())
 			return
 		}
-		m.applyStatus(threadID, threadStatusFromAny(notification.Params["status"]))
+		status, err := threadStatusFromAny(notification.Params["status"])
+		if err != nil {
+			m.finishWithError(threadID, err)
+			return
+		}
+		m.applyStatus(threadID, status)
 	case "thread/name/updated":
-		threadID := strAny(notification.Params["threadId"])
-		name := strAny(notification.Params["threadName"])
-		if threadID == "" || name == "" {
+		threadID, err := requiredTrimmedString(notification.Params, "threadId", "thread/name/updated threadId")
+		if err != nil {
+			m.broadcastSystemError(err.Error())
+			return
+		}
+		name, err := requiredTrimmedString(notification.Params, "threadName", "thread/name/updated threadName")
+		if err != nil {
+			m.finishWithError(threadID, err)
 			return
 		}
 		m.mu.Lock()
-		session := m.ensureSessionLocked(threadID)
+		session := m.sessionLocked(threadID)
+		if session == nil {
+			m.mu.Unlock()
+			return
+		}
 		session.record.Title = name
 		session.record.UpdatedAt = time.Now().UTC()
 		update := m.sessionUpdateLocked(session, "session")
@@ -395,41 +404,89 @@ func (m *Manager) handleNotification(notification appserver.Notification) {
 		m.mu.Unlock()
 		m.publishToSubscribers(subscribers, update)
 	case "turn/started":
-		threadID := strAny(notification.Params["threadId"])
-		if threadID == "" {
+		threadID, err := requiredTrimmedString(notification.Params, "threadId", "turn/started threadId")
+		if err != nil {
+			m.broadcastSystemError(err.Error())
 			return
 		}
-		m.applyTurnStarted(threadID, turnFromAny(notification.Params["turn"]))
+		turn, err := turnFromAny(notification.Params["turn"])
+		if err != nil {
+			m.finishWithError(threadID, err)
+			return
+		}
+		m.applyTurnStarted(threadID, turn)
 	case "turn/completed":
-		threadID := strAny(notification.Params["threadId"])
-		if threadID == "" {
+		threadID, err := requiredTrimmedString(notification.Params, "threadId", "turn/completed threadId")
+		if err != nil {
+			m.broadcastSystemError(err.Error())
 			return
 		}
-		m.applyTurnCompleted(threadID, turnFromAny(notification.Params["turn"]))
+		turn, err := turnFromAny(notification.Params["turn"])
+		if err != nil {
+			m.finishWithError(threadID, err)
+			return
+		}
+		m.applyTurnCompleted(threadID, turn)
 	case "item/started":
 		m.applyItemNotification(notification, statusRunning)
 	case "item/completed":
 		m.applyItemNotification(notification, "completed")
 	case "item/agentMessage/delta":
-		threadID := strAny(notification.Params["threadId"])
-		itemID := strAny(notification.Params["itemId"])
-		delta := textAny(notification.Params["delta"])
-		if threadID != "" && itemID != "" && delta != "" {
-			m.appendAssistantDelta(threadID, itemID, delta)
+		threadID, err := requiredTrimmedString(notification.Params, "threadId", "item/agentMessage/delta threadId")
+		if err != nil {
+			m.broadcastSystemError(err.Error())
+			return
 		}
+		turnID, err := requiredTrimmedString(notification.Params, "turnId", "item/agentMessage/delta turnId")
+		if err != nil {
+			m.finishWithError(threadID, err)
+			return
+		}
+		itemID, err := requiredTrimmedString(notification.Params, "itemId", "item/agentMessage/delta itemId")
+		if err != nil {
+			m.finishWithError(threadID, err)
+			return
+		}
+		delta, err := requiredTextString(notification.Params, "delta", "item/agentMessage/delta delta")
+		if err != nil {
+			m.finishWithError(threadID, err)
+			return
+		}
+		m.appendAssistantDelta(threadID, turnID, itemID, delta)
 	case "item/commandExecution/outputDelta":
-		threadID := strAny(notification.Params["threadId"])
-		itemID := strAny(notification.Params["itemId"])
-		delta := textAny(notification.Params["delta"])
-		if threadID != "" && itemID != "" && delta != "" {
-			m.appendCommandOutputDelta(threadID, itemID, delta)
+		threadID, err := requiredTrimmedString(notification.Params, "threadId", "item/commandExecution/outputDelta threadId")
+		if err != nil {
+			m.broadcastSystemError(err.Error())
+			return
 		}
+		turnID, err := requiredTrimmedString(notification.Params, "turnId", "item/commandExecution/outputDelta turnId")
+		if err != nil {
+			m.finishWithError(threadID, err)
+			return
+		}
+		itemID, err := requiredTrimmedString(notification.Params, "itemId", "item/commandExecution/outputDelta itemId")
+		if err != nil {
+			m.finishWithError(threadID, err)
+			return
+		}
+		delta, err := requiredTextString(notification.Params, "delta", "item/commandExecution/outputDelta delta")
+		if err != nil {
+			m.finishWithError(threadID, err)
+			return
+		}
+		m.appendCommandOutputDelta(threadID, turnID, itemID, delta)
 	case "error":
-		threadID := strAny(notification.Params["threadId"])
-		message := firstNonEmpty(strAny(notification.Params["message"]), strAny(notification.Params["error"]))
-		if threadID != "" && message != "" {
-			m.finishWithError(threadID, errors.New(message))
+		threadID, err := requiredTrimmedString(notification.Params, "threadId", "error notification threadId")
+		if err != nil {
+			m.broadcastSystemError(err.Error())
+			return
 		}
+		message, err := requiredTrimmedString(notification.Params, "message", "error notification message")
+		if err != nil {
+			m.finishWithError(threadID, err)
+			return
+		}
+		m.finishWithError(threadID, errors.New(message))
 	case "appserver/disconnected":
 		m.broadcastSystemError("Codex app-server disconnected.")
 	default:
@@ -440,15 +497,32 @@ func (m *Manager) handleNotification(notification appserver.Notification) {
 }
 
 func (m *Manager) applyTurnStarted(sessionID string, turn appserver.Turn) {
+	turnID := strings.TrimSpace(turn.ID)
+	if turnID == "" {
+		m.finishWithError(sessionID, errors.New("Codex turn id is required"))
+		return
+	}
 	m.mu.Lock()
-	session := m.ensureSessionLocked(sessionID)
-	turnID := firstNonEmpty(turn.ID, session.runningTurnID, fmt.Sprintf("turn-%d", session.lastSeq+1))
+	session := m.sessionLocked(sessionID)
+	if session == nil {
+		m.mu.Unlock()
+		return
+	}
+	session.stateLoaded = true
 	turn.ID = turnID
-	modelTurn := turnFromAppServer(turn)
+	modelTurn, err := turnFromAppServer(turn)
+	if err != nil {
+		m.mu.Unlock()
+		m.finishWithError(sessionID, err)
+		return
+	}
 	modelTurn.Status = statusRunning
 	index := session.upsertTurn(modelTurn)
 	session.runningTurnID = turnID
-	m.setStatusLocked(sessionID, statusRunning)
+	if m.setStatusLocked(sessionID, statusRunning) == nil {
+		m.mu.Unlock()
+		return
+	}
 	update := m.turnUpdateLocked(session, index)
 	subscribers := m.subscriberListLocked()
 	m.mu.Unlock()
@@ -456,24 +530,38 @@ func (m *Manager) applyTurnStarted(sessionID string, turn appserver.Turn) {
 }
 
 func (m *Manager) applyTurnCompleted(sessionID string, turn appserver.Turn) {
-	m.mu.Lock()
-	session := m.ensureSessionLocked(sessionID)
-	turnID := firstNonEmpty(turn.ID, session.runningTurnID)
+	turnID := strings.TrimSpace(turn.ID)
 	if turnID == "" {
+		return
+	}
+	m.mu.Lock()
+	session := m.sessionLocked(sessionID)
+	if session == nil {
 		m.mu.Unlock()
 		return
 	}
 	turn.ID = turnID
-	modelTurn := turnFromAppServer(turn)
+	modelTurn, err := turnFromAppServer(turn)
+	if err != nil {
+		m.mu.Unlock()
+		m.finishWithError(sessionID, err)
+		return
+	}
 	modelTurn.Status = "completed"
 	index := session.upsertTurn(modelTurn)
 	if session.runningTurnID == turnID {
 		session.runningTurnID = ""
 	}
 	if modelTurn.Status == statusError {
-		m.setStatusLocked(sessionID, statusError)
+		if m.setStatusLocked(sessionID, statusError) == nil {
+			m.mu.Unlock()
+			return
+		}
 	} else {
-		m.setStatusLocked(sessionID, statusIdle)
+		if m.setStatusLocked(sessionID, statusIdle) == nil {
+			m.mu.Unlock()
+			return
+		}
 	}
 	update := m.turnUpdateLocked(session, index)
 	subscribers := m.subscriberListLocked()
@@ -481,27 +569,50 @@ func (m *Manager) applyTurnCompleted(sessionID string, turn appserver.Turn) {
 	m.publishToSubscribers(subscribers, update)
 }
 
-func (m *Manager) applyItemNotification(notification appserver.Notification, defaultStatus string) {
-	threadID := strAny(notification.Params["threadId"])
-	rawItem := itemMap(notification.Params["item"])
-	if threadID == "" || rawItem == nil {
+func (m *Manager) applyItemNotification(notification appserver.Notification, eventStatus string) {
+	threadID, err := requiredTrimmedString(notification.Params, "threadId", "item notification threadId")
+	if err != nil {
+		m.broadcastSystemError(err.Error())
 		return
 	}
-	item := itemFromMap(rawItem, time.Now().UTC())
-	if item.ID == "" {
-		item.ID = fmt.Sprintf("%s-%d", firstNonEmpty(item.Type, "item"), time.Now().UnixNano())
+	rawItem := itemMap(notification.Params["item"])
+	if rawItem == nil {
+		m.finishWithError(threadID, errors.New("item notification item is required"))
+		return
+	}
+	item, err := itemFromMap(rawItem)
+	if err != nil {
+		m.finishWithError(threadID, err)
+		return
 	}
 	if item.Status == "" {
-		item.Status = defaultStatus
+		item.Status = eventStatus
 	}
 	m.mu.Lock()
-	session := m.ensureSessionLocked(threadID)
-	turnID := m.turnIDForItemLocked(session, notification.Params, rawItem)
-	turnIndex := session.ensureTurn(turnID)
+	session := m.sessionLocked(threadID)
+	if session == nil {
+		m.mu.Unlock()
+		return
+	}
+	turnID, err := turnIDForItemLocked(notification.Params)
+	if err != nil {
+		m.mu.Unlock()
+		m.finishWithError(threadID, err)
+		return
+	}
+	turnIndex, ok := session.ensureTurn(turnID)
+	if !ok {
+		m.mu.Unlock()
+		m.finishWithError(threadID, errors.New("item notification turnId is required"))
+		return
+	}
 	itemIndex := session.upsertItem(turnIndex, item)
 	if item.Status == statusRunning {
 		session.runningTurnID = session.turns[turnIndex].ID
-		m.setStatusLocked(threadID, statusRunning)
+		if m.setStatusLocked(threadID, statusRunning) == nil {
+			m.mu.Unlock()
+			return
+		}
 	}
 	update := m.itemUpdateLocked(session, turnIndex, itemIndex)
 	subscribers := m.subscriberListLocked()
@@ -509,43 +620,56 @@ func (m *Manager) applyItemNotification(notification appserver.Notification, def
 	m.publishToSubscribers(subscribers, update)
 }
 
-func (m *Manager) appendAssistantDelta(sessionID, itemID, delta string) {
+func (m *Manager) appendAssistantDelta(sessionID, turnID, itemID, delta string) {
 	m.mu.Lock()
-	session := m.ensureSessionLocked(sessionID)
-	turnIndex, itemIndex := session.ensureItem(m.turnIDForItemLocked(session, nil, nil), model.SessionItem{
-		ID:     itemID,
-		Type:   "agentMessage",
-		Status: statusRunning,
-		Phase:  "final_answer",
-		Time:   time.Now().UTC(),
-	})
+	session := m.sessionLocked(sessionID)
+	if session == nil {
+		m.mu.Unlock()
+		return
+	}
+	turnIndex, itemIndex, ok := session.findItem(turnID, itemID)
+	if !ok {
+		m.mu.Unlock()
+		m.finishWithError(sessionID, errors.New("agent message item must be started before delta"))
+		return
+	}
 	item := &session.turns[turnIndex].Items[itemIndex]
 	item.Text += delta
 	item.Status = statusRunning
 	item.Time = time.Now().UTC()
 	session.runningTurnID = session.turns[turnIndex].ID
-	m.setStatusLocked(sessionID, statusRunning)
+	if m.setStatusLocked(sessionID, statusRunning) == nil {
+		m.mu.Unlock()
+		return
+	}
 	update := m.itemUpdateLocked(session, turnIndex, itemIndex)
 	subscribers := m.subscriberListLocked()
 	m.mu.Unlock()
 	m.publishToSubscribers(subscribers, update)
 }
 
-func (m *Manager) appendCommandOutputDelta(sessionID, itemID, delta string) {
+func (m *Manager) appendCommandOutputDelta(sessionID, turnID, itemID, delta string) {
 	m.mu.Lock()
-	session := m.ensureSessionLocked(sessionID)
-	turnIndex, itemIndex := session.ensureItem(m.turnIDForItemLocked(session, nil, nil), model.SessionItem{
-		ID:     itemID,
-		Type:   "commandExecution",
-		Status: statusRunning,
-		Time:   time.Now().UTC(),
-	})
+	session := m.sessionLocked(sessionID)
+	if session == nil {
+		m.mu.Unlock()
+		return
+	}
+	turnIndex, itemIndex, ok := session.findItem(turnID, itemID)
+	if !ok {
+		m.mu.Unlock()
+		m.finishWithError(sessionID, errors.New("command execution item must be started before output delta"))
+		return
+	}
 	item := &session.turns[turnIndex].Items[itemIndex]
 	item.Output += delta
 	item.Status = statusRunning
 	item.Time = time.Now().UTC()
 	session.runningTurnID = session.turns[turnIndex].ID
-	m.setStatusLocked(sessionID, statusRunning)
+	if m.setStatusLocked(sessionID, statusRunning) == nil {
+		m.mu.Unlock()
+		return
+	}
 	update := m.itemUpdateLocked(session, turnIndex, itemIndex)
 	subscribers := m.subscriberListLocked()
 	m.mu.Unlock()
@@ -553,28 +677,47 @@ func (m *Manager) appendCommandOutputDelta(sessionID, itemID, delta string) {
 }
 
 func (m *Manager) handleServerRequestNotification(notification appserver.Notification) {
-	threadID := strAny(notification.Params["threadId"])
-	if threadID == "" {
-		threadID = strAny(notification.Params["conversationId"])
-	}
-	if threadID == "" {
+	threadID, err := requiredTrimmedString(notification.Params, "threadId", "server request threadId")
+	if err != nil {
+		m.broadcastSystemError(err.Error())
 		return
 	}
 	text := "Codex requested approval; this version declined it automatically."
-	if command := strAny(notification.Params["command"]); command != "" {
+	if command, err := optionalTextString(notification.Params, "command", "server request command"); err != nil {
+		m.finishWithError(threadID, err)
+		return
+	} else if command != "" {
 		text = "Approval requested for command: " + command
 	}
 	now := time.Now().UTC()
+	requestID := strings.TrimSpace(notification.RequestID)
+	if requestID == "" {
+		return
+	}
 	item := model.SessionItem{
-		ID:     firstNonEmpty(notification.RequestID, fmt.Sprintf("approval-%d", now.UnixNano())),
+		ID:     requestID,
 		Type:   "approvalRequest",
 		Status: "declined",
 		Text:   text,
 		Time:   now,
 	}
 	m.mu.Lock()
-	session := m.ensureSessionLocked(threadID)
-	turnIndex, itemIndex := session.ensureItem(m.turnIDForItemLocked(session, notification.Params, nil), item)
+	session := m.sessionLocked(threadID)
+	if session == nil {
+		m.mu.Unlock()
+		return
+	}
+	turnID, err := turnIDForItemLocked(notification.Params)
+	if err != nil {
+		m.mu.Unlock()
+		m.finishWithError(threadID, err)
+		return
+	}
+	turnIndex, itemIndex, ok := session.ensureItem(turnID, item)
+	if !ok {
+		m.mu.Unlock()
+		return
+	}
 	update := m.itemUpdateLocked(session, turnIndex, itemIndex)
 	subscribers := m.subscriberListLocked()
 	m.mu.Unlock()
@@ -583,8 +726,11 @@ func (m *Manager) handleServerRequestNotification(notification appserver.Notific
 
 func (m *Manager) applyStatus(sessionID, status string) {
 	m.mu.Lock()
-	session := m.ensureSessionLocked(sessionID)
-	m.setStatusLocked(sessionID, status)
+	session := m.setStatusLocked(sessionID, status)
+	if session == nil {
+		m.mu.Unlock()
+		return
+	}
 	update := m.sessionUpdateLocked(session, "session")
 	subscribers := m.subscriberListLocked()
 	m.mu.Unlock()
@@ -593,9 +739,16 @@ func (m *Manager) applyStatus(sessionID, status string) {
 
 func (m *Manager) finishWithError(sessionID string, err error) {
 	m.mu.Lock()
-	session := m.ensureSessionLocked(sessionID)
+	session := m.sessionLocked(sessionID)
+	if session == nil {
+		m.mu.Unlock()
+		return
+	}
 	session.runningTurnID = ""
-	m.setStatusLocked(sessionID, statusError)
+	if m.setStatusLocked(sessionID, statusError) == nil {
+		m.mu.Unlock()
+		return
+	}
 	update := m.sessionUpdateLocked(session, "error")
 	update.Error = err.Error()
 	subscribers := m.subscriberListLocked()
@@ -615,13 +768,10 @@ func (m *Manager) broadcastSystemError(text string) {
 	}
 }
 
-func (m *Manager) applyThreadLocked(thread appserver.Thread) *managedSession {
-	id := thread.ID
+func (m *Manager) applyThreadLocked(thread appserver.Thread) (*managedSession, error) {
+	id := strings.TrimSpace(thread.ID)
 	if id == "" {
-		id = thread.SessionID
-	}
-	if id == "" {
-		return nil
+		return nil, errors.New("Codex thread id is required")
 	}
 	session := m.sessions[id]
 	if session == nil {
@@ -631,7 +781,10 @@ func (m *Manager) applyThreadLocked(thread appserver.Thread) *managedSession {
 		}
 		m.sessions[id] = session
 	}
-	record := recordFromThread(thread)
+	record, err := recordFromThread(thread)
+	if err != nil {
+		return nil, err
+	}
 	if session.lastSeq > 0 {
 		record.LastSeq = session.lastSeq
 	}
@@ -640,155 +793,195 @@ func (m *Manager) applyThreadLocked(thread appserver.Thread) *managedSession {
 	}
 	session.record = record
 	if len(thread.Turns) > 0 && !session.stateLoaded {
-		session.turns = turnsFromThread(thread)
+		turns, err := turnsFromThread(thread)
+		if err != nil {
+			return nil, err
+		}
+		session.turns = turns
 		session.stateLoaded = true
 		session.rebuildIndexes()
 		session.runningTurnID = runningTurnID(session.turns)
 	}
 	session.ensureIndexes()
-	return session
+	return session, nil
 }
 
-func recordFromThread(thread appserver.Thread) model.SessionRecord {
-	id := firstNonEmpty(thread.ID, thread.SessionID)
+func recordFromThread(thread appserver.Thread) (model.SessionRecord, error) {
+	id := strings.TrimSpace(thread.ID)
+	if id == "" {
+		return model.SessionRecord{}, errors.New("Codex thread id is required")
+	}
+	if strings.TrimSpace(thread.CWD) == "" {
+		return model.SessionRecord{}, errors.New("Codex thread cwd is required")
+	}
+	status := statusFromThreadStatus(thread.Status)
+	if status == "" {
+		return model.SessionRecord{}, errors.New("Codex thread status is required")
+	}
 	createdAt := unixSeconds(thread.CreatedAt)
 	updatedAt := unixSeconds(thread.UpdatedAt)
-	if thread.RecencyAt != nil && *thread.RecencyAt > thread.UpdatedAt {
-		updatedAt = unixSeconds(*thread.RecencyAt)
-	}
-	if updatedAt.IsZero() {
-		updatedAt = createdAt
-	}
 	title := strings.TrimSpace(thread.Preview)
 	if thread.Name != nil && strings.TrimSpace(*thread.Name) != "" {
 		title = strings.TrimSpace(*thread.Name)
 	}
-	if title == "" {
-		title = "New session"
-	}
 	return model.SessionRecord{
-		ID:            id,
-		CodexThreadID: thread.ID,
-		Title:         title,
-		CWD:           thread.CWD,
-		Status:        statusFromThreadStatus(thread.Status),
-		CreatedAt:     createdAt,
-		UpdatedAt:     updatedAt,
-	}
+		ID:        id,
+		Title:     title,
+		CWD:       thread.CWD,
+		Status:    status,
+		CreatedAt: createdAt,
+		UpdatedAt: updatedAt,
+	}, nil
 }
 
 func statusFromThreadStatus(status appserver.ThreadStatus) string {
-	switch strings.ToLower(strings.TrimSpace(status.Type)) {
-	case statusRunning:
-		return statusRunning
-	case statusError:
-		return statusError
-	default:
-		return statusIdle
+	return strings.TrimSpace(status.Type)
+}
+
+func turnStatus(status string) string {
+	return strings.TrimSpace(status)
+}
+
+func threadStatusFromAny(value any) (string, error) {
+	status, ok := value.(map[string]any)
+	if !ok {
+		return "", errors.New("thread status must be an object")
 	}
-}
-
-func threadStatusFromAny(value any) string {
-	status, _ := value.(map[string]any)
-	return statusFromThreadStatus(appserver.ThreadStatus{
-		Type: strAny(status["type"]),
+	statusType, err := requiredTrimmedString(status, "type", "thread status type")
+	if err != nil {
+		return "", err
+	}
+	out := statusFromThreadStatus(appserver.ThreadStatus{
+		Type: statusType,
 	})
+	if out == "" {
+		return "", errors.New("thread status type is required")
+	}
+	return out, nil
 }
 
-func turnsFromThread(thread appserver.Thread) []model.SessionTurn {
+func turnsFromThread(thread appserver.Thread) ([]model.SessionTurn, error) {
 	turns := make([]model.SessionTurn, 0, len(thread.Turns))
-	for turnIndex, turn := range thread.Turns {
-		modelTurn := turnFromAppServer(turn)
-		if modelTurn.ID == "" {
-			modelTurn.ID = fmt.Sprintf("turn-%d", turnIndex+1)
-		}
-		for itemIndex := range modelTurn.Items {
-			if modelTurn.Items[itemIndex].ID == "" {
-				modelTurn.Items[itemIndex].ID = fmt.Sprintf("%s-%d", firstNonEmpty(modelTurn.Items[itemIndex].Type, "item"), itemIndex+1)
-			}
+	for _, turn := range thread.Turns {
+		modelTurn, err := turnFromAppServer(turn)
+		if err != nil {
+			return nil, err
 		}
 		turns = append(turns, modelTurn)
 	}
-	return turns
+	return turns, nil
 }
 
-func turnFromAppServer(turn appserver.Turn) model.SessionTurn {
+func turnFromAppServer(turn appserver.Turn) (model.SessionTurn, error) {
+	if strings.TrimSpace(turn.ID) == "" {
+		return model.SessionTurn{}, errors.New("Codex turn id is required")
+	}
 	startedAt := timePtrFromUnix(turn.StartedAt)
 	completedAt := timePtrFromUnix(turn.CompletedAt)
-	itemTime := time.Now().UTC()
-	if startedAt != nil {
-		itemTime = *startedAt
-	} else if completedAt != nil {
-		itemTime = *completedAt
-	}
 	items := make([]model.SessionItem, 0, len(turn.Items))
-	for index, sourceItem := range turn.Items {
-		item := itemFromMap(sourceItem, itemTime.Add(time.Duration(index)*time.Millisecond))
+	for _, sourceItem := range turn.Items {
+		item, err := itemFromMap(sourceItem)
+		if err != nil {
+			return model.SessionTurn{}, err
+		}
 		items = append(items, item)
 	}
 	return model.SessionTurn{
 		ID:          turn.ID,
-		Status:      firstNonEmpty(turn.Status, statusIdle),
+		Status:      turnStatus(turn.Status),
 		StartedAt:   startedAt,
 		CompletedAt: completedAt,
-		DurationMs:  normalizedTurnDurationMs(turn.DurationMs, startedAt, completedAt),
+		DurationMs:  appServerTurnDurationMs(turn.DurationMs),
 		Error:       turn.Error,
 		Items:       items,
-	}
+	}, nil
 }
 
-func itemFromMap(item map[string]any, itemTime time.Time) model.SessionItem {
-	if itemTime.IsZero() {
-		itemTime = time.Now().UTC()
+func itemFromMap(item map[string]any) (model.SessionItem, error) {
+	itemKind, err := requiredTrimmedString(item, "type", "Codex item type")
+	if err != nil {
+		return model.SessionItem{}, err
 	}
-	itemKind := strAny(item["type"])
+	id, err := requiredTrimmedString(item, "id", "Codex item id")
+	if err != nil {
+		return model.SessionItem{}, err
+	}
 	out := model.SessionItem{
-		ID:      strAny(item["id"]),
-		Type:    itemKind,
-		Status:  strAny(item["status"]),
-		Time:    itemTime.UTC(),
-		Phase:   strAny(item["phase"]),
-		Command: strAny(item["command"]),
-		CWD:     strAny(item["cwd"]),
-		Server:  strAny(item["server"]),
-		Tool:    strAny(item["tool"]),
-		Name:    strAny(item["name"]),
+		ID:   id,
+		Type: itemKind,
+	}
+	if out.Status, err = optionalTrimmedString(item, "status", "Codex item status"); err != nil {
+		return model.SessionItem{}, err
+	}
+	if out.Phase, err = optionalTrimmedString(item, "phase", "Codex item phase"); err != nil {
+		return model.SessionItem{}, err
+	}
+	if out.Command, err = optionalTextString(item, "command", "Codex item command"); err != nil {
+		return model.SessionItem{}, err
+	}
+	if out.CWD, err = optionalTextString(item, "cwd", "Codex item cwd"); err != nil {
+		return model.SessionItem{}, err
+	}
+	if out.Server, err = optionalTrimmedString(item, "server", "Codex item server"); err != nil {
+		return model.SessionItem{}, err
+	}
+	if out.Tool, err = optionalTrimmedString(item, "tool", "Codex item tool"); err != nil {
+		return model.SessionItem{}, err
+	}
+	if out.Name, err = optionalTrimmedString(item, "name", "Codex item name"); err != nil {
+		return model.SessionItem{}, err
 	}
 	switch itemKind {
 	case "userMessage":
-		out.Text = userInputText(item["content"])
-	case "agentMessage":
-		out.Text = textAny(item["text"])
-	case "reasoning":
-		out.Text = firstNonEmpty(stringListText(item["summary"]), stringListText(item["content"]))
-	case "commandExecution":
-		out.Text = out.Command
-		out.Output = textAny(item["aggregatedOutput"])
-		if out.Name == "" {
-			out.Name = "exec_command"
+		text, err := userInputText(item["content"])
+		if err != nil {
+			return model.SessionItem{}, err
 		}
+		out.Text = text
+	case "agentMessage":
+		text, err := optionalTextString(item, "text", "agentMessage text")
+		if err != nil {
+			return model.SessionItem{}, err
+		}
+		out.Text = text
+	case "reasoning":
+		text, err := stringListText(item["summary"])
+		if err != nil {
+			return model.SessionItem{}, err
+		}
+		out.Text = text
+	case "commandExecution":
+		output, err := optionalTextString(item, "aggregatedOutput", "commandExecution aggregatedOutput")
+		if err != nil {
+			return model.SessionItem{}, err
+		}
+		out.Output = output
 	case "fileChange":
-		out.Items = fileChangeItems(item["changes"])
-		out.Text = fileChangeSummary(out.Items)
+		items, err := fileChangeItems(item["changes"])
+		if err != nil {
+			return model.SessionItem{}, err
+		}
+		out.Items = items
 	case "mcpToolCall":
-		out.Name = firstNonEmpty(out.Server+"/"+out.Tool, out.Tool, "mcp_tool")
-		out.Text = out.Name
 	case "dynamicToolCall":
-		out.Name = firstNonEmpty(strAny(item["tool"]), "dynamic_tool")
-		out.Text = out.Name
 	case "plan":
-		out.Text = textAny(item["text"])
+		text, err := optionalTextString(item, "text", "plan text")
+		if err != nil {
+			return model.SessionItem{}, err
+		}
+		out.Text = text
 	case "contextCompaction":
-		out.Text = "Context compacted"
 	case "webSearch":
-		out.Name = "web_search"
-		out.Text = "web_search"
 	case "imageView":
-		out.Text = strAny(item["path"])
+		text, err := optionalTextString(item, "path", "imageView path")
+		if err != nil {
+			return model.SessionItem{}, err
+		}
+		out.Text = text
 	default:
-		out.Text = textAny(item["text"])
+		return model.SessionItem{}, fmt.Errorf("unsupported Codex item type: %s", itemKind)
 	}
-	return out
+	return out, nil
 }
 
 func runningTurnID(turns []model.SessionTurn) string {
@@ -809,24 +1002,11 @@ func countStateItems(turns []model.SessionTurn) int {
 	return count
 }
 
-func (m *Manager) turnIDForItemLocked(session *managedSession, params map[string]any, rawItem map[string]any) string {
-	if params != nil {
-		if turnID := strAny(params["turnId"]); turnID != "" {
-			return turnID
-		}
+func turnIDForItemLocked(params map[string]any) (string, error) {
+	if params == nil {
+		return "", errors.New("turnId is required")
 	}
-	if rawItem != nil {
-		if turnID := strAny(rawItem["turnId"]); turnID != "" {
-			return turnID
-		}
-	}
-	if session.runningTurnID != "" {
-		return session.runningTurnID
-	}
-	if len(session.turns) > 0 {
-		return session.turns[len(session.turns)-1].ID
-	}
-	return fmt.Sprintf("turn-%d", session.lastSeq+1)
+	return requiredTrimmedString(params, "turnId", "turnId")
 }
 
 func (s *managedSession) ensureIndexes() {
@@ -856,32 +1036,22 @@ func (s *managedSession) rebuildIndexes() {
 	}
 }
 
-func (s *managedSession) ensureTurn(turnID string) int {
+func (s *managedSession) ensureTurn(turnID string) (int, bool) {
 	s.ensureIndexes()
 	turnID = strings.TrimSpace(turnID)
 	if turnID == "" {
-		turnID = fmt.Sprintf("turn-%d", len(s.turns)+1)
+		return -1, false
 	}
 	if index, ok := s.turnIndex[turnID]; ok {
-		return index
+		return index, true
 	}
-	now := time.Now().UTC()
-	turn := model.SessionTurn{
-		ID:        turnID,
-		Status:    statusRunning,
-		StartedAt: &now,
-		Items:     []model.SessionItem{},
-	}
-	s.turns = append(s.turns, turn)
-	index := len(s.turns) - 1
-	s.turnIndex[turnID] = index
-	return index
+	return -1, false
 }
 
 func (s *managedSession) upsertTurn(turn model.SessionTurn) int {
 	s.ensureIndexes()
 	if turn.ID == "" {
-		turn.ID = fmt.Sprintf("turn-%d", len(s.turns)+1)
+		return -1
 	}
 	if index, ok := s.turnIndex[turn.ID]; ok {
 		existing := &s.turns[index]
@@ -909,9 +1079,6 @@ func (s *managedSession) upsertItem(turnIndex int, item model.SessionItem) int {
 			return location.Item
 		}
 	}
-	if item.Time.IsZero() {
-		item.Time = time.Now().UTC()
-	}
 	s.turns[turnIndex].Items = append(s.turns[turnIndex].Items, item)
 	itemIndex := len(s.turns[turnIndex].Items) - 1
 	if item.ID != "" {
@@ -920,44 +1087,39 @@ func (s *managedSession) upsertItem(turnIndex int, item model.SessionItem) int {
 	return itemIndex
 }
 
-func finalizeTerminalTurnItems(turn *model.SessionTurn) {
-	if turn == nil {
-		return
-	}
-	status := terminalItemStatus(turn.Status)
-	if status == "" {
-		return
-	}
-	for index := range turn.Items {
-		if turn.Items[index].Status == "" || isRunningStatus(turn.Items[index].Status) {
-			turn.Items[index].Status = status
-		}
-	}
-}
-
-func terminalItemStatus(turnStatus string) string {
-	switch strings.ToLower(strings.TrimSpace(turnStatus)) {
-	case statusError:
-		return statusError
-	case "interrupted":
-		return "interrupted"
-	case "completed":
-		return "completed"
-	default:
-		return ""
-	}
-}
-
-func (s *managedSession) ensureItem(turnID string, item model.SessionItem) (int, int) {
+func (s *managedSession) ensureItem(turnID string, item model.SessionItem) (int, int, bool) {
 	s.ensureIndexes()
 	if item.ID != "" {
 		if location, ok := s.itemIndex[item.ID]; ok {
-			return location.Turn, location.Item
+			return location.Turn, location.Item, true
 		}
 	}
-	turnIndex := s.ensureTurn(turnID)
+	turnIndex, ok := s.ensureTurn(turnID)
+	if !ok {
+		return -1, -1, false
+	}
 	itemIndex := s.upsertItem(turnIndex, item)
-	return turnIndex, itemIndex
+	return turnIndex, itemIndex, true
+}
+
+func (s *managedSession) findItem(turnID, itemID string) (int, int, bool) {
+	s.ensureIndexes()
+	turnID = strings.TrimSpace(turnID)
+	itemID = strings.TrimSpace(itemID)
+	if turnID == "" || itemID == "" {
+		return -1, -1, false
+	}
+	location, ok := s.itemIndex[itemID]
+	if !ok {
+		return -1, -1, false
+	}
+	if location.Turn < 0 || location.Turn >= len(s.turns) {
+		return -1, -1, false
+	}
+	if s.turns[location.Turn].ID != turnID {
+		return -1, -1, false
+	}
+	return location.Turn, location.Item, true
 }
 
 func mergeTurn(existing *model.SessionTurn, incoming model.SessionTurn) {
@@ -1033,32 +1195,22 @@ func mergeItem(existing *model.SessionItem, incoming model.SessionItem) {
 	}
 }
 
-func (m *Manager) ensureSessionLocked(sessionID string) *managedSession {
+func (m *Manager) sessionLocked(sessionID string) *managedSession {
 	session := m.sessions[sessionID]
-	if session == nil {
-		now := time.Now().UTC()
-		session = &managedSession{
-			record: model.SessionRecord{
-				ID:            sessionID,
-				CodexThreadID: sessionID,
-				Title:         "New session",
-				Status:        statusIdle,
-				CreatedAt:     now,
-				UpdatedAt:     now,
-			},
-			turnIndex: map[string]int{},
-			itemIndex: map[string]itemLocation{},
-		}
-		m.sessions[sessionID] = session
+	if session != nil {
+		session.ensureIndexes()
 	}
-	session.ensureIndexes()
 	return session
 }
 
-func (m *Manager) setStatusLocked(sessionID, status string) {
-	session := m.ensureSessionLocked(sessionID)
+func (m *Manager) setStatusLocked(sessionID, status string) *managedSession {
+	session := m.sessionLocked(sessionID)
+	if session == nil {
+		return nil
+	}
 	session.record.Status = status
 	session.record.UpdatedAt = time.Now().UTC()
+	return session
 }
 
 func (m *Manager) sessionUpdateLocked(session *managedSession, updateType string) model.SessionStateUpdate {
@@ -1152,10 +1304,6 @@ func cloneTurn(turn model.SessionTurn) model.SessionTurn {
 	for _, item := range turn.Items {
 		out.Items = append(out.Items, cloneItem(item))
 	}
-	finalizeTerminalTurnItems(&out)
-	if item := terminalTurnItem(out); item != nil {
-		out.Items = append(out.Items, *item)
-	}
 	return out
 }
 
@@ -1165,260 +1313,51 @@ func cloneItem(item model.SessionItem) model.SessionItem {
 	return out
 }
 
-func eventsFromState(state model.SessionState) []model.SessionEvent {
-	events := []model.SessionEvent{}
-	var seq int64
-	for _, turn := range state.Turns {
-		for itemIndex, item := range turn.Items {
-			eventTime := item.Time
-			if eventTime.IsZero() && turn.StartedAt != nil {
-				eventTime = *turn.StartedAt
-			}
-			event, extra := eventFromStateItem(state.Session.ID, turn, item, eventTime)
-			if event.Kind == "" {
-				continue
-			}
-			seq++
-			event.SessionID = state.Session.ID
-			event.Seq = seq
-			if event.Data == nil {
-				event.Data = map[string]any{}
-			}
-			event.Data["turnId"] = turn.ID
-			event.Data["contentUnit"] = itemIndex
-			events = append(events, event)
-			for _, followup := range extra {
-				seq++
-				followup.SessionID = state.Session.ID
-				followup.Seq = seq
-				events = append(events, followup)
-			}
-		}
-	}
-	return events
-}
-
-func terminalTurnItem(turn model.SessionTurn) *model.SessionItem {
-	if len(turn.Error) > 0 {
-		return &model.SessionItem{
-			ID:     firstNonEmpty(turn.ID, "turn") + "-terminal",
-			Type:   "error",
-			Status: firstNonEmpty(turn.Status, statusError),
-			Time:   terminalTurnTime(turn),
-			Text:   turnErrorText(turn.Error),
-		}
-	}
-	if !turnHasNoVisibleResponse(turn) {
-		return nil
-	}
-	text := "No response was produced for this turn."
-	if strings.EqualFold(turn.Status, "interrupted") {
-		text = "Generation stopped."
-	}
-	return &model.SessionItem{
-		ID:     firstNonEmpty(turn.ID, "turn") + "-terminal",
-		Type:   "error",
-		Status: turn.Status,
-		Time:   terminalTurnTime(turn),
-		Text:   text,
-	}
-}
-
-func terminalTurnTime(turn model.SessionTurn) time.Time {
-	if turn.CompletedAt != nil {
-		return *turn.CompletedAt
-	}
-	if turn.StartedAt != nil {
-		return *turn.StartedAt
-	}
-	return time.Now().UTC()
-}
-
-func turnHasNoVisibleResponse(turn model.SessionTurn) bool {
-	if terminalItemStatus(turn.Status) == "" {
-		return false
-	}
-	hasUserMessage := false
-	for _, item := range turn.Items {
-		if item.Type == "userMessage" {
-			hasUserMessage = true
-			continue
-		}
-		if itemHasVisibleOutput(item) {
-			return false
-		}
-	}
-	return hasUserMessage
-}
-
-func itemHasVisibleOutput(item model.SessionItem) bool {
-	if strings.TrimSpace(item.Text) != "" || strings.TrimSpace(item.Output) != "" || len(item.Items) > 0 {
-		return true
-	}
-	switch item.Type {
-	case "commandExecution", "fileChange", "mcpToolCall", "dynamicToolCall", "webSearch", "imageView":
-		return true
-	default:
-		return false
-	}
-}
-
-func turnErrorText(errorData map[string]any) string {
-	if len(errorData) == 0 {
-		return "Codex turn failed."
-	}
-	if message := nestedErrorMessage(strAny(errorData["message"])); message != "" {
-		return message
-	}
-	if message := firstNonEmpty(strAny(errorData["message"]), strAny(errorData["error"]), strAny(errorData["codexErrorInfo"])); message != "" {
-		return message
-	}
-	return "Codex turn failed."
-}
-
-func nestedErrorMessage(text string) string {
-	if text == "" || !strings.HasPrefix(strings.TrimSpace(text), "{") {
-		return ""
-	}
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(text), &payload); err != nil {
-		return ""
-	}
-	if errorBody, ok := payload["error"].(map[string]any); ok {
-		if message := strAny(errorBody["message"]); message != "" {
-			return message
-		}
-	}
-	return strAny(payload["message"])
-}
-
-func eventFromStateItem(sessionID string, turn model.SessionTurn, item model.SessionItem, eventTime time.Time) (model.SessionEvent, []model.SessionEvent) {
-	data := compactStateItemData(turn, item)
-	switch item.Type {
-	case "userMessage":
-		return newParsedEvent("user_message", item.Text, eventTime, data), nil
-	case "agentMessage":
-		if item.Phase != "" {
-			data["phase"] = item.Phase
-		}
-		data["streaming"] = isRunningStatus(item.Status)
-		return newParsedEvent("assistant_message", item.Text, eventTime, data), nil
-	case "reasoning":
-		return newParsedEvent("reasoning", item.Text, eventTime, data), nil
-	case "commandExecution":
-		data["name"] = "exec_command"
-		data["args"] = map[string]any{
-			"cmd":     item.Command,
-			"workdir": item.CWD,
-		}
-		event := newParsedEvent("tool_call", "exec_command", eventTime, data)
-		if item.Output == "" {
-			return event, nil
-		}
-		outputData := map[string]any{
-			"itemId": item.ID + ":output",
-			"callId": item.ID,
-		}
-		if item.Status != "" {
-			outputData["status"] = item.Status
-		}
-		return event, []model.SessionEvent{newParsedEvent("tool_output", item.Output, eventTime.Add(time.Millisecond), outputData)}
-	case "fileChange":
-		return model.SessionEvent{
-			Kind:  "tool_summary",
-			Text:  item.Text,
-			Time:  eventTime,
-			Data:  data,
-			Items: item.Items,
-		}, nil
-	case "mcpToolCall", "dynamicToolCall", "webSearch":
-		data["name"] = firstNonEmpty(item.Name, item.Tool, item.Type)
-		return newParsedEvent("tool_call", data["name"].(string), eventTime, data), nil
-	case "plan", "contextCompaction":
-		return newParsedEvent("summary", item.Text, eventTime, data), nil
-	case "approvalRequest":
-		return newParsedEvent("approval_request", item.Text, eventTime, data), nil
-	default:
-		if item.Text != "" {
-			return newParsedEvent(item.Type, item.Text, eventTime, data), nil
-		}
-		return model.SessionEvent{}, nil
-	}
-}
-
-func compactStateItemData(turn model.SessionTurn, item model.SessionItem) map[string]any {
-	data := map[string]any{
-		"itemId": item.ID,
-		"turnId": turn.ID,
-	}
-	if item.Status != "" {
-		data["status"] = item.Status
-	}
-	if duration := turnDurationMillis(turn); duration != nil {
-		data["durationMs"] = *duration
-	}
-	if item.Phase != "" {
-		data["phase"] = item.Phase
-	}
-	if item.Name != "" {
-		data["name"] = item.Name
-	}
-	return data
-}
-
-func turnDurationMillis(turn model.SessionTurn) *int64 {
-	if turn.DurationMs != nil && *turn.DurationMs > 0 {
-		duration := *turn.DurationMs
+func appServerTurnDurationMs(explicit *int64) *int64 {
+	if explicit != nil && *explicit > 0 {
+		duration := *explicit
 		return &duration
 	}
 	return nil
 }
 
-func normalizedTurnDurationMs(explicit *int64, startedAt, completedAt *time.Time) *int64 {
-	if explicit != nil && *explicit > 0 {
-		duration := *explicit
-		return &duration
-	}
-	if startedAt == nil || completedAt == nil || completedAt.Before(*startedAt) {
-		return nil
-	}
-	duration := completedAt.Sub(*startedAt).Milliseconds()
-	if duration <= 0 {
-		return nil
-	}
-	return &duration
-}
-
-func newParsedEvent(kind, text string, eventTime time.Time, data map[string]any) model.SessionEvent {
-	if eventTime.IsZero() {
-		eventTime = time.Now().UTC()
-	}
-	return model.SessionEvent{
-		Time: eventTime.UTC(),
-		Kind: kind,
-		Text: strings.TrimSpace(text),
-		Data: data,
-	}
-}
-
-func threadFromParams(params map[string]any, key string) appserver.Thread {
+func threadFromParams(params map[string]any, key string) (appserver.Thread, error) {
 	var thread appserver.Thread
+	if params == nil {
+		return thread, errors.New("notification params are required")
+	}
+	if _, ok := params[key]; !ok {
+		return thread, errors.New("thread payload is required")
+	}
 	payload, err := json.Marshal(params[key])
 	if err != nil {
-		return thread
+		return thread, err
 	}
-	_ = json.Unmarshal(payload, &thread)
-	return thread
+	if err := json.Unmarshal(payload, &thread); err != nil {
+		return thread, err
+	}
+	if strings.TrimSpace(thread.ID) == "" {
+		return thread, errors.New("Codex thread id is required")
+	}
+	return thread, nil
 }
 
-func turnFromAny(value any) appserver.Turn {
+func turnFromAny(value any) (appserver.Turn, error) {
 	var turn appserver.Turn
+	if value == nil {
+		return turn, errors.New("turn payload is required")
+	}
 	payload, err := json.Marshal(value)
 	if err != nil {
-		return turn
+		return turn, err
 	}
-	_ = json.Unmarshal(payload, &turn)
-	return turn
+	if err := json.Unmarshal(payload, &turn); err != nil {
+		return turn, err
+	}
+	if strings.TrimSpace(turn.ID) == "" {
+		return turn, errors.New("Codex turn id is required")
+	}
+	return turn, nil
 }
 
 func itemMap(value any) map[string]any {
@@ -1426,70 +1365,73 @@ func itemMap(value any) map[string]any {
 	return item
 }
 
-func userInputText(value any) string {
+func userInputText(value any) (string, error) {
 	items, ok := value.([]any)
 	if !ok {
-		return ""
+		return "", errors.New("userMessage content must be an array")
 	}
 	parts := make([]string, 0, len(items))
 	for _, item := range items {
 		body, ok := item.(map[string]any)
 		if !ok {
-			continue
+			return "", errors.New("userMessage content item must be an object")
 		}
-		if text := strAny(body["text"]); text != "" {
-			parts = append(parts, text)
+		text, err := requiredTrimmedString(body, "text", "userMessage content text")
+		if err != nil {
+			return "", err
 		}
+		parts = append(parts, text)
 	}
-	return strings.TrimSpace(strings.Join(parts, "\n\n"))
+	return strings.TrimSpace(strings.Join(parts, "\n\n")), nil
 }
 
-func stringListText(value any) string {
+func stringListText(value any) (string, error) {
+	if value == nil {
+		return "", nil
+	}
 	items, ok := value.([]any)
 	if !ok {
-		return strAny(value)
+		return "", errors.New("reasoning summary must be an array")
 	}
 	parts := make([]string, 0, len(items))
 	for _, item := range items {
-		if text := strAny(item); text != "" {
-			parts = append(parts, text)
+		text, err := stringValue(item, true)
+		if err != nil {
+			return "", errors.New("reasoning summary item text must be a string")
 		}
+		if text == "" {
+			return "", errors.New("reasoning summary item text is required")
+		}
+		parts = append(parts, text)
 	}
-	return strings.TrimSpace(strings.Join(parts, "\n"))
+	return strings.TrimSpace(strings.Join(parts, "\n")), nil
 }
 
-func fileChangeItems(value any) []map[string]any {
+func fileChangeItems(value any) ([]map[string]any, error) {
 	changes, ok := value.([]any)
 	if !ok {
-		return nil
+		return nil, errors.New("fileChange changes must be an array")
 	}
 	items := make([]map[string]any, 0, len(changes))
 	for _, change := range changes {
 		body, ok := change.(map[string]any)
 		if !ok {
-			continue
+			return nil, errors.New("fileChange change must be an object")
 		}
-		path := firstNonEmpty(strAny(body["path"]), strAny(body["file"]))
-		if path == "" {
-			continue
+		path, err := requiredTrimmedString(body, "path", "fileChange path")
+		if err != nil {
+			return nil, err
+		}
+		kind, err := optionalTrimmedString(body, "kind", "fileChange kind")
+		if err != nil {
+			return nil, err
 		}
 		items = append(items, map[string]any{
-			"text": path,
 			"path": path,
-			"kind": strAny(body["kind"]),
+			"kind": kind,
 		})
 	}
-	return items
-}
-
-func fileChangeSummary(files []map[string]any) string {
-	if len(files) == 0 {
-		return "Edited files"
-	}
-	if len(files) == 1 {
-		return strAny(files[0]["path"])
-	}
-	return fmt.Sprintf("Edited %d files", len(files))
+	return items, nil
 }
 
 func isRunningStatus(status string) bool {
@@ -1552,37 +1494,71 @@ func cloneMapSlice(in []map[string]any) []map[string]any {
 	return out
 }
 
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
+func requiredTrimmedString(values map[string]any, key, label string) (string, error) {
+	value, ok := values[key]
+	if !ok {
+		return "", fmt.Errorf("%s is required", label)
 	}
-	return ""
+	text, err := stringValue(value, true)
+	if err != nil {
+		return "", fmt.Errorf("%s must be a string", label)
+	}
+	if text == "" {
+		return "", fmt.Errorf("%s is required", label)
+	}
+	return text, nil
 }
 
-func strAny(value any) string {
-	switch v := value.(type) {
-	case string:
-		return strings.TrimSpace(v)
-	case fmt.Stringer:
-		return strings.TrimSpace(v.String())
-	case json.Number:
-		return v.String()
-	default:
-		return ""
+func requiredTextString(values map[string]any, key, label string) (string, error) {
+	value, ok := values[key]
+	if !ok {
+		return "", fmt.Errorf("%s is required", label)
 	}
+	text, err := stringValue(value, false)
+	if err != nil {
+		return "", fmt.Errorf("%s must be a string", label)
+	}
+	return text, nil
 }
 
-func textAny(value any) string {
+func optionalTrimmedString(values map[string]any, key, label string) (string, error) {
+	value, ok := values[key]
+	if !ok {
+		return "", nil
+	}
+	text, err := stringValue(value, true)
+	if err != nil {
+		return "", fmt.Errorf("%s must be a string", label)
+	}
+	return text, nil
+}
+
+func optionalTextString(values map[string]any, key, label string) (string, error) {
+	value, ok := values[key]
+	if !ok {
+		return "", nil
+	}
+	text, err := stringValue(value, false)
+	if err != nil {
+		return "", fmt.Errorf("%s must be a string", label)
+	}
+	return text, nil
+}
+
+func stringValue(value any, trim bool) (string, error) {
+	var text string
 	switch v := value.(type) {
 	case string:
-		return v
+		text = v
 	case fmt.Stringer:
-		return v.String()
+		text = v.String()
 	case json.Number:
-		return v.String()
+		text = v.String()
 	default:
-		return ""
+		return "", errors.New("not a string")
 	}
+	if trim {
+		text = strings.TrimSpace(text)
+	}
+	return text, nil
 }

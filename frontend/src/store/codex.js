@@ -11,8 +11,6 @@
       activeSessionId: "",
       statesBySession: new Map(),
       appliedSeqBySession: new Map(),
-      eventsBySession: new Map(),
-      eventPagesBySession: new Map(),
       eventSource: null,
       sessionEventSource: null,
     };

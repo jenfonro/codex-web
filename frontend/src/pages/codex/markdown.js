@@ -103,13 +103,13 @@
 
   function renderCodeBlock(tokens, index) {
     const token = tokens[index];
-    const language = normalizedLanguage(token.info || "");
+    const language = codeFenceLanguage(token.info || "");
     const languageClass = language ? ` class="language-${markdown.utils.escapeHtml(language)}"` : "";
     const code = markdown.utils.escapeHtml(token.content);
     return `<div class="${classNames.codeBlock}"><pre class="${classNames.codeBlockPlaceholder}"><code${languageClass}>${code}</code></pre></div>\n`;
   }
 
-  function normalizedLanguage(info) {
+  function codeFenceLanguage(info) {
     return String(info || "").trim().split(/\s+/)[0].replace(/[^\w-]/g, "");
   }
 

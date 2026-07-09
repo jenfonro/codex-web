@@ -545,7 +545,7 @@ func rawParamsMap(raw json.RawMessage) map[string]any {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()
 	if err := dec.Decode(&params); err != nil {
-		return map[string]any{"raw": string(raw)}
+		return nil
 	}
 	return params
 }

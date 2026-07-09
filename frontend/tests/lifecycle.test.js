@@ -8,7 +8,6 @@ const vm = require("vm");
 const root = path.resolve(__dirname, "..");
 const context = {
   window: null,
-  CodexPanelUtils: {},
 };
 context.window = context;
 vm.createContext(context);
@@ -18,58 +17,20 @@ vm.runInContext(
   { filename: "lifecycle.js" },
 );
 
-const { sessionStatusFromEvent, visibleConversationEvents } = context.CodexPanelLifecycle;
+const {
+  eventKind,
+  eventStatus,
+  isActivityEvent,
+  isActivityPending,
+} = context.CodexPanelLifecycle;
 
-function kinds(events) {
-  return visibleConversationEvents(events).map((event) => event.kind).join(",");
-}
+assert.strictEqual(eventKind({ kind: "reasoning" }), "reasoning");
+assert.strictEqual(eventKind({}, "assistant_message"), "assistant_message");
+assert.strictEqual(eventStatus({ data: { status: "RUNNING" } }), "running");
 
-assert.strictEqual(
-  kinds([
-    { kind: "thread_status", data: { status: "running" } },
-    { kind: "turn_started", data: { status: "running" } },
-    { kind: "user_message", text: "hello" },
-  ]),
-  "user_message,turn_started",
-);
+assert.strictEqual(isActivityEvent({ kind: "reasoning" }), true);
+assert.strictEqual(isActivityEvent({ kind: "assistant_message" }), false);
 
-assert.strictEqual(
-  kinds([
-    { kind: "thread_status", data: { status: "running" } },
-    { kind: "turn_started", data: { status: "running" } },
-    { kind: "user_message", text: "hello" },
-    { kind: "assistant_message", data: { phase: "final_answer", streaming: true } },
-    { kind: "assistant_message", text: "partial answer", data: { streaming: true } },
-  ]),
-  "user_message,turn_started,assistant_message",
-);
-
-assert.strictEqual(
-  kinds([
-    { kind: "thread_status", data: { status: "running" } },
-    { kind: "turn_started", data: { status: "running" } },
-    { kind: "user_message", text: "hello" },
-    { kind: "reasoning", data: { status: "running" } },
-    { kind: "assistant_message", text: "done", data: { phase: "final_answer" } },
-    { kind: "turn_completed", data: { status: "completed" } },
-  ]),
-  "user_message,assistant_message",
-);
-
-assert.strictEqual(
-  kinds([
-    { kind: "assistant_message", text: "orphaned history" },
-    { kind: "user_message", text: "next" },
-  ]),
-  "assistant_message,user_message",
-);
-
-assert.strictEqual(
-  sessionStatusFromEvent({ kind: "assistant_message", text: "partial", data: { streaming: true } }, "running"),
-  "running",
-);
-
-assert.strictEqual(
-  sessionStatusFromEvent({ kind: "assistant_message", text: "done", data: { phase: "final_answer", streaming: false } }, "running"),
-  "idle",
-);
+assert.strictEqual(isActivityPending({ kind: "reasoning" }), true);
+assert.strictEqual(isActivityPending({ kind: "reasoning", data: { status: "completed" } }), false);
+assert.strictEqual(isActivityPending({ kind: "tool_call", data: { status: "running" } }), true);

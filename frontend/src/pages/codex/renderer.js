@@ -11,7 +11,6 @@
   const {
     isActivityEvent,
     isActivityPending,
-    visibleConversationEvents,
   } = global.CodexPanelLifecycle;
   const activitySummary = global.CodexPanelActivitySummary;
   const markdown = global.CodexMarkdown;
@@ -20,7 +19,7 @@
   }
 
   function createCodexPanelRenderer(runtime) {
-    const { state, mount, icons, config } = runtime;
+    const { state, mount, icons } = runtime;
 
 function render() {
   const html = renderPanelHTML();
@@ -237,16 +236,9 @@ function renderThreadView() {
 }
 
 function renderActiveConversation() {
-  const sessionID = activeSession()?.id || "sample-thread";
+  const sessionID = activeSession()?.id || "";
   const sessionState = state.statesBySession.get(sessionID);
-  if (sessionState) return renderConversationState(sessionState);
-  const sampleEvents = runtime.samples?.eventsBySession?.get("sample-thread") || [];
-  const events = state.eventsBySession.has(sessionID)
-    ? state.eventsBySession.get(sessionID)
-    : state.apiAvailable
-      ? []
-      : sampleEvents;
-  return renderConversationEvents(events);
+  return renderConversationState(sessionState);
 }
 
 function renderHeader(title, mode) {
@@ -279,18 +271,6 @@ function renderHeader(title, mode) {
         </div>
         <div class="flex flex-shrink-0 items-center gap-1">${renderHeaderActions()}</div>
       </div>
-    </div>`;
-}
-
-function renderConversationEvents(events) {
-  const sessionID = activeSession()?.id || "sample-thread";
-  const page = state.eventPagesBySession.get(sessionID);
-  const visibleEvents = visibleConversationEvents(events);
-  const items = groupConversationEvents(visibleEvents);
-  return `
-    <div class="relative shrink-0">
-      ${renderOlderEventsLoader(page)}
-      ${renderConversationList(items)}
     </div>`;
 }
 
@@ -331,11 +311,11 @@ function conversationItemSignature(item, index) {
 
 function conversationEventKey(event, index) {
   const data = event?.data && typeof event.data === "object" ? event.data : {};
-  return data.itemId || data.turnId || `${event?.kind || "assistant_message"}:${index}`;
+  return data.itemId || data.turnId || `${event?.kind || "event"}:${index}`;
 }
 
 function conversationEventSignature(event, index) {
-  const kind = event?.kind || "assistant_message";
+  const kind = event?.kind || "";
   const data = event?.data && typeof event.data === "object" ? event.data : {};
   const itemID = data.itemId || "";
   const status = data.status || "";
@@ -373,14 +353,13 @@ function conversationItemsFromState(turns) {
 
 function stateTurnEvents(turn, turnIndex) {
   const sourceItems = Array.isArray(turn?.items) ? turn.items : [];
-  const lastAgentIndex = lastIndexOfType(sourceItems, "agentMessage");
-  return sourceItems.flatMap((item, itemIndex) => stateItemEvents(item, turn, turnIndex, itemIndex, itemIndex === lastAgentIndex));
+  return sourceItems.flatMap((item, itemIndex) => stateItemEvents(item, turn, turnIndex, itemIndex));
 }
 
-function stateItemEvents(item, turn, turnIndex, itemIndex, isLastAgent) {
+function stateItemEvents(item, turn, turnIndex, itemIndex) {
   if (!item || typeof item !== "object") return [];
   const type = item.type || "";
-  const eventTime = item.time || turn?.startedAt || turn?.completedAt || new Date().toISOString();
+  const eventTime = item.time || turn?.startedAt || turn?.completedAt || "";
   const data = {
     itemId: item.id,
     turnId: turn?.id || "",
@@ -398,13 +377,12 @@ function stateItemEvents(item, turn, turnIndex, itemIndex, isLastAgent) {
     if (!String(item.text || "").trim() && isItemRunning(item)) {
       return [turnPendingEvent(turn, turnIndex, itemIndex)];
     }
-    const phase = item.phase || (!isTurnRunning(turn) && isLastAgent ? "final_answer" : "");
     return [{
       sessionId: activeSession()?.id || "",
       kind: "assistant_message",
       text: item.text || "",
       time: eventTime,
-      data: { ...data, phase, streaming: isItemRunning(item) },
+      data: { ...data, streaming: isItemRunning(item) },
     }];
   }
   if (type === "reasoning") {
@@ -413,7 +391,7 @@ function stateItemEvents(item, turn, turnIndex, itemIndex, isLastAgent) {
       kind: "reasoning",
       text: item.text || "",
       time: eventTime,
-      data: { ...data, status: item.status || (isTurnRunning(turn) ? "running" : "completed") },
+      data,
     }];
   }
   if (type === "commandExecution") {
@@ -457,14 +435,15 @@ function stateItemEvents(item, turn, turnIndex, itemIndex, isLastAgent) {
     }];
   }
   if (type === "mcpToolCall" || type === "dynamicToolCall" || type === "webSearch") {
-    const name = item.name || item.tool || type;
+    const name = item.name || item.tool || "";
+    if (!name) return [];
     return [{ sessionId: activeSession()?.id || "", kind: "tool_call", text: name, time: eventTime, data: { ...data, name } }];
   }
   if (type === "plan" || type === "contextCompaction") {
     return [{ sessionId: activeSession()?.id || "", kind: "summary", text: item.text || "", time: eventTime, data }];
   }
-  if (item.text) {
-    return [{ sessionId: activeSession()?.id || "", kind: type || "assistant_message", text: item.text, time: eventTime, data }];
+  if (item.text && type) {
+    return [{ sessionId: activeSession()?.id || "", kind: type, text: item.text, time: eventTime, data }];
   }
   return [];
 }
@@ -474,7 +453,7 @@ function turnPendingEvent(turn, turnIndex, itemIndex = 0) {
     sessionId: activeSession()?.id || "",
     kind: "turn_started",
     text: "",
-    time: turn?.startedAt || new Date().toISOString(),
+    time: turn?.startedAt || "",
     data: {
       status: "running",
       turnId: turn?.id || "",
@@ -489,13 +468,6 @@ function turnDurationMs(turn) {
   return null;
 }
 
-function lastIndexOfType(items, type) {
-  for (let index = items.length - 1; index >= 0; index -= 1) {
-    if (items[index]?.type === type) return index;
-  }
-  return -1;
-}
-
 function isTurnRunning(turn) {
   return String(turn?.status || "").trim().toLowerCase() === "running";
 }
@@ -506,40 +478,6 @@ function isItemRunning(item) {
 
 function isPendingEvent(event) {
   return isActivityPending(event) || event?.data?.streaming === true;
-}
-
-function renderOlderEventsLoader(page) {
-  if (!page?.loadingBefore) return "";
-  return `
-    <div class="codex-history-page-loader" role="status" aria-live="polite">
-      <span class="codex-session-status-spinner" aria-hidden="true"></span>
-      <span>正在加载更早记录</span>
-    </div>`;
-}
-
-function groupConversationEvents(events) {
-  const items = [];
-  for (let index = 0; index < events.length; index += 1) {
-    const event = events[index];
-    if ((event.kind || "assistant_message") !== "user_message") {
-      items.push({ type: "event", event });
-      continue;
-    }
-
-    const followups = [];
-    let cursor = index + 1;
-    while (cursor < events.length) {
-      const next = events[cursor];
-      const kind = next.kind || "assistant_message";
-      if (kind === "user_message" || (kind === "summary" && !next.inline)) break;
-      followups.push(next);
-      cursor += 1;
-    }
-
-    items.push({ type: "user-turn", event, followups });
-    index = cursor - 1;
-  }
-  return items;
 }
 
 function renderConversationItem(item, index) {
@@ -593,7 +531,8 @@ function renderSessionRow(session) {
 }
 
 function renderEvent(event, index) {
-  const kind = event.kind || "assistant_message";
+  const kind = event.kind || "";
+  if (!kind) return "";
   if (kind === "user_message") return renderUserMessage(event, index);
   if (kind === "summary") return renderSummary(event, index);
   if (kind === "tool_summary") return renderToolSummaryTurn(event, index);
@@ -619,7 +558,7 @@ function renderTurnContainer(index, role, content, afterContentOverride, eventFo
     <div data-turn-id="${escapeAttr(turnId)}">
       <div class="flex flex-col gap-0">
         <div class="flex flex-col">
-          <div class="scroll-mt-4" data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, unit, role))}" ${role === "user" ? "data-local-conversation-user-anchor=\"true\"" : ""}>
+          <div class="scroll-mt-4" data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, unit, role))}" ${role === "user" ? "data-codex-conversation-user-anchor=\"true\"" : ""}>
             ${content}
           </div>
         </div>
@@ -630,7 +569,7 @@ function renderTurnContainer(index, role, content, afterContentOverride, eventFo
 }
 
 function turnIdFromEvent(event, index) {
-  return event?.data?.turnId || `codex-turn-${index}`;
+  return event?.data?.turnId || "";
 }
 
 function contentUnitFor(event, defaultUnit) {
@@ -664,11 +603,11 @@ function renderUserTurnAfterContent(followups, index, baseEvent) {
 
   if (finalFollowup && !streamFollowups.length && !split.hasProcessBlock) {
     const finalUnit = contentUnitFor(finalFollowup, 1);
-    return `<div class="flex flex-col" data-local-conversation-final-assistant="true"><div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, finalUnit, "assistant"))}">${renderAssistantContent(finalFollowup, `${index}-final`, false)}</div></div>`;
+    return `<div class="flex flex-col" data-codex-conversation-final-assistant="true"><div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, finalUnit, "assistant"))}">${renderAssistantContent(finalFollowup, `${index}-final`, false)}</div></div>`;
   }
 
   if (split.hasProcessBlock && !streamFollowups.length) {
-    const finalAttrs = finalFollowup ? ' data-local-conversation-final-assistant="true"' : "";
+    const finalAttrs = finalFollowup ? ' data-codex-conversation-final-assistant="true"' : "";
     const finalUnit = contentUnitFor(finalFollowup, 1);
     return `
         <div class="flex flex-col">${renderTurnProcessBlock(split, baseEvent, index)}</div>
@@ -676,7 +615,7 @@ function renderUserTurnAfterContent(followups, index, baseEvent) {
         <div class="flex flex-col"${finalAttrs}><div${finalFollowup ? ` data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, finalUnit, "assistant"))}"` : ""}>${finalFollowup ? renderAssistantContent(finalFollowup, `${index}-final`, false) : ""}</div></div>`;
   }
 
-  const finalAttrs = finalFollowup ? ' data-local-conversation-final-assistant="true"' : "";
+  const finalAttrs = finalFollowup ? ' data-codex-conversation-final-assistant="true"' : "";
   const finalUnit = contentUnitFor(finalFollowup, streamFollowups.length + 1);
   return `
         <div class="flex flex-col">
@@ -712,7 +651,8 @@ function isInlineActivity(event) {
 }
 
 function renderInlineFollowupContent(event, turnIndex, offset) {
-  const kind = event.kind || "assistant_message";
+  const kind = event.kind || "";
+  if (!kind) return "";
   if (kind === "command_group") {
     return renderCommandGroupActivity(event);
   }
@@ -735,16 +675,19 @@ function renderUserContent(event) {
 function renderUserAttachments(event) {
   const attachments = Array.isArray(event.data?.attachments) ? event.data.attachments : [];
   if (!attachments.length) return "";
+  const renderedAttachments = attachments.map(renderUserAttachment).filter(Boolean).join("");
+  if (!renderedAttachments) return "";
   return `
       <div class="hide-scrollbar flex max-w-full flex-row-reverse self-end overflow-x-auto">
         <div class="flex min-w-max items-end gap-2">
-          ${attachments.map(renderUserAttachment).join("")}
+          ${renderedAttachments}
         </div>
       </div>`;
 }
 
 function renderUserAttachment(attachment) {
-  const src = attachment?.src || config.SAMPLE_ATTACHMENT_PLACEHOLDER;
+  const src = attachment?.src || "";
+  if (!src) return "";
   const label = attachment?.label || "用户附件";
   return `
           <div class="size-20 cursor-interaction rounded-lg border border-token-border-heavy focus:outline-none focus-visible:ring-1 focus-visible:ring-token-focus-border" role="button" tabindex="0" aria-label="${escapeAttr(label)}" type="button" aria-haspopup="dialog" aria-expanded="false" data-state="closed">
@@ -852,7 +795,8 @@ function renderDiffCard(card) {
 }
 
 function renderDiffFileRow(file) {
-  const item = normalizeDiffFile(file);
+  const item = diffFileView(file);
+  if (!item) return "";
   return `
               <div class="thread-diff-file-row">
                 <span data-state="closed" class="contents">
@@ -871,17 +815,19 @@ function renderDiffFileRow(file) {
               </div>`;
 }
 
-function normalizeDiffFile(file) {
-  const pathValue = typeof file === "string" ? file : String(file?.path || "");
+function diffFileView(file) {
+  if (!file || typeof file !== "object") return null;
+  const pathValue = String(file.path || "");
+  if (!pathValue) return null;
   const parts = pathValue.split("/");
   const name = parts.pop() || pathValue;
   const dir = parts.length ? `${parts.join("/")}/` : "./";
   return {
-    path: pathValue || name,
+    path: pathValue,
     dir,
     name,
-    additions: typeof file === "object" && file?.additions ? file.additions : "",
-    deletions: typeof file === "object" && file?.deletions ? file.deletions : "",
+    additions: file.additions || "",
+    deletions: file.deletions || "",
   };
 }
 
@@ -907,7 +853,7 @@ function renderSummary(event, index) {
           ${renderSummaryBody(event)}
         </div>
         <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
-        <div class="flex flex-col"${followup ? ' data-local-conversation-final-assistant="true"' : ""}><div${followup ? ` data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, followupUnit, "assistant"))}"` : ""}>${followup ? renderAssistantContent(followup, `${index}-summary`, false) : ""}</div></div>
+        <div class="flex flex-col"${followup ? ' data-codex-conversation-final-assistant="true"' : ""}><div${followup ? ` data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, followupUnit, "assistant"))}"` : ""}>${followup ? renderAssistantContent(followup, `${index}-summary`, false) : ""}</div></div>
       </div>
     </div>`;
 }
@@ -1088,7 +1034,7 @@ function toolSummaryItemText(item) {
   if (item && typeof item === "object") {
     return String(item.text || item.path || "");
   }
-  return String(item || "");
+  return "";
 }
 
 function renderHomeComposer() {
@@ -1369,7 +1315,7 @@ function ensureEmptyComposerStructure(input) {
 
 
     function activeSession() {
-      return state.sessions.find((session) => session.id === state.activeSessionId) || state.sessions[0];
+      return state.sessions.find((session) => session.id === state.activeSessionId) || null;
     }
 
     function isActiveSessionRunning() {

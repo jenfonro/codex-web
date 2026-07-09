@@ -43,11 +43,6 @@ function relativeTime(value) {
   return `${Math.floor(hours / 24)} 天`;
 }
 
-function trimTitle(text) {
-  const value = text.replace(/\s+/g, " ").trim();
-  return value.length > 70 ? `${value.slice(0, 68)}…` : value || "New session";
-}
-
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
     "&": "&amp;",
@@ -70,7 +65,6 @@ function escapeAttr(value) {
     summarizeToolActivity,
     timeFromEvent,
     relativeTime,
-    trimTitle,
     escapeHTML,
     escapeAttr,
   };

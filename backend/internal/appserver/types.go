@@ -35,7 +35,6 @@ type ThreadStatus struct {
 
 type Thread struct {
 	ID            string       `json:"id"`
-	SessionID     string       `json:"sessionId"`
 	Preview       string       `json:"preview"`
 	Name          *string      `json:"name"`
 	CWD           string       `json:"cwd"`

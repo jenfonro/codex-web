@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"codex-web/backend/internal/host"
 	"codex-web/backend/internal/model"
@@ -96,93 +97,8 @@ func (a *App) handleSessionItem(w http.ResponseWriter, r *http.Request, tail str
 			return
 		}
 		writeJSON(w, state)
-	case r.Method == http.MethodGet && action == "events":
-		a.writeSessionBacklog(w, r, sessionID)
 	default:
 		writeError(w, http.StatusNotFound, "not found")
-	}
-}
-
-func (a *App) writeSessionBacklog(w http.ResponseWriter, r *http.Request, sessionID string) {
-	lastSeq, beforeSeq, limit := sessionEventQuery(r)
-	page, err := a.sessions.Events(model.SessionEventsRequest{
-		SessionID: sessionID,
-		LastSeq:   lastSeq,
-		BeforeSeq: beforeSeq,
-		Limit:     limit,
-	})
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	writeJSON(w, page)
-}
-
-func (a *App) handleSessionEvents(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		methodNotAllowed(w)
-		return
-	}
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		writeError(w, http.StatusInternalServerError, "streaming is not supported")
-		return
-	}
-
-	sessionID := strings.TrimSpace(r.URL.Query().Get("sessionId"))
-	lastSeq, beforeSeq, limit := sessionEventQuery(r)
-
-	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	if sessionID != "" {
-		page, err := a.sessions.Events(model.SessionEventsRequest{
-			SessionID: sessionID,
-			LastSeq:   lastSeq,
-			BeforeSeq: beforeSeq,
-			Limit:     limit,
-		})
-		if err != nil {
-			writeSSE(w, map[string]any{"kind": "error", "text": err.Error(), "sessionId": sessionID})
-			flusher.Flush()
-			return
-		}
-		for _, event := range page.Events {
-			writeSSE(w, event)
-		}
-	}
-	flusher.Flush()
-
-	updates, unsubscribe := a.sessions.Subscribe()
-	defer unsubscribe()
-	currentLastSeq := lastSeq
-	for {
-		select {
-		case <-r.Context().Done():
-			return
-		case update, ok := <-updates:
-			if !ok {
-				return
-			}
-			if sessionID != "" && update.SessionID != sessionID {
-				continue
-			}
-			page, err := a.sessions.Events(model.SessionEventsRequest{
-				SessionID: update.SessionID,
-				LastSeq:   currentLastSeq,
-			})
-			if err != nil {
-				continue
-			}
-			for _, event := range page.Events {
-				writeSSE(w, event)
-				if event.Seq > currentLastSeq {
-					currentLastSeq = event.Seq
-				}
-			}
-			flusher.Flush()
-		}
 	}
 }
 
@@ -207,7 +123,13 @@ func (a *App) handleSessionStateEvents(w http.ResponseWriter, r *http.Request) {
 	if sessionID != "" {
 		state, err := a.sessions.State(sessionID)
 		if err != nil {
-			writeSSE(w, map[string]any{"type": "error", "error": err.Error(), "sessionId": sessionID})
+			writeSSE(w, map[string]any{
+				"type":      "error",
+				"error":     err.Error(),
+				"sessionId": sessionID,
+				"seq":       lastSeq + 1,
+				"time":      time.Now().UTC(),
+			})
 			flusher.Flush()
 			return
 		}
@@ -243,19 +165,6 @@ func (a *App) handleSessionStateEvents(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 		}
 	}
-}
-
-func sessionEventQuery(r *http.Request) (int64, int64, int) {
-	lastSeq, _ := strconv.ParseInt(r.URL.Query().Get("lastSeq"), 10, 64)
-	beforeSeq, _ := strconv.ParseInt(r.URL.Query().Get("beforeSeq"), 10, 64)
-	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	if limit < 0 {
-		limit = 0
-	}
-	if limit > 2000 {
-		limit = 2000
-	}
-	return lastSeq, beforeSeq, limit
 }
 
 func (a *App) handleWorkspace(w http.ResponseWriter, r *http.Request) {

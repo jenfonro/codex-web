@@ -55,12 +55,8 @@ const context = {
   location: { search: "" },
   CodexIcons: { svg() { return ""; } },
   CodexPanelConfig: {
-    SAMPLE_ATTACHMENT_PLACEHOLDER: "",
     createPanelMount() {
       return { root: rootNode, shadow: {} };
-    },
-    async loadSampleAttachmentDataURL() {
-      return "";
     },
   },
   CodexPanelAPI: {
@@ -84,18 +80,12 @@ const context = {
       }
       throw new Error(`unexpected URL ${url}`);
     },
-    normalizeSessions(value) { return value; },
-    normalizeSession(value) { return value; },
-    normalizeSessionState(value) { return value; },
-    normalizeStateUpdate(value) { return value; },
-  },
-  CodexPanelFixtures: {
-    createSampleData() {
-      return { sessions: [], eventsBySession: new Map() };
-    },
+    parseSessions(value) { return value; },
+    parseSession(value) { return value; },
+    parseSessionState(value) { return value; },
+    parseStateUpdate(value) { return value; },
   },
   CodexPanelUtils: {
-    trimTitle(value) { return String(value || ""); },
     relativeTime() { return ""; },
   },
   CodexPanelLifecycle: {},
@@ -110,8 +100,6 @@ const context = {
         activeSessionId: "",
         statesBySession: new Map(),
         appliedSeqBySession: new Map(),
-        eventsBySession: new Map(),
-        eventPagesBySession: new Map(),
         eventSource: null,
         sessionEventSource: null,
       };

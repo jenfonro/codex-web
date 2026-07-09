@@ -38,7 +38,6 @@ script_sources=(
   "pages/codex/lifecycle.js"
   "pages/codex/activity-summary.js"
   "pages/codex/api.js"
-  "pages/codex/fixtures.js"
   "pages/codex/renderer.js"
   "store/codex.js"
   "pages/codex/index.js"

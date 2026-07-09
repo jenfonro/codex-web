@@ -4,18 +4,13 @@
   const icons = global.CodexIcons;
   const config = global.CodexPanelConfig;
   const api = global.CodexPanelAPI;
-  const fixtures = global.CodexPanelFixtures;
-  const utils = global.CodexPanelUtils;
   const lifecycle = global.CodexPanelLifecycle;
   const store = global.CodexPanelStore;
   const rendererFactory = global.CodexPanelRenderer;
   const panel = document.getElementById("codexPanel");
-  if (!panel || !icons || !config || !api || !fixtures || !utils || !lifecycle || !store || !rendererFactory) return;
+  if (!panel || !icons || !config || !api || !lifecycle || !store || !rendererFactory) return;
 
   const mount = config.createPanelMount(panel);
-  const fixtureMode = new URLSearchParams(global.location.search).get("codexFixture") || "";
-  const useDynamicFixture = fixtureMode === "dynamic";
-  const useSampleFixture = fixtureMode === "sample";
 
   const state = store.createCodexPanelState();
 
@@ -24,7 +19,6 @@
     config,
     state,
     mount,
-    samples: fixtures.createSampleData({ icons, useDynamicFixture, sampleAttachmentSrc: config.SAMPLE_ATTACHMENT_PLACEHOLDER }),
   };
   const renderer = rendererFactory.create(runtime);
   let initialized = false;
@@ -43,49 +37,20 @@
     mount.root.addEventListener("beforeinput", handleBeforeInput);
     mount.root.addEventListener("input", handleInput);
     mount.root.addEventListener("keydown", handleKeyDown);
-    const sampleAttachmentSrc = await config.loadSampleAttachmentDataURL();
-    runtime.samples = fixtures.createSampleData({ icons, useDynamicFixture, sampleAttachmentSrc });
-    if (useDynamicFixture) {
-      useSampleSessions(false);
-      state.activeSessionId = "dynamic-running";
-      state.view = "thread";
-      renderer.render();
-      return;
-    }
-    if (useSampleFixture) {
-      useSampleSessions(false);
-      renderer.render();
-      return;
-    }
     await loadSessions();
     subscribeSessionList();
     renderer.render();
   }
 
   async function loadSessions(preserveEvents = false) {
-    try {
-      const payload = await api.fetchJSON("/api/sessions");
-      const sessions = api.normalizeSessions(payload.sessions);
-      state.sessions = sessions;
-      if (!preserveEvents) {
-        state.statesBySession = new Map();
-        state.appliedSeqBySession = new Map();
-        state.eventsBySession = new Map();
-        state.eventPagesBySession = new Map();
-      }
-      state.apiAvailable = true;
-    } catch {
-      useSampleSessions(false);
+    const payload = await api.fetchJSON("/api/sessions");
+    const sessions = api.parseSessions(payload.sessions);
+    state.sessions = sessions;
+    if (!preserveEvents) {
+      state.statesBySession = new Map();
+      state.appliedSeqBySession = new Map();
     }
-  }
-
-  function useSampleSessions(apiAvailable) {
-    state.sessions = runtime.samples.sessions.slice();
-    state.statesBySession = new Map();
-    state.appliedSeqBySession = new Map();
-    state.eventsBySession = new Map(runtime.samples.eventsBySession);
-    state.eventPagesBySession = new Map();
-    state.apiAvailable = apiAvailable;
+    state.apiAvailable = true;
   }
 
   async function openSession(sessionID) {
@@ -100,12 +65,8 @@
 
   async function loadState(sessionID) {
     if (!state.apiAvailable) return;
-    try {
-      const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(sessionID)}/state`);
-      applySessionState(api.normalizeSessionState(payload));
-    } catch {
-      // Keep the existing view; a later SSE reconnect or session reload may recover.
-    }
+    const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(sessionID)}/state`);
+    applySessionState(api.parseSessionState(payload));
   }
 
   function subscribeSessionList() {
@@ -116,11 +77,7 @@
     if (!state.apiAvailable) return;
     const source = new EventSource("/api/sessions/state-events");
     source.onmessage = (event) => {
-      try {
-        applyStateUpdate(api.normalizeStateUpdate(JSON.parse(event.data)));
-      } catch {
-        // Keep the stream alive if one row is malformed.
-      }
+      applyStateUpdate(api.parseStateUpdate(JSON.parse(event.data)));
     };
     state.sessionEventSource = source;
   }
@@ -136,11 +93,7 @@
     if (lastSeq > 0) qs.set("lastSeq", String(lastSeq));
     const source = new EventSource(`/api/sessions/state-events?${qs.toString()}`);
     source.onmessage = (event) => {
-      try {
-        applyStateUpdate(api.normalizeStateUpdate(JSON.parse(event.data)));
-      } catch {
-        // Keep the stream alive if one row is malformed.
-      }
+      applyStateUpdate(api.parseStateUpdate(JSON.parse(event.data)));
     };
     source.onerror = () => {
       source.close();
@@ -150,7 +103,7 @@
   }
 
 function applyStateUpdate(update) {
-  if (!update?.sessionId) return;
+  if (!update?.sessionId) throw new Error("update.sessionId is required");
   if (isDuplicateStateUpdate(update)) return;
   if (update.state) {
     applySessionState(update.state);
@@ -170,8 +123,8 @@ function applyStateUpdate(update) {
 }
 
 function applySessionState(sessionState) {
-  if (!sessionState?.session?.id) return;
-  const incomingSeq = Number(sessionState.lastSeq || 0);
+  if (!sessionState?.session?.id) throw new Error("state.session.id is required");
+  const incomingSeq = Number(sessionState.lastSeq);
   const appliedSeq = Number(state.appliedSeqBySession.get(sessionState.session.id) || 0);
   if (incomingSeq > 0 && incomingSeq < appliedSeq) return;
   state.statesBySession.set(sessionState.session.id, sessionState);
@@ -180,7 +133,7 @@ function applySessionState(sessionState) {
 }
 
 function applyTurnUpdate(sessionID, turn, seq) {
-  if (!turn?.id) return;
+  if (!turn?.id) throw new Error("turn.id is required");
   const sessionState = ensureSessionState(sessionID, seq);
   const index = sessionState.turns.findIndex((item) => item.id === turn.id);
   if (index >= 0) {
@@ -188,22 +141,23 @@ function applyTurnUpdate(sessionID, turn, seq) {
   } else {
     sessionState.turns.push(turn);
   }
-  sessionState.lastSeq = Math.max(sessionState.lastSeq || 0, Number(seq || 0));
+  sessionState.lastSeq = Math.max(Number(sessionState.lastSeq), Number(seq));
   state.statesBySession.set(sessionID, sessionState);
 }
 
 function applyItemUpdate(sessionID, turn, item, seq) {
-  if (!item?.id) return;
+  if (!item?.id) throw new Error("item.id is required");
+  if (!turn?.id) throw new Error("turn.id is required");
   const sessionState = ensureSessionState(sessionID, seq);
-  const turnId = turn?.id || sessionState.turns[sessionState.turns.length - 1]?.id || `turn-${seq || Date.now()}`;
+  const turnId = turn.id;
   let turnIndex = sessionState.turns.findIndex((entry) => entry.id === turnId);
   if (turnIndex < 0) {
-    sessionState.turns.push({ ...(turn || {}), id: turnId, status: turn?.status || "running", items: [] });
+    sessionState.turns.push(turn);
     turnIndex = sessionState.turns.length - 1;
-  } else if (turn) {
+  } else {
     sessionState.turns[turnIndex] = mergeTurnMetadata(sessionState.turns[turnIndex], turn);
   }
-  const items = sessionState.turns[turnIndex].items || [];
+  const items = sessionState.turns[turnIndex].items;
   const itemIndex = items.findIndex((entry) => entry.id === item.id);
   if (itemIndex >= 0) {
     items[itemIndex] = mergeStateItem(items[itemIndex], item);
@@ -211,7 +165,7 @@ function applyItemUpdate(sessionID, turn, item, seq) {
     items.push(item);
   }
   sessionState.turns[turnIndex].items = items;
-  sessionState.lastSeq = Math.max(sessionState.lastSeq || 0, Number(seq || 0));
+  sessionState.lastSeq = Math.max(Number(sessionState.lastSeq), Number(seq));
   state.statesBySession.set(sessionID, sessionState);
 }
 
@@ -226,22 +180,17 @@ function applyErrorUpdate(sessionID, message, seq) {
 function ensureSessionState(sessionID, seq) {
   const existing = state.statesBySession.get(sessionID);
   if (existing) return existing;
-  const session = state.sessions.find((item) => item.id === sessionID) || {
-    id: sessionID,
-    title: "New session",
-    status: "idle",
-    updatedAt: new Date().toISOString(),
-    timeLabel: "刚刚",
-  };
-  const sessionState = { session, turns: [], lastSeq: Number(seq || 0) };
+  const session = state.sessions.find((item) => item.id === sessionID);
+  if (!session) throw new Error("session state is required before applying updates");
+  const sessionState = { session, turns: [], lastSeq: Number(seq) };
   state.statesBySession.set(sessionID, sessionState);
   return sessionState;
 }
 
 function mergeTurn(existing, incoming) {
   const merged = { ...existing, ...incoming };
-  const existingItems = Array.isArray(existing?.items) ? existing.items : [];
-  const incomingItems = Array.isArray(incoming?.items) ? incoming.items : [];
+  const existingItems = existing.items;
+  const incomingItems = incoming.items;
   if (!incomingItems.length) {
     merged.items = existingItems;
     return merged;
@@ -257,7 +206,7 @@ function mergeTurn(existing, incoming) {
 }
 
 function mergeTurnMetadata(existing, incoming) {
-  return { ...existing, ...incoming, items: Array.isArray(existing?.items) ? existing.items : [] };
+  return { ...existing, ...incoming, items: existing.items };
 }
 
 function mergeStateItem(existing, incoming) {
@@ -266,15 +215,13 @@ function mergeStateItem(existing, incoming) {
     ...incoming,
     text: mergePresentField(existing?.text, incoming, "text"),
     output: mergePresentField(existing?.output, incoming, "output"),
-    items: hasOwn(incoming, "items") ? incoming.items : existing.items || null,
+    items: hasOwn(incoming, "items") ? incoming.items : existing.items,
   };
 }
 
 function mergePresentField(existingValue, incoming, field) {
   if (!hasOwn(incoming, field)) return existingValue;
-  const value = incoming[field];
-  if (value === "" || value === null || typeof value === "undefined") return existingValue;
-  return value;
+  return incoming[field];
 }
 
 function hasOwn(value, field) {
@@ -286,14 +233,14 @@ function latestStateSeqForSession(sessionID) {
 }
 
 function isDuplicateStateUpdate(update) {
-  const seq = Number(update?.seq || 0);
-  if (!update?.sessionId || seq <= 0) return false;
+  const seq = Number(update?.seq);
+  if (!update?.sessionId || seq <= 0) throw new Error("update.seq must be positive");
   return seq <= Number(state.appliedSeqBySession.get(update.sessionId) || 0);
 }
 
 function markStateUpdateApplied(sessionID, seq) {
-  const nextSeq = Number(seq || 0);
-  if (!sessionID || nextSeq <= 0) return;
+  const nextSeq = Number(seq);
+  if (!sessionID || nextSeq <= 0) throw new Error("state update sequence is required");
   state.appliedSeqBySession.set(sessionID, Math.max(Number(state.appliedSeqBySession.get(sessionID) || 0), nextSeq));
 }
 
@@ -376,7 +323,7 @@ function handleKeyDown(event) {
 
 function handleBeforeInput(event) {
   const input = event.target.closest?.("[data-codex-composer]");
-  if (!input || !String(event.inputType || "").startsWith("delete")) return;
+  if (!input || !String(event.inputType).startsWith("delete")) return;
   if (renderer.composerText(input)) return;
   event.preventDefault();
   renderer.clearComposer(input);
@@ -392,46 +339,35 @@ async function submitComposer() {
   renderer.syncComposerState();
 
   if (state.view === "thread" && state.activeSessionId) {
-    if (state.apiAvailable) {
-      try {
-        const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(state.activeSessionId)}/send`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt }),
-        });
-        upsertSession(api.normalizeSession(payload.session));
-        await loadState(state.activeSessionId);
-      } catch (error) {
-        applyErrorUpdate(state.activeSessionId, error.message);
-        renderer.render();
-      }
-    } else {
-      appendLocalEvent(state.activeSessionId, { kind: "user_message", text: prompt });
-      appendLocalEvent(state.activeSessionId, { kind: "turn_started", text: "正在思考" });
-      appendLocalEvent(state.activeSessionId, { kind: "assistant_message", text: "本地预览模式已收到这个请求。", time: new Date().toISOString() });
+    try {
+      const payload = await api.fetchJSON(`/api/sessions/${encodeURIComponent(state.activeSessionId)}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      upsertSession(api.parseSession(payload.session));
+      await loadState(state.activeSessionId);
+    } catch (error) {
+      applyErrorUpdate(state.activeSessionId, error.message);
       renderer.render();
     }
     return;
   }
 
-  if (state.apiAvailable) {
-    try {
-      const payload = await api.fetchJSON("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      });
-      const session = api.normalizeSession(payload.session);
-      if (session?.id) {
-        upsertSession(session);
-        state.statesBySession.set(session.id, { session, turns: [], lastSeq: 0 });
-        await openSession(session.id);
-      }
-    } catch (error) {
-      createLocalSession(prompt, error.message);
+  try {
+    const payload = await api.fetchJSON("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+    const session = api.parseSession(payload.session);
+    if (session?.id) {
+      upsertSession(session);
+      state.statesBySession.set(session.id, { session, turns: [], lastSeq: 0 });
+      await openSession(session.id);
     }
-  } else {
-    createLocalSession(prompt);
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -450,25 +386,8 @@ async function cancelActiveSession() {
   renderer.render();
 }
 
-function createLocalSession(prompt, errorText = "") {
-  const id = `local-${Date.now()}`;
-  const session = {
-    id,
-    title: utils.trimTitle(prompt),
-    status: "idle",
-    updatedAt: new Date().toISOString(),
-    timeLabel: "刚刚",
-  };
-  state.sessions.unshift(session);
-  state.eventsBySession.set(id, [
-    { kind: "user_message", text: prompt, time: new Date().toISOString(), seq: 1 },
-    errorText ? { kind: "error", text: errorText, time: new Date().toISOString(), seq: 2 } : { kind: "assistant_message", text: "本地样式预览会话已创建。", time: new Date().toISOString(), seq: 2 },
-  ]);
-  void openSession(id);
-}
-
 function upsertSession(session) {
-  if (!session?.id) return;
+  if (!session?.id) throw new Error("session.id is required");
   const index = state.sessions.findIndex((item) => item.id === session.id);
   if (index >= 0) {
     state.sessions[index] = { ...state.sessions[index], ...session };
@@ -478,26 +397,10 @@ function upsertSession(session) {
   state.sessions.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
 }
 
-function appendLocalEvent(sessionID, partial) {
-  const events = state.eventsBySession.get(sessionID) || [];
-  const event = { ...partial, sessionId: sessionID, seq: events.length + 1, time: partial.time || new Date().toISOString() };
-  events.push(event);
-  state.eventsBySession.set(sessionID, events);
-  const index = state.sessions.findIndex((session) => session.id === sessionID);
-  if (index >= 0) {
-    const updatedAt = event.time || new Date().toISOString();
-    state.sessions[index] = {
-      ...state.sessions[index],
-      status: event.kind === "error" ? "error" : state.sessions[index].status,
-      updatedAt,
-      timeLabel: utils.relativeTime(updatedAt),
-    };
-  }
-}
-
 function isActiveSessionRunning() {
   const session = state.sessions.find((item) => item.id === state.activeSessionId);
-  return String(session?.status || "").toLowerCase() === "running";
+  if (!session) return false;
+  return String(session.status).toLowerCase() === "running";
 }
 
 })(window);
