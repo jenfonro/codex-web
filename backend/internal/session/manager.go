@@ -20,8 +20,6 @@ const (
 	statusRunning = "running"
 	statusIdle    = "idle"
 	statusError   = "error"
-	statusDone    = "completed"
-	statusStopped = "interrupted"
 )
 
 type Config struct {
@@ -447,7 +445,7 @@ func (m *Manager) applyTurnStarted(sessionID string, turn appserver.Turn) {
 	turnID := firstNonEmpty(turn.ID, session.runningTurnID, fmt.Sprintf("turn-%d", session.lastSeq+1))
 	turn.ID = turnID
 	modelTurn := turnFromAppServer(turn)
-	modelTurn.Status = normalizeRuntimeStatus(modelTurn.Status, statusRunning)
+	modelTurn.Status = statusRunning
 	index := session.upsertTurn(modelTurn)
 	session.runningTurnID = turnID
 	m.setStatusLocked(sessionID, statusRunning)
@@ -467,7 +465,7 @@ func (m *Manager) applyTurnCompleted(sessionID string, turn appserver.Turn) {
 	}
 	turn.ID = turnID
 	modelTurn := turnFromAppServer(turn)
-	modelTurn.Status = normalizeRuntimeStatus(modelTurn.Status, statusDone)
+	modelTurn.Status = "completed"
 	index := session.upsertTurn(modelTurn)
 	if session.runningTurnID == turnID {
 		session.runningTurnID = ""
@@ -681,9 +679,9 @@ func recordFromThread(thread appserver.Thread) model.SessionRecord {
 
 func statusFromThreadStatus(status appserver.ThreadStatus) string {
 	switch strings.ToLower(strings.TrimSpace(status.Type)) {
-	case "active", "running":
+	case statusRunning:
 		return statusRunning
-	case "systemerror", "error":
+	case statusError:
 		return statusError
 	default:
 		return statusIdle
@@ -730,7 +728,7 @@ func turnFromAppServer(turn appserver.Turn) model.SessionTurn {
 	}
 	return model.SessionTurn{
 		ID:          turn.ID,
-		Status:      normalizeRuntimeStatus(turn.Status, statusIdle),
+		Status:      firstNonEmpty(turn.Status, statusIdle),
 		StartedAt:   startedAt,
 		CompletedAt: completedAt,
 		DurationMs:  normalizedTurnDurationMs(turn.DurationMs, startedAt, completedAt),
@@ -747,7 +745,7 @@ func itemFromMap(item map[string]any, itemTime time.Time) model.SessionItem {
 	out := model.SessionItem{
 		ID:      strAny(item["id"]),
 		Type:    itemKind,
-		Status:  normalizeRuntimeStatus(strAny(item["status"]), ""),
+		Status:  strAny(item["status"]),
 		Time:    itemTime.UTC(),
 		Phase:   strAny(item["phase"]),
 		Command: strAny(item["command"]),
@@ -941,10 +939,10 @@ func terminalItemStatus(turnStatus string) string {
 	switch strings.ToLower(strings.TrimSpace(turnStatus)) {
 	case statusError:
 		return statusError
-	case statusStopped:
-		return statusStopped
-	case statusDone:
-		return statusDone
+	case "interrupted":
+		return "interrupted"
+	case "completed":
+		return "completed"
 	default:
 		return ""
 	}
@@ -1496,23 +1494,6 @@ func fileChangeSummary(files []map[string]any) string {
 
 func isRunningStatus(status string) bool {
 	return strings.EqualFold(strings.TrimSpace(status), statusRunning)
-}
-
-func normalizeRuntimeStatus(status string, defaultStatus string) string {
-	switch strings.ToLower(strings.TrimSpace(status)) {
-	case "":
-		return defaultStatus
-	case "running", "active", "pending", "starting", "inprogress", "in_progress":
-		return statusRunning
-	case "completed", "complete", "done", "succeeded", "success":
-		return statusDone
-	case "failed", "error":
-		return statusError
-	case "cancelled", "canceled", "interrupted", "skipped":
-		return statusStopped
-	default:
-		return defaultStatus
-	}
 }
 
 func timePtrFromUnix(value *int64) *time.Time {

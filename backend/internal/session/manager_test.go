@@ -73,11 +73,11 @@ func TestManagerCreateStartsThreadAndTurn(t *testing.T) {
 		ID:        "thread-new",
 		Preview:   "new prompt",
 		CWD:       "/workspace",
-		Status:    appserver.ThreadStatus{Type: "active"},
+		Status:    appserver.ThreadStatus{Type: statusRunning},
 		CreatedAt: 100,
 		UpdatedAt: 100,
 	}
-	backend.startTurn = appserver.Turn{ID: "turn-1", Status: "inProgress"}
+	backend.startTurn = appserver.Turn{ID: "turn-1", Status: statusRunning}
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
 
 	record, err := manager.Create(context.Background(), model.SessionCreateRequest{Prompt: "new prompt"})
@@ -120,7 +120,7 @@ func TestManagerSendResumesThreadBeforeTurnStart(t *testing.T) {
 		UpdatedAt: 100,
 	}}
 	backend.resumeThread = backend.threads[0]
-	backend.startTurn = appserver.Turn{ID: "turn-2", Status: "inProgress"}
+	backend.startTurn = appserver.Turn{ID: "turn-2", Status: statusRunning}
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
 	if _, err := manager.List(context.Background()); err != nil {
 		t.Fatalf("List() error = %v", err)
@@ -225,7 +225,7 @@ func TestManagerEventsIncludesTurnError(t *testing.T) {
 		UpdatedAt: 130,
 		Turns: []appserver.Turn{{
 			ID:          "turn-1",
-			Status:      "failed",
+			Status:      statusError,
 			StartedAt:   int64Ptr(100),
 			CompletedAt: int64Ptr(101),
 			Error: map[string]any{
