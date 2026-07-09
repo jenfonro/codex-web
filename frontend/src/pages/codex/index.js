@@ -152,23 +152,21 @@
 function applyStateUpdate(update) {
   if (!update?.sessionId) return;
   if (isDuplicateStateUpdate(update)) return;
-  let renderIntent = { mode: "full" };
   if (update.state) {
     applySessionState(update.state);
   } else {
     if (update.session) upsertSession(update.session);
     if (update.item) {
-      renderIntent = renderIntentForItemUpdate(applyItemUpdate(update.sessionId, update.turn, update.item, update.seq));
+      applyItemUpdate(update.sessionId, update.turn, update.item, update.seq);
     } else if (update.turn) {
       applyTurnUpdate(update.sessionId, update.turn, update.seq);
     }
     if (update.error) {
       applyErrorUpdate(update.sessionId, update.error, update.seq);
-      renderIntent = { mode: "full" };
     }
   }
   markStateUpdateApplied(update.sessionId, update.seq);
-  renderStateUpdate(update, renderIntent);
+  renderStateUpdate(update);
 }
 
 function applySessionState(sessionState) {
@@ -195,7 +193,7 @@ function applyTurnUpdate(sessionID, turn, seq) {
 }
 
 function applyItemUpdate(sessionID, turn, item, seq) {
-  if (!item?.id) return null;
+  if (!item?.id) return;
   const sessionState = ensureSessionState(sessionID, seq);
   const turnID = turn?.id || sessionState.turns[sessionState.turns.length - 1]?.id || `turn-${seq || Date.now()}`;
   let turnIndex = sessionState.turns.findIndex((entry) => entry.id === turnID);
@@ -207,7 +205,6 @@ function applyItemUpdate(sessionID, turn, item, seq) {
   }
   const items = sessionState.turns[turnIndex].items || [];
   const itemIndex = items.findIndex((entry) => entry.id === item.id);
-  const existingItem = itemIndex >= 0 ? items[itemIndex] : null;
   if (itemIndex >= 0) {
     items[itemIndex] = mergeStateItem(items[itemIndex], item);
   } else {
@@ -216,12 +213,6 @@ function applyItemUpdate(sessionID, turn, item, seq) {
   sessionState.turns[turnIndex].items = items;
   sessionState.lastSeq = Math.max(sessionState.lastSeq || 0, Number(seq || 0));
   state.statesBySession.set(sessionID, sessionState);
-  const nextItem = items[itemIndex >= 0 ? itemIndex : items.length - 1];
-  return {
-    existing: Boolean(existingItem),
-    item: nextItem,
-    textChanged: String(existingItem?.text || "") !== String(nextItem?.text || ""),
-  };
 }
 
 function applyErrorUpdate(sessionID, message, seq) {
@@ -273,11 +264,22 @@ function mergeStateItem(existing, incoming) {
   return {
     ...existing,
     ...incoming,
-    text: incoming.text !== "" ? incoming.text : existing.text,
-    output: incoming.output !== "" ? incoming.output : existing.output,
+    text: mergePresentField(existing?.text, incoming, "text"),
+    output: mergePresentField(existing?.output, incoming, "output"),
     raw: { ...(existing.raw || {}), ...(incoming.raw || {}) },
-    items: incoming.items || existing.items || null,
+    items: hasOwn(incoming, "items") ? incoming.items : existing.items || null,
   };
+}
+
+function mergePresentField(existingValue, incoming, field) {
+  if (!hasOwn(incoming, field)) return existingValue;
+  const value = incoming[field];
+  if (value === "" || value === null || typeof value === "undefined") return existingValue;
+  return value;
+}
+
+function hasOwn(value, field) {
+  return Boolean(value && Object.prototype.hasOwnProperty.call(value, field));
 }
 
 function latestStateSeqForSession(sessionID) {
@@ -296,28 +298,9 @@ function markStateUpdateApplied(sessionID, seq) {
   state.appliedSeqBySession.set(sessionID, Math.max(Number(state.appliedSeqBySession.get(sessionID) || 0), nextSeq));
 }
 
-function renderIntentForItemUpdate(result) {
-  if (!result?.existing || !result.textChanged) return { mode: "full" };
-  const item = result.item;
-  if (item?.type !== "agentMessage") return { mode: "full" };
-  if (!isRunningStatus(item.status)) return { mode: "full" };
-  if (!String(item.text || "").trim()) return { mode: "full" };
-  return { mode: "assistant-item", item };
-}
-
-function renderStateUpdate(update, renderIntent) {
+function renderStateUpdate(update) {
   if (state.view !== "list" && state.activeSessionId !== update.sessionId) return;
-  if (state.view === "thread" && renderIntent?.mode === "assistant-item") {
-    if (renderer.updateAssistantItem(renderIntent.item)) {
-      renderer.syncComposerState();
-      return;
-    }
-  }
   requestRender();
-}
-
-function isRunningStatus(status) {
-  return ["running", "active", "pending", "starting", "inprogress", "in_progress"].includes(String(status || "").trim().toLowerCase());
 }
 
 function requestRender() {

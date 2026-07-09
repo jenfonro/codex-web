@@ -24,9 +24,28 @@
     const { state, mount, icons, config } = runtime;
 
 function render() {
-  mount.root.innerHTML = `${state.view === "thread" ? renderThreadView() : renderListView()}${renderToastViewport()}`;
+  const html = renderPanelHTML();
+  if (state.view === "thread" && currentPanelView() === "thread") {
+    if (!reconcileThreadView(html)) {
+      replacePanelHTML(html);
+    }
+  } else {
+    replacePanelHTML(html);
+  }
   syncComposerState();
+}
+
+function renderPanelHTML() {
+  return `${state.view === "thread" ? renderThreadView() : renderListView()}${renderToastViewport()}`;
+}
+
+function replacePanelHTML(html) {
+  mount.root.innerHTML = html;
   syncThreadScrollPosition();
+}
+
+function currentPanelView() {
+  return mount.root.querySelector("[data-codex-panel-root]")?.dataset?.codexView || "";
 }
 
 function renderToastViewport() {
@@ -42,16 +61,15 @@ function syncThreadScrollPosition() {
   });
 }
 
-function updateAssistantItem(item) {
-  if (state.view !== "thread" || !item?.id) return false;
-  const content = findStateItemContent(item.id);
-  if (!content) return false;
-  const scroll = mount.root.querySelector("[data-thread-scroll]");
+function reconcileThreadView(html) {
+  const currentRoot = mount.root.querySelector("[data-codex-panel-root][data-codex-view='thread']");
+  const nextRoot = panelRootFromHTML(html);
+  if (!currentRoot || !nextRoot) return false;
+  const scroll = currentRoot.querySelector("[data-thread-scroll]");
   const stickToBottom = isThreadScrollAtBottom(scroll);
-  const html = markdown.render(item.text || assistantTextFromData(item.raw), { variant: "assistant" });
-  if (content.innerHTML !== html) {
-    content.innerHTML = html;
-  }
+  syncNodeFromNext(currentRoot, nextRoot, "[data-codex-thread-header]");
+  if (!reconcileThreadConversation(currentRoot, nextRoot)) return false;
+  syncComposerSurface(currentRoot, nextRoot);
   if (stickToBottom && scroll) {
     requestAnimationFrame(() => {
       scroll.scrollTop = scroll.scrollHeight;
@@ -60,11 +78,94 @@ function updateAssistantItem(item) {
   return true;
 }
 
-function findStateItemContent(itemID) {
-  for (const node of mount.root.querySelectorAll("[data-codex-state-item-id]")) {
-    if (node.dataset.codexStateItemId === itemID) return node;
+function panelRootFromHTML(html) {
+  const template = global.document.createElement("template");
+  template.innerHTML = String(html || "").trim();
+  return template.content.querySelector("[data-codex-panel-root]");
+}
+
+function syncNodeFromNext(currentRoot, nextRoot, selector) {
+  const currentNode = currentRoot.querySelector(selector);
+  const nextNode = nextRoot.querySelector(selector);
+  if (!currentNode || !nextNode) return false;
+  if (currentNode.outerHTML !== nextNode.outerHTML) {
+    currentNode.replaceWith(nextNode);
   }
-  return null;
+  return true;
+}
+
+function reconcileThreadConversation(currentRoot, nextRoot) {
+  const currentList = currentRoot.querySelector("[data-codex-conversation-list]");
+  const nextList = nextRoot.querySelector("[data-codex-conversation-list]");
+  if (!currentList || !nextList) return false;
+  reconcileConversationList(currentList, nextList);
+  return true;
+}
+
+function syncComposerSurface(currentRoot, nextRoot) {
+  const currentSurface = currentRoot.querySelector("[data-codex-composer-surface]");
+  const nextSurface = nextRoot.querySelector("[data-codex-composer-surface]");
+  if (!currentSurface || !nextSurface) return false;
+  if (currentSurface.dataset?.codexComposerSignature === nextSurface.dataset?.codexComposerSignature) {
+    return true;
+  }
+  const currentInput = currentSurface.querySelector("[data-codex-composer]");
+  const nextInput = nextSurface.querySelector("[data-codex-composer]");
+  if (currentInput && nextInput) {
+    nextInput.innerHTML = currentInput.innerHTML;
+    nextInput.dataset.codexEmpty = currentInput.dataset.codexEmpty || nextInput.dataset.codexEmpty || "true";
+  }
+  currentSurface.replaceWith(nextSurface);
+  return true;
+}
+
+function reconcileConversationList(currentList, nextList) {
+  const currentByKey = new Map();
+  for (const child of Array.from(currentList.children)) {
+    const key = child.dataset?.codexConversationKey || "";
+    if (key) currentByKey.set(key, child);
+  }
+
+  const nextChildren = Array.from(nextList.children);
+  for (let index = 0; index < nextChildren.length; index += 1) {
+    const nextChild = nextChildren[index];
+    const key = nextChild.dataset?.codexConversationKey || "";
+    const currentChild = key ? currentByKey.get(key) : null;
+    const child = currentChild
+      ? reconcileConversationItem(currentChild, nextChild)
+      : nextChild;
+    if (currentChild) currentByKey.delete(key);
+    const reference = currentList.children[index] || null;
+    if (child !== reference) currentList.insertBefore(child, reference);
+  }
+
+  for (const child of currentByKey.values()) {
+    child.remove();
+  }
+}
+
+function reconcileConversationItem(currentChild, nextChild) {
+  if (currentChild.dataset?.codexConversationSignature === nextChild.dataset?.codexConversationSignature) {
+    syncMarkdownNodes(currentChild, nextChild);
+    return currentChild;
+  }
+  currentChild.replaceWith(nextChild);
+  return nextChild;
+}
+
+function syncMarkdownNodes(currentRoot, nextRoot) {
+  const currentByID = new Map();
+  for (const node of currentRoot.querySelectorAll("[data-codex-markdown-item-id]")) {
+    const id = node.dataset?.codexMarkdownItemId || "";
+    if (id) currentByID.set(id, node);
+  }
+  for (const nextNode of nextRoot.querySelectorAll("[data-codex-markdown-item-id]")) {
+    const id = nextNode.dataset?.codexMarkdownItemId || "";
+    const currentNode = id ? currentByID.get(id) : null;
+    if (currentNode && currentNode.innerHTML !== nextNode.innerHTML) {
+      currentNode.innerHTML = nextNode.innerHTML;
+    }
+  }
 }
 
 function isThreadScrollAtBottom(scroll) {
@@ -112,20 +213,9 @@ function renderSessionList() {
 
 function renderThreadView() {
   const session = activeSession();
-  const sessionID = session?.id || "sample-thread";
-  const sessionState = state.statesBySession.get(sessionID);
-  const fallbackEvents = runtime.samples?.eventsBySession?.get("sample-thread") || [];
-  const events = state.eventsBySession.has(sessionID)
-    ? state.eventsBySession.get(sessionID)
-    : state.apiAvailable
-      ? []
-      : fallbackEvents;
-  const conversation = sessionState
-    ? renderConversationState(sessionState)
-    : renderConversationEvents(events);
   return `
     <div class="codex-panel-view codex-panel-view-thread relative flex h-full flex-col min-h-0" data-codex-panel-root data-codex-view="thread">
-      <div class="sticky top-0 z-10">${renderHeader(session?.title || "任务", "thread")}</div>
+      <div class="sticky top-0 z-10" data-codex-thread-header>${renderHeader(session?.title || "任务", "thread")}</div>
       <div class="codex-thread-body flex min-h-0 flex-1 flex-col [&_[data-thread-find-target=conversation]]:scroll-mt-24">
         <div class="codex-thread-scroll-region relative mx-auto flex min-h-0 w-full flex-1 flex-col">
           <div class="min-h-0 flex-1">
@@ -134,7 +224,7 @@ function renderThreadView() {
                   <div class="codex-thread-content-frame flex min-h-full shrink-0 flex-col justify-start" data-thread-content-frame>
                     <div data-codex-thread-content="true" class="codex-thread-content mx-auto w-full max-w-(--thread-content-max-width) px-toolbar relative flex flex-1 shrink-0 flex-col pb-8">
                       <div data-thread-find-target="conversation" class="relative flex flex-col gap-3">
-                        ${conversation}
+                        ${renderActiveConversation()}
                       </div>
                     </div>
                   </div>
@@ -145,6 +235,19 @@ function renderThreadView() {
         ${renderThreadComposer()}
       </div>
     </div>`;
+}
+
+function renderActiveConversation() {
+  const sessionID = activeSession()?.id || "sample-thread";
+  const sessionState = state.statesBySession.get(sessionID);
+  if (sessionState) return renderConversationState(sessionState);
+  const fallbackEvents = runtime.samples?.eventsBySession?.get("sample-thread") || [];
+  const events = state.eventsBySession.has(sessionID)
+    ? state.eventsBySession.get(sessionID)
+    : state.apiAvailable
+      ? []
+      : fallbackEvents;
+  return renderConversationEvents(events);
 }
 
 function renderHeader(title, mode) {
@@ -188,9 +291,7 @@ function renderConversationEvents(events) {
   return `
     <div class="relative shrink-0">
       ${renderOlderEventsLoader(page)}
-      <div class="flex flex-col" style="gap: 12px;">
-        ${items.map((item, index) => `<div>${renderConversationItem(item, index)}</div>`).join("")}
-      </div>
+      ${renderConversationList(items)}
     </div>`;
 }
 
@@ -199,10 +300,53 @@ function renderConversationState(sessionState) {
   const items = conversationItemsFromState(turns);
   return `
     <div class="relative shrink-0">
-      <div class="flex flex-col" style="gap: 12px;">
-        ${items.map((item, index) => `<div>${renderConversationItem(item, index)}</div>`).join("")}
-      </div>
+      ${renderConversationList(items)}
     </div>`;
+}
+
+function renderConversationList(items) {
+  return `
+      <div class="flex flex-col" style="gap: 12px;" data-codex-conversation-list>
+        ${items.map(renderConversationItemFrame).join("")}
+      </div>`;
+}
+
+function renderConversationItemFrame(item, index) {
+  return `<div data-codex-conversation-key="${escapeAttr(conversationItemKey(item, index))}" data-codex-conversation-signature="${escapeAttr(conversationItemSignature(item, index))}">${renderConversationItem(item, index)}</div>`;
+}
+
+function conversationItemKey(item, index) {
+  if (item?.type === "user-turn") return `turn:${turnKeyFromEvent(item.event, index)}`;
+  return `event:${conversationEventKey(item?.event, index)}`;
+}
+
+function conversationItemSignature(item, index) {
+  if (item?.type === "user-turn") {
+    const followupSignature = (item.followups || [])
+      .map((event, offset) => conversationEventSignature(event, offset))
+      .join("|");
+    return `user:${conversationEventSignature(item.event, index)}:${followupSignature}`;
+  }
+  return `event:${conversationEventSignature(item?.event, index)}`;
+}
+
+function conversationEventKey(event, index) {
+  const data = event?.data && typeof event.data === "object" ? event.data : {};
+  return data.itemId || event?.itemId || data.turnKey || data.turnId || `${event?.kind || "assistant_message"}:${index}`;
+}
+
+function conversationEventSignature(event, index) {
+  const kind = event?.kind || "assistant_message";
+  const data = event?.data && typeof event.data === "object" ? event.data : {};
+  const itemID = data.itemId || event?.itemId || "";
+  const status = data.status || event?.status || "";
+  const phase = data.phase || event?.phase || "";
+  const streaming = data.streaming === true;
+  const textVersion = kind === "assistant_message" && streaming
+    ? "streaming"
+    : String(event?.text || assistantTextFromData(data)).length;
+  const childCount = Array.isArray(event?.items) ? event.items.length : Array.isArray(data.items) ? data.items.length : 0;
+  return `${kind}:${conversationEventKey(event, index)}:${itemID}:${status}:${phase}:${streaming}:${childCount}:${textVersion}`;
 }
 
 function conversationItemsFromState(turns) {
@@ -646,7 +790,7 @@ function renderAssistantMessage(event, index, isError) {
 function renderAssistantContent(event, index, isError, includeActions = true) {
   const errorClass = isError ? " codex-error-message" : "";
   const itemID = event?.data?.itemId || event?.itemId || "";
-  const itemAttr = itemID ? ` data-codex-state-item-id="${escapeAttr(itemID)}"` : "";
+  const itemAttr = itemID ? ` data-codex-markdown-item-id="${escapeAttr(itemID)}"` : "";
   const messageText = markdown.render(event.text || assistantTextFromData(event.data), {
     variant: isError ? "error" : "assistant",
   });
@@ -986,8 +1130,9 @@ function renderComposerSurface(placeholder, includeExternalFooter) {
     state.view === "list" && (state.popover === "" || state.popover === "plus")
       ? "codex-editor codex-editor-focused"
       : "codex-editor";
+  const signature = composerSurfaceSignature(includeExternalFooter);
   return `
-    <div class="codex-composer-surface relative flex w-full min-w-0 flex-col gap-2" data-codex-composer-surface>
+    <div class="codex-composer-surface relative flex w-full min-w-0 flex-col gap-2" data-codex-composer-surface data-codex-composer-signature="${escapeAttr(signature)}">
       <div id="aboveComposerLayer" data-above-composer-layer="true" class="relative px-5 empty:hidden"></div>
       <div id="aboveComposerQueueLayer" data-above-composer-queue-layer="true" class="relative px-5 empty:hidden"></div>
       <div class="codex-composer-card-wrap relative">
@@ -1007,6 +1152,13 @@ function renderComposerSurface(placeholder, includeExternalFooter) {
       ${includeExternalFooter ? renderExternalFooter() : ""}
       ${renderFloatingPopover()}
     </div>`;
+}
+
+function composerSurfaceSignature(includeExternalFooter) {
+  const running = isActiveSessionRunning() ? "running" : "idle";
+  const popover = state.popover || "closed";
+  const modelMenu = state.modelMenuExpanded ? "expanded" : "collapsed";
+  return `${state.view}:${includeExternalFooter ? "thread-footer" : "home-footer"}:${running}:${popover}:${modelMenu}`;
 }
 
 function renderComposerFooter() {
@@ -1235,7 +1387,6 @@ function ensureEmptyComposerStructure(input) {
 
     return {
       render,
-      updateAssistantItem,
       syncComposerState,
       composerText,
       clearComposer,
