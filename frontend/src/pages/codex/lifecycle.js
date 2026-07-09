@@ -1,8 +1,6 @@
 "use strict";
 
 (function defineCodexPanelLifecycle(global) {
-  const utils = global.CodexPanelUtils;
-
   const activityKinds = ["turn_started", "reasoning", "tool_call"];
   const defaultPendingActivityKinds = ["turn_started", "reasoning"];
   const controlKinds = ["turn_completed", "thread_started", "thread_status"];
@@ -14,7 +12,7 @@
   }
 
   function eventStatus(event) {
-    return String(event?.status || event?.data?.status || "").toLowerCase();
+    return String(event?.data?.status || "").toLowerCase();
   }
 
   function isRunningStatus(status) {
@@ -48,7 +46,7 @@
   }
 
   function assistantEventHasContent(event) {
-    return eventKind(event) === "assistant_message" && Boolean(String(event?.text || utils.assistantTextFromData(event?.data)).trim());
+    return eventKind(event) === "assistant_message" && Boolean(String(event?.text || "").trim());
   }
 
   function isEmptyAssistantEvent(event) {
@@ -68,7 +66,7 @@
   function isEmptyTransientActivity(event) {
     const kind = eventKind(event);
     if (kind !== "turn_started" && kind !== "reasoning") return false;
-    return !String(event?.text || utils.assistantTextFromData(event?.data)).trim();
+    return !String(event?.text || "").trim();
   }
 
   function isPreUserTurnSignal(event) {

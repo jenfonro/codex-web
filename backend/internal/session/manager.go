@@ -193,8 +193,10 @@ func (m *Manager) Cancel(id string) error {
 	managed.runningTurnID = ""
 	if hasTurn {
 		now := time.Now().UTC()
-		managed.turns[turnIndex].Status = "interrupted"
-		managed.turns[turnIndex].CompletedAt = &now
+		turn := &managed.turns[turnIndex]
+		turn.Status = "interrupted"
+		turn.CompletedAt = &now
+		turn.DurationMs = normalizedTurnDurationMs(turn.DurationMs, turn.StartedAt, turn.CompletedAt)
 	}
 	m.setStatusLocked(id, statusIdle)
 	update := m.sessionUpdateLocked(managed, "session")
@@ -571,12 +573,6 @@ func (m *Manager) handleServerRequestNotification(notification appserver.Notific
 		Status: "declined",
 		Text:   text,
 		Time:   now,
-		Raw: map[string]any{
-			"method":    notification.Method,
-			"requestId": notification.RequestID,
-			"params":    notification.Params,
-			"decision":  "decline",
-		},
 	}
 	m.mu.Lock()
 	session := m.ensureSessionLocked(threadID)
@@ -737,7 +733,7 @@ func turnFromAppServer(turn appserver.Turn) model.SessionTurn {
 		Status:      firstNonEmpty(turn.Status, statusIdle),
 		StartedAt:   startedAt,
 		CompletedAt: completedAt,
-		DurationMs:  turn.DurationMs,
+		DurationMs:  normalizedTurnDurationMs(turn.DurationMs, startedAt, completedAt),
 		Error:       turn.Error,
 		Items:       items,
 	}
@@ -747,10 +743,10 @@ func itemFromMap(item map[string]any, itemTime time.Time) model.SessionItem {
 	if itemTime.IsZero() {
 		itemTime = time.Now().UTC()
 	}
-	itemType := strAny(item["type"])
+	itemKind := strAny(item["type"])
 	out := model.SessionItem{
 		ID:      strAny(item["id"]),
-		Type:    itemType,
+		Type:    itemKind,
 		Status:  strAny(item["status"]),
 		Time:    itemTime.UTC(),
 		Phase:   strAny(item["phase"]),
@@ -759,9 +755,8 @@ func itemFromMap(item map[string]any, itemTime time.Time) model.SessionItem {
 		Server:  strAny(item["server"]),
 		Tool:    strAny(item["tool"]),
 		Name:    strAny(item["name"]),
-		Raw:     cloneMap(item),
 	}
-	switch itemType {
+	switch itemKind {
 	case "userMessage":
 		out.Text = userInputText(item["content"])
 	case "agentMessage":
@@ -818,12 +813,12 @@ func countStateItems(turns []model.SessionTurn) int {
 
 func (m *Manager) turnIDForItemLocked(session *managedSession, params map[string]any, rawItem map[string]any) string {
 	if params != nil {
-		if turnID := firstNonEmpty(strAny(params["turnId"]), strAny(params["turnID"])); turnID != "" {
+		if turnID := strAny(params["turnId"]); turnID != "" {
 			return turnID
 		}
 	}
 	if rawItem != nil {
-		if turnID := firstNonEmpty(strAny(rawItem["turnId"]), strAny(rawItem["turnID"])); turnID != "" {
+		if turnID := strAny(rawItem["turnId"]); turnID != "" {
 			return turnID
 		}
 	}
@@ -1038,14 +1033,6 @@ func mergeItem(existing *model.SessionItem, incoming model.SessionItem) {
 	if incoming.Items != nil {
 		existing.Items = cloneMapSlice(incoming.Items)
 	}
-	if incoming.Raw != nil {
-		if existing.Raw == nil {
-			existing.Raw = map[string]any{}
-		}
-		for key, value := range incoming.Raw {
-			existing.Raw[key] = value
-		}
-	}
 }
 
 func (m *Manager) ensureSessionLocked(sessionID string) *managedSession {
@@ -1177,14 +1164,13 @@ func cloneTurn(turn model.SessionTurn) model.SessionTurn {
 func cloneItem(item model.SessionItem) model.SessionItem {
 	out := item
 	out.Items = cloneMapSlice(item.Items)
-	out.Raw = cloneMap(item.Raw)
 	return out
 }
 
 func eventsFromState(state model.SessionState) []model.SessionEvent {
 	events := []model.SessionEvent{}
 	var seq int64
-	for turnIndex, turn := range state.Turns {
+	for _, turn := range state.Turns {
 		for itemIndex, item := range turn.Items {
 			eventTime := item.Time
 			if eventTime.IsZero() && turn.StartedAt != nil {
@@ -1201,7 +1187,6 @@ func eventsFromState(state model.SessionState) []model.SessionEvent {
 				event.Data = map[string]any{}
 			}
 			event.Data["turnId"] = turn.ID
-			event.Data["turnKey"] = firstNonEmpty(turn.ID, fmt.Sprintf("turn-%d", turnIndex+1))
 			event.Data["contentUnit"] = itemIndex
 			events = append(events, event)
 			for _, followup := range extra {
@@ -1223,19 +1208,13 @@ func terminalTurnItem(turn model.SessionTurn) *model.SessionItem {
 			Status: firstNonEmpty(turn.Status, statusError),
 			Time:   terminalTurnTime(turn),
 			Text:   turnErrorText(turn.Error),
-			Raw: map[string]any{
-				"kind":  "error",
-				"error": cloneMap(turn.Error),
-			},
 		}
 	}
 	if !turnHasNoVisibleResponse(turn) {
 		return nil
 	}
-	kind := "empty"
 	text := "No response was produced for this turn."
 	if strings.EqualFold(turn.Status, "interrupted") {
-		kind = "interrupted"
 		text = "Generation stopped."
 	}
 	return &model.SessionItem{
@@ -1244,9 +1223,6 @@ func terminalTurnItem(turn model.SessionTurn) *model.SessionItem {
 		Status: turn.Status,
 		Time:   terminalTurnTime(turn),
 		Text:   text,
-		Raw: map[string]any{
-			"kind": kind,
-		},
 	}
 }
 
@@ -1342,14 +1318,12 @@ func eventFromStateItem(sessionID string, turn model.SessionTurn, item model.Ses
 			return event, nil
 		}
 		outputData := map[string]any{
-			"itemId":  item.ID + ":output",
-			"call_id": item.ID,
-			"output":  item.Output,
-			"status":  item.Status,
+			"itemId": item.ID + ":output",
+			"callId": item.ID,
+			"status": item.Status,
 		}
 		return event, []model.SessionEvent{newParsedEvent("tool_output", item.Output, eventTime.Add(time.Millisecond), outputData)}
 	case "fileChange":
-		data["items"] = item.Items
 		return model.SessionEvent{
 			Kind:  "tool_summary",
 			Text:  item.Text,
@@ -1375,23 +1349,12 @@ func eventFromStateItem(sessionID string, turn model.SessionTurn, item model.Ses
 func compactStateItemData(turn model.SessionTurn, item model.SessionItem) map[string]any {
 	data := map[string]any{
 		"itemId":     item.ID,
-		"itemType":   item.Type,
 		"status":     item.Status,
 		"turnId":     turn.ID,
 		"durationMs": turnDurationMillis(turn),
-		"item":       item.Raw,
 	}
 	if item.Phase != "" {
 		data["phase"] = item.Phase
-	}
-	if item.Command != "" {
-		data["command"] = item.Command
-	}
-	if item.CWD != "" {
-		data["cwd"] = item.CWD
-	}
-	if item.Output != "" {
-		data["output"] = item.Output
 	}
 	if item.Name != "" {
 		data["name"] = item.Name
@@ -1404,10 +1367,18 @@ func turnDurationMillis(turn model.SessionTurn) *int64 {
 		duration := *turn.DurationMs
 		return &duration
 	}
-	if turn.StartedAt == nil || turn.CompletedAt == nil || turn.CompletedAt.Before(*turn.StartedAt) {
+	return nil
+}
+
+func normalizedTurnDurationMs(explicit *int64, startedAt, completedAt *time.Time) *int64 {
+	if explicit != nil && *explicit > 0 {
+		duration := *explicit
+		return &duration
+	}
+	if startedAt == nil || completedAt == nil || completedAt.Before(*startedAt) {
 		return nil
 	}
-	duration := turn.CompletedAt.Sub(*turn.StartedAt).Milliseconds()
+	duration := completedAt.Sub(*startedAt).Milliseconds()
 	if duration <= 0 {
 		return nil
 	}

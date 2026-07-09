@@ -269,9 +269,6 @@ func TestManagerEventsIncludesTurnError(t *testing.T) {
 	if page.Events[1].Data["turnId"] != "turn-1" {
 		t.Fatalf("error data = %#v", page.Events[1].Data)
 	}
-	if page.Events[1].Data["itemType"] != "error" {
-		t.Fatalf("error data = %#v", page.Events[1].Data)
-	}
 }
 
 func TestManagerEventsIncludesEmptyTurnResult(t *testing.T) {
@@ -322,9 +319,6 @@ func TestManagerEventsIncludesEmptyTurnResult(t *testing.T) {
 	}
 	if page.Events[1].Text != "No response was produced for this turn." {
 		t.Fatalf("empty result text = %q", page.Events[1].Text)
-	}
-	if page.Events[1].Data["itemType"] != "error" {
-		t.Fatalf("empty result data = %#v", page.Events[1].Data)
 	}
 }
 
@@ -662,9 +656,9 @@ func eventSeqs(events []model.SessionEvent) string {
 	return strings.Join(seqs, ",")
 }
 
-func hasItemType(items []model.SessionItem, itemType string) bool {
+func hasItemType(items []model.SessionItem, itemKind string) bool {
 	for _, item := range items {
-		if item.Type == itemType {
+		if item.Type == itemKind {
 			return true
 		}
 	}

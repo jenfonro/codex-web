@@ -26,11 +26,11 @@ function normalizeSessions(value) {
 
 function normalizeSession(value) {
   if (!value || typeof value !== "object") return null;
-  const updatedAt = value.updatedAt || value.UpdatedAt || value.createdAt || value.CreatedAt || new Date().toISOString();
+  const updatedAt = value.updatedAt || value.createdAt || new Date().toISOString();
   return {
-    id: String(value.id || value.ID || ""),
-    title: String(value.title || value.Title || "New session"),
-    status: String(value.status || value.Status || "idle"),
+    id: String(value.id || ""),
+    title: String(value.title || "New session"),
+    status: String(value.status || "idle"),
     updatedAt,
     timeLabel: utils.relativeTime(updatedAt),
   };
@@ -43,40 +43,40 @@ function normalizeEvents(value) {
 function normalizeEvent(value) {
   if (!value || typeof value !== "object") return null;
   return {
-    sessionId: value.sessionId || value.SessionID || value.sessionID || "",
-    seq: value.seq || value.Seq || 0,
-    time: value.time || value.Time || new Date().toISOString(),
-    kind: value.kind || value.Kind || "assistant_message",
-    text: value.text || value.Text || "",
-    items: value.items || value.Items || null,
-    data: value.data || value.Data || null,
+    sessionId: value.sessionId || "",
+    seq: value.seq || 0,
+    time: value.time || new Date().toISOString(),
+    kind: value.kind || "assistant_message",
+    text: value.text || "",
+    items: value.items || null,
+    data: value.data || null,
   };
 }
 
 function normalizeSessionState(value) {
   if (!value || typeof value !== "object") return null;
-  const session = normalizeSession(value.session || value.Session || {});
+  const session = normalizeSession(value.session || {});
   if (!session?.id) return null;
   return {
     session,
-    turns: Array.isArray(value.turns || value.Turns)
-      ? (value.turns || value.Turns).map(normalizeTurn).filter(Boolean)
+    turns: Array.isArray(value.turns)
+      ? value.turns.map(normalizeTurn).filter(Boolean)
       : [],
-    lastSeq: Number(value.lastSeq || value.LastSeq || session.lastSeq || 0),
+    lastSeq: Number(value.lastSeq || session.lastSeq || 0),
   };
 }
 
 function normalizeTurn(value) {
   if (!value || typeof value !== "object") return null;
   return {
-    id: String(value.id || value.ID || ""),
-    status: String(value.status || value.Status || ""),
-    startedAt: value.startedAt || value.StartedAt || "",
-    completedAt: value.completedAt || value.CompletedAt || "",
-    durationMs: value.durationMs ?? value.DurationMs ?? null,
-    error: value.error || value.Error || null,
-    items: Array.isArray(value.items || value.Items)
-      ? (value.items || value.Items).map(normalizeStateItem).filter(Boolean)
+    id: String(value.id || ""),
+    status: String(value.status || ""),
+    startedAt: value.startedAt || "",
+    completedAt: value.completedAt || "",
+    durationMs: value.durationMs ?? null,
+    error: value.error || null,
+    items: Array.isArray(value.items)
+      ? value.items.map(normalizeStateItem).filter(Boolean)
       : [],
   };
 }
@@ -84,35 +84,34 @@ function normalizeTurn(value) {
 function normalizeStateItem(value) {
   if (!value || typeof value !== "object") return null;
   return {
-    id: String(value.id || value.ID || ""),
-    type: String(value.type || value.Type || ""),
-    status: String(value.status || value.Status || ""),
-    time: value.time || value.Time || "",
-    text: value.text ?? value.Text ?? "",
-    output: value.output ?? value.Output ?? "",
-    command: value.command || value.Command || "",
-    cwd: value.cwd || value.CWD || "",
-    phase: value.phase || value.Phase || "",
-    server: value.server || value.Server || "",
-    tool: value.tool || value.Tool || "",
-    name: value.name || value.Name || "",
-    items: Array.isArray(value.items || value.Items) ? (value.items || value.Items) : null,
-    raw: value.raw || value.Raw || null,
+    id: String(value.id || ""),
+    type: String(value.type || ""),
+    status: String(value.status || ""),
+    time: value.time || "",
+    text: value.text ?? "",
+    output: value.output ?? "",
+    command: value.command || "",
+    cwd: value.cwd || "",
+    phase: value.phase || "",
+    server: value.server || "",
+    tool: value.tool || "",
+    name: value.name || "",
+    items: Array.isArray(value.items) ? value.items : null,
   };
 }
 
 function normalizeStateUpdate(value) {
   if (!value || typeof value !== "object") return null;
   return {
-    sessionId: String(value.sessionId || value.SessionID || ""),
-    seq: Number(value.seq || value.Seq || 0),
-    time: value.time || value.Time || new Date().toISOString(),
-    type: String(value.type || value.Type || ""),
-    session: value.session || value.Session ? normalizeSession(value.session || value.Session) : null,
-    state: value.state || value.State ? normalizeSessionState(value.state || value.State) : null,
-    turn: value.turn || value.Turn ? normalizeTurn(value.turn || value.Turn) : null,
-    item: value.item || value.Item ? normalizeStateItem(value.item || value.Item) : null,
-    error: String(value.error || value.Error || ""),
+    sessionId: String(value.sessionId || ""),
+    seq: Number(value.seq || 0),
+    time: value.time || new Date().toISOString(),
+    type: String(value.type || ""),
+    session: value.session ? normalizeSession(value.session) : null,
+    state: value.state ? normalizeSessionState(value.state) : null,
+    turn: value.turn ? normalizeTurn(value.turn) : null,
+    item: value.item ? normalizeStateItem(value.item) : null,
+    error: String(value.error || ""),
   };
 }
 

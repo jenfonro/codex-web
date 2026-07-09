@@ -195,10 +195,10 @@ function applyTurnUpdate(sessionID, turn, seq) {
 function applyItemUpdate(sessionID, turn, item, seq) {
   if (!item?.id) return;
   const sessionState = ensureSessionState(sessionID, seq);
-  const turnID = turn?.id || sessionState.turns[sessionState.turns.length - 1]?.id || `turn-${seq || Date.now()}`;
-  let turnIndex = sessionState.turns.findIndex((entry) => entry.id === turnID);
+  const turnId = turn?.id || sessionState.turns[sessionState.turns.length - 1]?.id || `turn-${seq || Date.now()}`;
+  let turnIndex = sessionState.turns.findIndex((entry) => entry.id === turnId);
   if (turnIndex < 0) {
-    sessionState.turns.push({ ...(turn || {}), id: turnID, status: turn?.status || "running", items: [] });
+    sessionState.turns.push({ ...(turn || {}), id: turnId, status: turn?.status || "running", items: [] });
     turnIndex = sessionState.turns.length - 1;
   } else if (turn) {
     sessionState.turns[turnIndex] = mergeTurnMetadata(sessionState.turns[turnIndex], turn);
@@ -266,7 +266,6 @@ function mergeStateItem(existing, incoming) {
     ...incoming,
     text: mergePresentField(existing?.text, incoming, "text"),
     output: mergePresentField(existing?.output, incoming, "output"),
-    raw: { ...(existing.raw || {}), ...(incoming.raw || {}) },
     items: hasOwn(incoming, "items") ? incoming.items : existing.items || null,
   };
 }

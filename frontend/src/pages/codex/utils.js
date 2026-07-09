@@ -25,13 +25,6 @@ function summarizeToolActivity(text) {
   return value || "已编辑 1 个文件";
 }
 
-function assistantTextFromData(data) {
-  if (!data || typeof data !== "object") return "";
-  const item = data.item;
-  if (item && typeof item === "object") return String(item.text || item.message || "");
-  return String(data.text || data.message || "");
-}
-
 function timeFromEvent(event) {
   const date = event.time ? new Date(event.time) : null;
   if (!date || Number.isNaN(date.getTime())) return "";
@@ -75,7 +68,6 @@ function escapeAttr(value) {
     activityLabel,
     activityIcon,
     summarizeToolActivity,
-    assistantTextFromData,
     timeFromEvent,
     relativeTime,
     trimTitle,

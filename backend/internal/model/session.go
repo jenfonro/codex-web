@@ -53,7 +53,6 @@ type SessionItem struct {
 	Tool    string           `json:"tool,omitempty"`
 	Name    string           `json:"name,omitempty"`
 	Items   []map[string]any `json:"items,omitempty"`
-	Raw     map[string]any   `json:"raw,omitempty"`
 }
 
 type SessionStateUpdate struct {

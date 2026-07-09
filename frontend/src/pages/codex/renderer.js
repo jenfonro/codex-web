@@ -4,7 +4,6 @@
   const {
     activityLabel,
     activityIcon,
-    assistantTextFromData,
     timeFromEvent,
     escapeHTML,
     escapeAttr,
@@ -316,7 +315,7 @@ function renderConversationItemFrame(item, index) {
 }
 
 function conversationItemKey(item, index) {
-  if (item?.type === "user-turn") return `turn:${turnKeyFromEvent(item.event, index)}`;
+  if (item?.type === "user-turn") return `turn:${turnIdFromEvent(item.event, index)}`;
   return `event:${conversationEventKey(item?.event, index)}`;
 }
 
@@ -332,20 +331,20 @@ function conversationItemSignature(item, index) {
 
 function conversationEventKey(event, index) {
   const data = event?.data && typeof event.data === "object" ? event.data : {};
-  return data.itemId || event?.itemId || data.turnKey || data.turnId || `${event?.kind || "assistant_message"}:${index}`;
+  return data.itemId || data.turnId || `${event?.kind || "assistant_message"}:${index}`;
 }
 
 function conversationEventSignature(event, index) {
   const kind = event?.kind || "assistant_message";
   const data = event?.data && typeof event.data === "object" ? event.data : {};
-  const itemID = data.itemId || event?.itemId || "";
-  const status = data.status || event?.status || "";
-  const phase = data.phase || event?.phase || "";
+  const itemID = data.itemId || "";
+  const status = data.status || "";
+  const phase = data.phase || "";
   const streaming = data.streaming === true;
   const textVersion = kind === "assistant_message" && streaming
     ? "streaming"
-    : String(event?.text || assistantTextFromData(data)).length;
-  const childCount = Array.isArray(event?.items) ? event.items.length : Array.isArray(data.items) ? data.items.length : 0;
+    : String(event?.text || "").length;
+  const childCount = Array.isArray(event?.items) ? event.items.length : 0;
   return `${kind}:${conversationEventKey(event, index)}:${itemID}:${status}:${phase}:${streaming}:${childCount}:${textVersion}`;
 }
 
@@ -380,18 +379,15 @@ function stateTurnEvents(turn, turnIndex) {
 
 function stateItemEvents(item, turn, turnIndex, itemIndex, isLastAgent) {
   if (!item || typeof item !== "object") return [];
-  const type = item.type || item.raw?.type || "";
+  const type = item.type || "";
   const eventTime = item.time || turn?.startedAt || turn?.completedAt || new Date().toISOString();
   const data = {
     itemId: item.id,
-    itemType: type,
     status: item.status,
     phase: item.phase,
     turnId: turn?.id || "",
-    turnKey: turn?.id || `turn-${turnIndex}`,
     durationMs: turnDurationMs(turn),
     contentUnit: itemIndex,
-    item: item.raw || item,
   };
 
   if (type === "userMessage") {
@@ -442,7 +438,7 @@ function stateItemEvents(item, turn, turnIndex, itemIndex, isLastAgent) {
         data: {
           ...data,
           itemId: `${item.id}:output`,
-          call_id: item.id,
+          callId: item.id,
           output: item.output || "",
           status: item.status,
         },
@@ -482,7 +478,6 @@ function turnPendingEvent(turn, turnIndex, itemIndex = 0) {
     data: {
       status: "running",
       turnId: turn?.id || "",
-      turnKey: turn?.id || `turn-${turnIndex}`,
       contentUnit: itemIndex,
     },
   };
@@ -491,16 +486,12 @@ function turnPendingEvent(turn, turnIndex, itemIndex = 0) {
 function turnDurationMs(turn) {
   const explicit = Number(turn?.durationMs || 0);
   if (Number.isFinite(explicit) && explicit > 0) return explicit;
-  const start = new Date(turn?.startedAt || "").getTime();
-  const end = new Date(turn?.completedAt || "").getTime();
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
-  const duration = end - start;
-  return duration > 0 ? duration : null;
+  return null;
 }
 
 function lastIndexOfType(items, type) {
   for (let index = items.length - 1; index >= 0; index -= 1) {
-    if ((items[index]?.type || items[index]?.raw?.type) === type) return index;
+    if (items[index]?.type === type) return index;
   }
   return -1;
 }
@@ -614,7 +605,7 @@ function renderEvent(event, index) {
 }
 
 function renderTurnContainer(index, role, content, afterContentOverride, eventForKey) {
-  const turnKey = turnKeyFromEvent(eventForKey, index);
+  const turnId = turnIdFromEvent(eventForKey, index);
   const unit = contentUnitFor(eventForKey, role === "user" ? 0 : 0);
   const afterContent = afterContentOverride !== undefined
     ? afterContentOverride
@@ -625,10 +616,10 @@ function renderTurnContainer(index, role, content, afterContentOverride, eventFo
         <div class="flex flex-col"><div></div></div>`
     : `<div class="flex flex-col"><div></div></div>`;
   return `
-    <div data-turn-key="${escapeAttr(turnKey)}">
+    <div data-turn-id="${escapeAttr(turnId)}">
       <div class="flex flex-col gap-0">
         <div class="flex flex-col">
-          <div class="scroll-mt-4" data-content-search-unit-key="${escapeAttr(contentSearchKey(turnKey, unit, role))}" ${role === "user" ? "data-local-conversation-user-anchor=\"true\"" : ""}>
+          <div class="scroll-mt-4" data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, unit, role))}" ${role === "user" ? "data-local-conversation-user-anchor=\"true\"" : ""}>
             ${content}
           </div>
         </div>
@@ -638,16 +629,16 @@ function renderTurnContainer(index, role, content, afterContentOverride, eventFo
     </div>`;
 }
 
-function turnKeyFromEvent(event, index) {
-  return event?.turnKey || event?.data?.turnKey || event?.turnId || event?.data?.turnId || `codex-turn-${index}`;
+function turnIdFromEvent(event, index) {
+  return event?.data?.turnId || `codex-turn-${index}`;
 }
 
 function contentUnitFor(event, fallback) {
-  return event?.contentUnit ?? event?.data?.contentUnit ?? fallback;
+  return event?.data?.contentUnit ?? fallback;
 }
 
-function contentSearchKey(turnKey, unit, role) {
-  return `${turnKey}:${unit}:${role}`;
+function contentSearchKey(turnId, unit, role) {
+  return `${turnId}:${unit}:${role}`;
 }
 
 function renderUserMessage(event, index) {
@@ -662,7 +653,7 @@ function renderUserTurnAfterContent(followups, index, baseEvent) {
   const split = activitySummary.splitTurnFollowups(followups);
   const finalFollowup = split.finalFollowup;
   const streamFollowups = split.streamFollowups;
-  const turnKey = turnKeyFromEvent(baseEvent, index);
+  const turnId = turnIdFromEvent(baseEvent, index);
 
   if (!streamFollowups.length && !split.hasProcessBlock && !finalFollowup) {
     return `
@@ -673,7 +664,7 @@ function renderUserTurnAfterContent(followups, index, baseEvent) {
 
   if (finalFollowup && !streamFollowups.length && !split.hasProcessBlock) {
     const finalUnit = contentUnitFor(finalFollowup, 1);
-    return `<div class="flex flex-col" data-local-conversation-final-assistant="true"><div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnKey, finalUnit, "assistant"))}">${renderAssistantContent(finalFollowup, `${index}-final`, false)}</div></div>`;
+    return `<div class="flex flex-col" data-local-conversation-final-assistant="true"><div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, finalUnit, "assistant"))}">${renderAssistantContent(finalFollowup, `${index}-final`, false)}</div></div>`;
   }
 
   if (split.hasProcessBlock && !streamFollowups.length) {
@@ -682,7 +673,7 @@ function renderUserTurnAfterContent(followups, index, baseEvent) {
     return `
         <div class="flex flex-col">${renderTurnProcessBlock(split, baseEvent, index)}</div>
         <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
-        <div class="flex flex-col"${finalAttrs}><div${finalFollowup ? ` data-content-search-unit-key="${escapeAttr(contentSearchKey(turnKey, finalUnit, "assistant"))}"` : ""}>${finalFollowup ? renderAssistantContent(finalFollowup, `${index}-final`, false) : ""}</div></div>`;
+        <div class="flex flex-col"${finalAttrs}><div${finalFollowup ? ` data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, finalUnit, "assistant"))}"` : ""}>${finalFollowup ? renderAssistantContent(finalFollowup, `${index}-final`, false) : ""}</div></div>`;
   }
 
   const finalAttrs = finalFollowup ? ' data-local-conversation-final-assistant="true"' : "";
@@ -697,17 +688,17 @@ function renderUserTurnAfterContent(followups, index, baseEvent) {
         </div>
         ${split.hasProcessBlock ? `<div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div><div class="flex flex-col">${renderTurnProcessBlock(split, baseEvent, index)}</div>` : ""}
         <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
-        <div class="flex flex-col"${finalAttrs}><div${finalFollowup ? ` data-content-search-unit-key="${escapeAttr(contentSearchKey(turnKey, finalUnit, "assistant"))}"` : ""}>${finalFollowup ? renderAssistantContent(finalFollowup, `${index}-final`, false) : ""}</div></div>`;
+        <div class="flex flex-col"${finalAttrs}><div${finalFollowup ? ` data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, finalUnit, "assistant"))}"` : ""}>${finalFollowup ? renderAssistantContent(finalFollowup, `${index}-final`, false) : ""}</div></div>`;
 }
 
 function renderInlineTurnFollowup(event, baseEvent, turnIndex, offset) {
   const content = renderInlineFollowupContent(event, turnIndex, offset);
   const direct = isInlineActivity(event);
-  const turnKey = turnKeyFromEvent(baseEvent, turnIndex);
+  const turnId = turnIdFromEvent(baseEvent, turnIndex);
   const unit = contentUnitFor(event, offset + 1);
   const wrapped = direct
     ? content
-    : `<div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnKey, unit, "assistant"))}">${content}</div>`;
+    : `<div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, unit, "assistant"))}">${content}</div>`;
   if (offset === 0) return `<div style="overflow: hidden;">${wrapped}</div>`;
   return `
     <div style="overflow: hidden;">
@@ -742,11 +733,7 @@ function renderUserContent(event) {
 }
 
 function renderUserAttachments(event) {
-  const attachments = Array.isArray(event.attachments)
-    ? event.attachments
-    : Array.isArray(event.data?.attachments)
-      ? event.data.attachments
-      : [];
+  const attachments = Array.isArray(event.data?.attachments) ? event.data.attachments : [];
   if (!attachments.length) return "";
   return `
       <div class="hide-scrollbar flex max-w-full flex-row-reverse self-end overflow-x-auto">
@@ -766,7 +753,7 @@ function renderUserAttachment(attachment) {
 }
 
 function renderUserBubble(event) {
-  const editable = Boolean(event.editable || event.data?.editable);
+  const editable = Boolean(event.data?.editable);
   const bubbleAttrs = editable
     ? `role="button" aria-label="编辑用户消息" data-user-message-bubble="true"`
     : `data-user-message-bubble="true" tabindex="0"`;
@@ -800,19 +787,19 @@ function renderAssistantMessage(event, index, isError) {
 
 function renderAssistantContent(event, index, isError, includeActions = true) {
   const errorClass = isError ? " codex-error-message" : "";
-  const itemID = event?.data?.itemId || event?.itemId || "";
+  const itemID = event?.data?.itemId || "";
   const itemAttr = itemID ? ` data-codex-markdown-item-id="${escapeAttr(itemID)}"` : "";
-  const messageText = markdown.render(event.text || assistantTextFromData(event.data), {
+  const messageText = markdown.render(event.text || "", {
     variant: isError ? "error" : "assistant",
   });
-  const actionsVisible = Boolean(event.actionsVisible || event.data?.actionsVisible);
+  const actionsVisible = Boolean(event.data?.actionsVisible);
   const actionClass = actionsVisible
     ? "-translate-x-1.5 mt-1.5 flex h-5 items-center justify-start gap-0.5 [&_button]:focus-visible:ring-2 [&_button]:focus-visible:ring-token-focus-border [&_button]:focus-visible:ring-offset-0"
     : "-translate-x-1.5 mt-1.5 flex h-5 items-center justify-start gap-0.5 [&_button]:focus-visible:ring-2 [&_button]:focus-visible:ring-token-focus-border [&_button]:focus-visible:ring-offset-0 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100";
   return `
     <div class="group flex min-w-0 flex-col">
       <div data-selected-text-overlay-target="codex-assistant-${index}" class="codex-message-content text-size-chat${errorClass}"${itemAttr}>${messageText}</div>
-      ${event.diffCard || event.data?.diffCard ? renderDiffCard(event.diffCard || event.data.diffCard) : ""}
+      ${event.data?.diffCard ? renderDiffCard(event.data.diffCard) : ""}
       ${includeActions ? `<div class="${actionClass}">
         ${renderMessageIconButton("复制", "copy", "p-0.5", false)}
         ${renderMessageIconButton("从此处开始分叉", "branch", "p-0.5", false)}
@@ -909,17 +896,17 @@ function renderMessageIconButton(label, iconKind, sizeClass = "p-0.5", withFocus
 }
 
 function renderSummary(event, index) {
-  const followup = event.followup || event.data?.followup;
-  const turnKey = turnKeyFromEvent(event, index);
+  const followup = event.data?.followup;
+  const turnId = turnIdFromEvent(event, index);
   const followupUnit = contentUnitFor(followup, 1);
   return `
-    <div data-turn-key="${escapeAttr(turnKey)}">
+    <div data-turn-id="${escapeAttr(turnId)}">
       <div class="flex flex-col gap-0">
         <div class="flex flex-col">
           ${renderSummaryBody(event)}
         </div>
         <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
-        <div class="flex flex-col"${followup ? ' data-local-conversation-final-assistant="true"' : ""}><div${followup ? ` data-content-search-unit-key="${escapeAttr(contentSearchKey(turnKey, followupUnit, "assistant"))}"` : ""}>${followup ? renderAssistantContent(followup, `${index}-summary`, false) : ""}</div></div>
+        <div class="flex flex-col"${followup ? ' data-local-conversation-final-assistant="true"' : ""}><div${followup ? ` data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, followupUnit, "assistant"))}"` : ""}>${followup ? renderAssistantContent(followup, `${index}-summary`, false) : ""}</div></div>
       </div>
     </div>`;
 }
@@ -968,7 +955,7 @@ function renderTurnProcessContent(events, baseEvent, turnIndex) {
 
 function renderCommandGroupActivity(event) {
   const label = event.text || "已运行命令";
-  const status = event.status || event.data?.status || "";
+  const status = event.data?.status || "";
   const statusText = status && status !== "completed" ? `<span class="codex-turn-activity-status">${escapeHTML(status)}</span>` : "";
   return `
                   <div class="codex-turn-activity-row">
@@ -979,9 +966,9 @@ function renderCommandGroupActivity(event) {
 }
 
 function renderActivity(event, index) {
-  const turnKey = turnKeyFromEvent(event, index);
+  const turnId = turnIdFromEvent(event, index);
   return `
-    <div data-turn-key="${escapeAttr(turnKey)}">
+    <div data-turn-id="${escapeAttr(turnId)}">
       <div class="flex flex-col gap-0">
         <div class="flex flex-col"><div class="scroll-mt-4"></div></div>
         <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
@@ -1059,11 +1046,7 @@ function renderRunningActivityDisclosure(event) {
 }
 
 function renderActivityDisclosureBody(event) {
-  const items = Array.isArray(event.items)
-    ? event.items
-    : Array.isArray(event.data?.items)
-      ? event.data.items
-      : [];
+  const items = Array.isArray(event.items) ? event.items : [];
   if (!items.length) return "";
   return `
         <div aria-hidden="false" class="overflow-visible" style="pointer-events: auto;">
@@ -1095,11 +1078,7 @@ function renderToolSummaryContent(event, index) {
 }
 
 function toolSummaryText(event) {
-  const items = Array.isArray(event.items)
-    ? event.items
-    : Array.isArray(event.data?.items)
-      ? event.data.items
-      : null;
+  const items = Array.isArray(event.items) ? event.items : null;
   if (!items) return String(event.text || "");
   return items.map(toolSummaryItemText).join("\n");
 }

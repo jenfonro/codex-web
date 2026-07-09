@@ -74,10 +74,7 @@
     if (duration) return `已处理 ${duration}`;
     if (explicit) return String(explicit.text).trim();
 
-    const start = eventTime(baseEvent) || eventTime(split.processEvents[0]);
-    const end = eventTime(split.finalFollowup) || eventTime(split.processEvents[split.processEvents.length - 1]);
-    const fallbackDuration = formatDuration(start, end);
-    return fallbackDuration ? `已处理 ${fallbackDuration}` : "已处理";
+    return "已处理";
   }
 
   function buildProcessFollowups(events) {
@@ -139,10 +136,10 @@
     return {
       kind: "command_group",
       text: `已运行 ${count} 条命令`,
-      status: "completed",
       time: items[0]?.startTime || "",
       data: {
         count,
+        status: "completed",
         commands: items.map((item) => ({
           name: String(item.event?.data?.name || item.event?.text || ""),
           args: eventArgs(item.event),
@@ -166,7 +163,7 @@
 
   function isCommandToolCall(item) {
     const data = item?.event?.data && typeof item.event.data === "object" ? item.event.data : {};
-    const name = String(data.name || data.type || "").trim();
+    const name = String(data.name || "").trim();
     if (name === "exec_command") return true;
     const args = eventArgs(item.event) || {};
     return Boolean(String(args.cmd || args.command || "").trim());
@@ -175,7 +172,7 @@
   function isExplicitFinalAssistant(event) {
     if (!isAssistantMessage(event)) return false;
     if (isStreamingAssistant(event)) return false;
-    return event?.placement === "final" || event?.data?.placement === "final" || event?.data?.phase === "final_answer";
+    return event?.data?.placement === "final" || event?.data?.phase === "final_answer";
   }
 
   function isStreamingAssistant(event) {
@@ -183,7 +180,7 @@
   }
 
   function assistantEventHasContent(event) {
-    return isAssistantMessage(event) && Boolean(String(event?.text || utils.assistantTextFromData(event?.data)).trim());
+    return isAssistantMessage(event) && Boolean(String(event?.text || "").trim());
   }
 
   function isAssistantMessage(event) {
@@ -220,37 +217,21 @@
     const text = String(event?.text || "").trim();
     if (/^(?:已处理(?:\s|$)|Processed\b)/i.test(text)) return true;
     const data = event?.data && typeof event.data === "object" ? event.data : {};
-    return data.type === "task_complete" || data.status === "completed" || Boolean(data.durationMs);
+    return data.status === "completed" || Boolean(data.durationMs);
   }
 
   function eventStatus(event) {
     if (!event) return "";
-    return String(event.status || event.data?.status || "").trim();
+    return String(event.data?.status || "").trim();
   }
 
   function eventArgs(event) {
     const data = event?.data || {};
-    return data.args && typeof data.args === "object" ? data.args : parseJSONMap(data.arguments);
-  }
-
-  function eventTime(event) {
-    if (!event?.time) return 0;
-    const time = new Date(event.time).getTime();
-    return Number.isFinite(time) ? time : 0;
+    return data.args && typeof data.args === "object" ? data.args : null;
   }
 
   function callIDFor(event) {
-    return String(event?.data?.call_id || event?.data?.callId || event?.call_id || event?.callId || "");
-  }
-
-  function parseJSONMap(value) {
-    if (!value || typeof value !== "string") return null;
-    try {
-      const parsed = JSON.parse(value);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
-    } catch {
-      return null;
-    }
+    return String(event?.data?.callId || "");
   }
 
   function durationFromEvents(baseEvent, split) {
@@ -262,7 +243,7 @@
     ].filter(Boolean);
 
     for (const event of events) {
-      const durationMs = Number(event?.data?.durationMs ?? event?.durationMs ?? 0);
+      const durationMs = Number(event?.data?.durationMs ?? 0);
       if (durationMs > 0) return formatDurationMs(durationMs);
     }
     return 0;
@@ -271,11 +252,6 @@
   function formatDurationMs(durationMs) {
     if (!Number.isFinite(durationMs) || durationMs <= 0) return "";
     return formatSeconds(Math.max(1, Math.floor(durationMs / 1000)));
-  }
-
-  function formatDuration(start, end) {
-    if (!start || !end || end < start) return "";
-    return formatSeconds(Math.max(1, Math.floor((end - start) / 1000)));
   }
 
   function formatSeconds(totalSeconds) {

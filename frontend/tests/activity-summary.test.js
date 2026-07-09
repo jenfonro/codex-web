@@ -8,12 +8,7 @@ const vm = require("vm");
 const root = path.resolve(__dirname, "..");
 const context = {
   window: null,
-  CodexPanelUtils: {
-    assistantTextFromData(data) {
-      if (!data || typeof data !== "object") return "";
-      return String(data.text || data.message || "");
-    },
-  },
+  CodexPanelUtils: {},
 };
 context.window = context;
 vm.createContext(context);
@@ -82,5 +77,5 @@ const fallbackSplit = splitTurnFollowups([
 
 assert.strictEqual(
   summaryLabel({ kind: "user_message", time: "2026-07-10T00:00:00.000Z" }, fallbackSplit),
-  "已处理 45s",
+  "已处理",
 );
