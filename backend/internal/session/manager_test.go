@@ -206,6 +206,51 @@ func TestManagerEventsLoadsThreadReadItems(t *testing.T) {
 	}
 }
 
+func TestManagerEventsIncludesTurnError(t *testing.T) {
+	backend := newFakeBackend()
+	backend.readThread = appserver.Thread{
+		ID:        "thread-1",
+		Preview:   "failure",
+		CWD:       "/workspace",
+		Status:    appserver.ThreadStatus{Type: "idle"},
+		CreatedAt: 100,
+		UpdatedAt: 130,
+		Turns: []appserver.Turn{{
+			ID:          "turn-1",
+			Status:      "failed",
+			StartedAt:   int64Ptr(100),
+			CompletedAt: int64Ptr(101),
+			Error: map[string]any{
+				"message": `{"error":{"message":"invalid codex request","type":"upstream_error"}}`,
+			},
+			Items: []map[string]any{
+				{
+					"type": "userMessage",
+					"id":   "user-1",
+					"content": []any{
+						map[string]any{"type": "text", "text": "fail now"},
+					},
+				},
+			},
+		}},
+	}
+	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+
+	page, err := manager.Events(model.SessionEventsRequest{SessionID: "thread-1"})
+	if err != nil {
+		t.Fatalf("Events() error = %v", err)
+	}
+	if got := eventKinds(page.Events); got != "user_message,error" {
+		t.Fatalf("kinds = %s, want user_message,error", got)
+	}
+	if page.Events[1].Text != "invalid codex request" {
+		t.Fatalf("error text = %q", page.Events[1].Text)
+	}
+	if page.Events[1].Data["turnId"] != "turn-1" {
+		t.Fatalf("error data = %#v", page.Events[1].Data)
+	}
+}
+
 func TestManagerAssistantDeltaUpdatesSameSequence(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)

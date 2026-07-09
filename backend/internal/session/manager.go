@@ -1179,8 +1179,65 @@ func eventsFromState(state model.SessionState) []model.SessionEvent {
 				events = append(events, followup)
 			}
 		}
+		if len(turn.Error) > 0 {
+			seq++
+			event := turnErrorEvent(state.Session.ID, turn, turnIndex)
+			event.Seq = seq
+			events = append(events, event)
+		}
 	}
 	return events
+}
+
+func turnErrorEvent(sessionID string, turn model.SessionTurn, turnIndex int) model.SessionEvent {
+	eventTime := time.Now().UTC()
+	if turn.CompletedAt != nil {
+		eventTime = *turn.CompletedAt
+	} else if turn.StartedAt != nil {
+		eventTime = *turn.StartedAt
+	}
+	return model.SessionEvent{
+		SessionID: sessionID,
+		Time:      eventTime,
+		Kind:      "error",
+		Text:      turnErrorText(turn.Error),
+		Data: map[string]any{
+			"turnId":      turn.ID,
+			"turnKey":     firstNonEmpty(turn.ID, fmt.Sprintf("turn-%d", turnIndex+1)),
+			"contentUnit": len(turn.Items),
+			"status":      turn.Status,
+			"error":       turn.Error,
+		},
+	}
+}
+
+func turnErrorText(errorData map[string]any) string {
+	if len(errorData) == 0 {
+		return "Codex turn failed."
+	}
+	if message := nestedErrorMessage(strAny(errorData["message"])); message != "" {
+		return message
+	}
+	if message := firstNonEmpty(strAny(errorData["message"]), strAny(errorData["error"]), strAny(errorData["codexErrorInfo"])); message != "" {
+		return message
+	}
+	return "Codex turn failed."
+}
+
+func nestedErrorMessage(text string) string {
+	if text == "" || !strings.HasPrefix(strings.TrimSpace(text), "{") {
+		return ""
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(text), &payload); err != nil {
+		return ""
+	}
+	if errorBody, ok := payload["error"].(map[string]any); ok {
+		if message := strAny(errorBody["message"]); message != "" {
+			return message
+		}
+	}
+	return strAny(payload["message"])
 }
 
 func eventFromStateItem(sessionID string, turn model.SessionTurn, item model.SessionItem, eventTime time.Time) (model.SessionEvent, []model.SessionEvent) {

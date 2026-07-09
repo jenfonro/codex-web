@@ -288,7 +288,9 @@ function conversationItemsFromState(turns) {
 function stateTurnEvents(turn, turnIndex) {
   const sourceItems = Array.isArray(turn?.items) ? turn.items : [];
   const lastAgentIndex = lastIndexOfType(sourceItems, "agentMessage");
-  return sourceItems.flatMap((item, itemIndex) => stateItemEvents(item, turn, turnIndex, itemIndex, itemIndex === lastAgentIndex));
+  const events = sourceItems.flatMap((item, itemIndex) => stateItemEvents(item, turn, turnIndex, itemIndex, itemIndex === lastAgentIndex));
+  if (hasTurnError(turn)) events.push(turnErrorEvent(turn, turnIndex, sourceItems.length));
+  return events;
 }
 
 function stateItemEvents(item, turn, turnIndex, itemIndex, isLastAgent) {
@@ -398,6 +400,45 @@ function turnPendingEvent(turn, turnIndex, itemIndex = 0) {
       contentUnit: itemIndex,
     },
   };
+}
+
+function turnErrorEvent(turn, turnIndex, itemIndex = 0) {
+  return {
+    sessionId: activeSession()?.id || "",
+    kind: "error",
+    text: turnErrorText(turn?.error),
+    time: turn?.completedAt || turn?.startedAt || new Date().toISOString(),
+    data: {
+      status: turn?.status || "failed",
+      turnId: turn?.id || "",
+      turnKey: turn?.id || `turn-${turnIndex}`,
+      contentUnit: itemIndex,
+      error: turn?.error || null,
+    },
+  };
+}
+
+function hasTurnError(turn) {
+  const error = turn?.error;
+  return Boolean(error && typeof error === "object" && Object.keys(error).length);
+}
+
+function turnErrorText(error) {
+  if (!error || typeof error !== "object") return "Codex turn failed.";
+  const nested = nestedErrorMessage(error.message);
+  if (nested) return nested;
+  return String(error.message || error.error || error.codexErrorInfo || "Codex turn failed.");
+}
+
+function nestedErrorMessage(message) {
+  const text = String(message || "").trim();
+  if (!text.startsWith("{")) return "";
+  try {
+    const payload = JSON.parse(text);
+    return String(payload?.error?.message || payload?.message || "");
+  } catch {
+    return "";
+  }
 }
 
 function lastIndexOfType(items, type) {
