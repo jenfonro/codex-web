@@ -96,7 +96,9 @@
   --codex-editor-font-size: 12px;
   --codex-chat-font-size-base: 13px;
   --codex-chat-editor-font-size: 14px;
-  --codex-thinking-shimmer: #999999;
+  --codex-status-text: #a6a6a7;
+  --codex-status-text-muted: #cdcdd0;
+  --codex-status-text-highlight: #a5a5a6;
   --color-background-surface: var(--color-token-editor-background);
   --color-background-surface-under: var(--color-token-side-bar-background);
   --codex-chat-font-size: var(--codex-chat-font-size-base, var(--codex-font-size, 13px));
@@ -550,8 +552,11 @@
 
 .codex-turn-activity-status {
   flex: 0 0 auto;
-  color: var(--color-token-text-tertiary);
-  opacity: .85;
+  color: var(--codex-status-text);
+}
+
+.codex-status-label {
+  color: var(--codex-status-text);
 }
 
 @keyframes codex-thread-status-spin {
@@ -981,7 +986,7 @@ svg {
 }
 
 .codex-shimmer {
-  color: var(--color-token-text-tertiary);
+  color: var(--codex-status-text-muted);
   -webkit-text-fill-color: currentColor;
   background: transparent;
   background-clip: border-box;
@@ -1006,7 +1011,7 @@ svg {
   will-change: transform;
 }
 .codex-shimmer-highlight {
-  color: var(--codex-thinking-shimmer, var(--color-token-text-tertiary));
+  color: var(--codex-status-text-highlight);
   -webkit-text-fill-color: currentColor;
   display: block;
   min-width: 100%;

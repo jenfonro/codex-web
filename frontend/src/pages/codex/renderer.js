@@ -532,7 +532,7 @@ function renderTurnProcessBlock(turn, processFollowups, turnIndex) {
             <details class="codex-turn-activity-details">
               <summary class="codex-turn-activity-summary">
                 <span class="text-size-chat hover:bg-token-bg-subtle inline-flex cursor-interaction items-center gap-1 rounded-md border border-transparent focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:outline-none">
-                  <span><span class="text-token-foreground/60">${escapeHTML(label)}</span></span>
+                  <span><span class="codex-status-label">${escapeHTML(label)}</span></span>
                   ${icons.svg("chevronRight", "codex-turn-activity-chevron icon-2xs text-token-foreground/40 transition-transform duration-200 rotate-0")}
                 </span>
                 <span class="text-size-chat block pt-1 text-token-text-secondary">
