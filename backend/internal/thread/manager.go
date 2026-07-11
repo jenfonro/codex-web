@@ -271,10 +271,25 @@ func (m *Manager) handleNotification(notification appserver.Notification) {
 		params := notificationParams[appserver.ReasoningTextDeltaNotification](notification)
 		m.appendItemStringArrayDelta(params.ThreadID, params.TurnID, params.ItemID, "content", params.ContentIndex, params.Delta)
 	case "error":
-		panic("app-server error: " + string(notification.Params))
+		m.publishTurnError(notificationParams[appserver.ErrorNotification](notification))
 	default:
 		panic("unhandled app-server notification: " + notification.Method)
 	}
+}
+
+func (m *Manager) publishTurnError(params appserver.ErrorNotification) {
+	m.mu.Lock()
+	managed := m.threads[params.ThreadID]
+	managed.sequence++
+	update := StateUpdate{
+		ThreadID: params.ThreadID,
+		Sequence: managed.sequence,
+		Type:     "turnError",
+		Data:     encodeJSON(params),
+	}
+	subscribers := m.subscriberListLocked()
+	m.mu.Unlock()
+	m.publishToSubscribers(subscribers, update)
 }
 
 func (m *Manager) applyTurnStarted(threadID string, turn appserver.Turn) {

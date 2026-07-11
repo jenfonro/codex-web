@@ -523,6 +523,69 @@ func TestManagerTurnCompletedUsesCompletedTurn(t *testing.T) {
 	})
 }
 
+func TestManagerPublishesOfficialTurnErrors(t *testing.T) {
+	backend := newFakeBackend()
+	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+	seedThread(t, manager, backend)
+	waitForCondition(t, func() bool {
+		thread, _, err := manager.State("thread-1")
+		return err == nil && len(thread.Turns) == 1
+	})
+	updates, unsubscribe := manager.Subscribe()
+	defer unsubscribe()
+
+	retry := appserver.ErrorNotification{
+		Error: appserver.TurnError{
+			Message:           "Reconnecting... 1/5",
+			CodexErrorInfo:    json.RawMessage("null"),
+			AdditionalDetails: nil,
+		},
+		WillRetry: true,
+		ThreadID:  "thread-1",
+		TurnID:    "turn-1",
+	}
+	backend.emit(notification("error", retry))
+	assertTurnErrorUpdate(t, updates, retry)
+
+	failure := appserver.ErrorNotification{
+		Error: appserver.TurnError{
+			Message:           "unexpected status 503 Service Unavailable",
+			CodexErrorInfo:    json.RawMessage("null"),
+			AdditionalDetails: nil,
+		},
+		WillRetry: false,
+		ThreadID:  "thread-1",
+		TurnID:    "turn-1",
+	}
+	backend.emit(notification("error", failure))
+	assertTurnErrorUpdate(t, updates, failure)
+}
+
+func TestManagerTurnCompletedPreservesOfficialError(t *testing.T) {
+	backend := newFakeBackend()
+	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
+	seedThread(t, manager, backend)
+	completed := officialTurn("turn-1", "failed", []json.RawMessage{})
+	completed.Error = &appserver.TurnError{
+		Message:           "unexpected status 503 Service Unavailable",
+		CodexErrorInfo:    json.RawMessage("null"),
+		AdditionalDetails: nil,
+	}
+	backend.emit(notification("turn/completed", map[string]any{
+		"threadId": "thread-1",
+		"turn":     completed,
+	}))
+
+	waitForCondition(t, func() bool {
+		thread, _, err := manager.State("thread-1")
+		return err == nil &&
+			len(thread.Turns) == 1 &&
+			thread.Turns[0].Status == "failed" &&
+			thread.Turns[0].Error != nil &&
+			thread.Turns[0].Error.Message == completed.Error.Message
+	})
+}
+
 func TestManagerAgentMessageStartedStoresOfficialItem(t *testing.T) {
 	backend := newFakeBackend()
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
@@ -842,4 +905,23 @@ func waitForCondition(t *testing.T, fn func() bool) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("condition not met before timeout")
+}
+
+func assertTurnErrorUpdate(t *testing.T, updates <-chan StateUpdate, want appserver.ErrorNotification) {
+	t.Helper()
+	select {
+	case update := <-updates:
+		if update.Type != "turnError" || update.ThreadID != want.ThreadID {
+			t.Fatalf("update = %#v", update)
+		}
+		got := decodeTestJSON[appserver.ErrorNotification](update.Data)
+		if got.Error.Message != want.Error.Message ||
+			got.WillRetry != want.WillRetry ||
+			got.ThreadID != want.ThreadID ||
+			got.TurnID != want.TurnID {
+			t.Fatalf("turn error = %#v, want %#v", got, want)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for turn error update")
+	}
 }

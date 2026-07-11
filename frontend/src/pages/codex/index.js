@@ -80,6 +80,7 @@ function applyStateUpdate(update) {
   switch (update.type) {
     case "state":
       replaceThread(update.data);
+      state.turnErrors = [];
       break;
     case "threadStarted":
       appendThread(update.data);
@@ -88,10 +89,15 @@ function applyStateUpdate(update) {
       replaceThread(update.data);
       break;
     case "turnStarted":
+      state.turnErrors = [];
       appendTurn(update.threadId, update.data);
       break;
     case "turnUpdated":
       replaceTurn(update.threadId, update.data);
+      if (update.data.status !== "inProgress" && update.data.error === null) state.turnErrors = [];
+      break;
+    case "turnError":
+      state.turnErrors.push(update.data);
       break;
     default:
       throw new Error(`Unhandled thread state update: ${update.type}`);

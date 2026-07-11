@@ -241,23 +241,28 @@ function renderHeader(title) {
 }
 
 function renderConversationState(thread) {
+  const turnErrors = state.turnErrors.filter((notification) => notification.threadId === thread.id);
   return `
     <div class="relative shrink-0">
-      ${renderConversationList(thread.turns)}
+      ${renderConversationList(thread.turns, turnErrors)}
     </div>`;
 }
 
-function renderConversationList(turns) {
+function renderConversationList(turns, turnErrors) {
   return `
       <div class="flex flex-col" style="gap: 12px;" data-codex-conversation-list>
-        ${turns.map(renderConversationTurnFrame).join("")}
+        ${turns.map((turn, turnIndex) => renderConversationTurnFrame(
+          turn,
+          turnIndex,
+          turnErrors.filter((notification) => notification.turnId === turn.id),
+        )).join("")}
       </div>`;
 }
 
-function renderConversationTurnFrame(turn, turnIndex) {
+function renderConversationTurnFrame(turn, turnIndex, turnErrors) {
   const refs = turn.items.map((item, itemIndex) => ({ turn, item, itemIndex }));
-  const signature = `${turn.status}:${refs.map(itemRefSignature).join("|")}`;
-  return `<div data-codex-conversation-key="turn:${escapeAttr(turn.id)}" data-codex-conversation-signature="${escapeAttr(signature)}">${renderConversationTurn(turn, refs, turnIndex)}</div>`;
+  const signature = `${turn.status}:${JSON.stringify(turn.error)}:${JSON.stringify(turnErrors)}:${refs.map(itemRefSignature).join("|")}`;
+  return `<div data-codex-conversation-key="turn:${escapeAttr(turn.id)}" data-codex-conversation-signature="${escapeAttr(signature)}">${renderConversationTurn(turn, refs, turnIndex, turnErrors)}</div>`;
 }
 
 function itemRefSignature(ref) {
@@ -267,18 +272,29 @@ function itemRefSignature(ref) {
   return `${ref.turn.status}:${JSON.stringify(ref.item)}`;
 }
 
-function renderConversationTurn(turn, refs, turnIndex) {
+function renderConversationTurn(turn, refs, turnIndex, turnErrors) {
   const userIndex = refs.findIndex((ref) => ref.item.type === "userMessage");
   if (userIndex >= 0) {
     const user = refs[userIndex];
     const followups = refs.filter((_, index) => index !== userIndex);
-    return renderUserTurn(turn, user, followups, turnIndex);
+    return renderUserTurn(turn, user, followups, turnIndex, turnErrors);
   }
   const content = refs.map((ref, itemIndex) => renderItemRef(ref, `${turnIndex}-${itemIndex}`));
-  if (lifecycle.isTurnRunning(turn) && !refs.some(lifecycle.isItemPending)) {
+  content.push(...renderTurnStatus(turn, refs, turnErrors));
+  return `<div class="flex flex-col" style="gap: 12px;">${content.join("")}</div>`;
+}
+
+function renderTurnStatus(turn, refs, turnErrors) {
+  const content = [];
+  const retry = turnErrors.findLast((notification) => notification.willRetry);
+  const failure = turn.error ?? turnErrors.findLast((notification) => !notification.willRetry)?.error;
+  if (retry) content.push(renderRetryStatus(retry.error.message));
+  if (failure) {
+    content.push(renderTurnError(failure));
+  } else if ((retry || lifecycle.isTurnRunning(turn)) && !refs.some(lifecycle.isItemPending)) {
     content.push(renderTurnPending(turn));
   }
-  return `<div class="flex flex-col" style="gap: 12px;">${content.join("")}</div>`;
+  return content;
 }
 
 function renderHeaderActions() {
@@ -359,26 +375,26 @@ function contentSearchKey(turnId, unit, role) {
   return `${turnId}:${unit}:${role}`;
 }
 
-function renderUserTurn(turn, user, followups, index) {
-  return renderTurnContainer("user", renderUserContent(user), renderUserTurnAfterContent(turn, followups, index), user);
+function renderUserTurn(turn, user, followups, index, turnErrors) {
+  return renderTurnContainer("user", renderUserContent(user), renderUserTurnAfterContent(turn, followups, index, turnErrors), user);
 }
 
-function renderUserTurnAfterContent(turn, followups, index) {
+function renderUserTurnAfterContent(turn, followups, index, turnErrors) {
   const split = activitySummary.splitTurnFollowups(followups);
   const finalFollowup = split.finalFollowup;
   const streamFollowups = split.streamFollowups;
   const processFollowups = split.processFollowups;
-  const pending = lifecycle.isTurnRunning(turn) && !followups.some(lifecycle.isItemPending);
+  const statusContent = renderTurnStatus(turn, followups, turnErrors);
   const turnId = turn.id;
 
-  if (!streamFollowups.length && !processFollowups.length && !pending && !finalFollowup) {
+  if (!streamFollowups.length && !processFollowups.length && !statusContent.length && !finalFollowup) {
     return `
         <div class="flex flex-col"><div class="-mx-1.5 px-1.5" style="overflow: hidden; opacity: 1; height: auto;"></div></div>
         <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
         <div class="flex flex-col"><div></div></div>`;
   }
 
-  if (finalFollowup && !streamFollowups.length && !processFollowups.length && !pending) {
+  if (finalFollowup && !streamFollowups.length && !processFollowups.length && !statusContent.length) {
     const finalUnit = finalFollowup.itemIndex;
     return `<div class="flex flex-col" data-codex-conversation-final-assistant="true"><div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, finalUnit, "assistant"))}">${renderAssistantContent(finalFollowup, `${index}-final`, false)}</div></div>`;
   }
@@ -392,7 +408,7 @@ function renderUserTurnAfterContent(turn, followups, index) {
           <div class="-mx-1.5 px-1.5" style="overflow: hidden; opacity: 1; height: auto;">
             <div class="flex flex-col space-y-0">
               ${streamFollowups.map((ref, offset) => renderInlineTurnFollowup(ref, index, offset)).join("")}
-              ${pending ? renderTurnPending(turn) : ""}
+              ${statusContent.join("")}
             </div>
           </div>
         </div>
@@ -595,6 +611,18 @@ function renderActivityContent(ref) {
 
 function renderTurnPending(turn) {
   return `<div data-turn-id="${escapeAttr(turn.id)}" class="text-size-chat text-token-text-secondary">${renderThinkingPlaceholder("正在思考")}</div>`;
+}
+
+function renderRetryStatus(message) {
+  return `<div class="codex-turn-retry text-size-chat">${escapeHTML(message.replace("Reconnecting...", "正在重新连接"))}</div>`;
+}
+
+function renderTurnError(error) {
+  return `
+    <div class="codex-turn-error" role="alert">
+      <span class="codex-turn-error-icon">${icons.svg("errorCircle", "icon-sm")}</span>
+      <div class="codex-turn-error-message">${escapeHTML(error.message)}</div>
+    </div>`;
 }
 
 function renderThinkingPlaceholder(label) {

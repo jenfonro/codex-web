@@ -7,6 +7,7 @@
       popover: "",
       modelMenuExpanded: false,
       threads: [],
+      turnErrors: [],
       activeThreadId: "",
       threadEventSource: null,
       threadListEventSource: null,

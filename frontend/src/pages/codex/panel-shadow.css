@@ -559,6 +559,38 @@
   color: var(--codex-status-text);
 }
 
+.codex-turn-retry {
+  color: var(--color-token-text-secondary);
+  line-height: 20px;
+}
+
+.codex-turn-error {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--color-token-border-default);
+  border-radius: var(--radius-2xl);
+  color: var(--color-token-foreground);
+  background: var(--color-token-main-surface-primary);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--color-token-foreground) 4%, transparent);
+}
+
+.codex-turn-error-icon {
+  display: inline-flex;
+  flex: 0 0 16px;
+  margin-top: 1px;
+  color: var(--color-token-foreground);
+}
+
+.codex-turn-error-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--codex-font-size, 13px);
+  line-height: 18px;
+}
+
 @keyframes codex-thread-status-spin {
   to {
     transform: rotate(360deg);

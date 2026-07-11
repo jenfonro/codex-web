@@ -125,6 +125,7 @@ const context = {
         popover: "",
         modelMenuExpanded: false,
         threads: [],
+        turnErrors: [],
         activeThreadId: "",
         threadEventSource: null,
         threadListEventSource: null,
@@ -229,6 +230,90 @@ vm.runInContext(
 
   assert.strictEqual(renderCalls.length, rendersBeforeStream + 3, "completion update should schedule one unified render");
   assert.strictEqual(activeThread.turns[0].items[1].text, "Hello", "completed turn should contain the final text");
+
+  const retryError = {
+    error: {
+      message: "Reconnecting... 1/5",
+      codexErrorInfo: null,
+      additionalDetails: null,
+    },
+    willRetry: true,
+    threadId: "s1",
+    turnId: "turn-1",
+  };
+  threadSource.onmessage({ data: JSON.stringify({
+    type: "turnError",
+    threadId: "s1",
+    data: retryError,
+  }) });
+  flushAnimationFrame();
+  await flush();
+  assert.strictEqual(
+    JSON.stringify(rendererRuntime.state.turnErrors),
+    JSON.stringify([retryError]),
+    "retry notification should remain exact",
+  );
+
+  const finalError = {
+    error: {
+      message: "unexpected status 503 Service Unavailable",
+      codexErrorInfo: null,
+      additionalDetails: null,
+    },
+    willRetry: false,
+    threadId: "s1",
+    turnId: "turn-1",
+  };
+  threadSource.onmessage({ data: JSON.stringify({
+    type: "turnError",
+    threadId: "s1",
+    data: finalError,
+  }) });
+  flushAnimationFrame();
+  await flush();
+  assert.strictEqual(
+    JSON.stringify(rendererRuntime.state.turnErrors),
+    JSON.stringify([retryError, finalError]),
+    "final failure should preserve the official retry notification",
+  );
+
+  const failedTurn = officialTurn("failed", completedUpdate.data.items);
+  failedTurn.error = finalError.error;
+  threadSource.onmessage({ data: JSON.stringify({
+    type: "turnUpdated",
+    threadId: "s1",
+    data: failedTurn,
+  }) });
+  flushAnimationFrame();
+  await flush();
+  assert.strictEqual(rendererRuntime.state.turnErrors.length, 2, "failed turn should retain connection-scoped errors");
+
+  threadSource.onmessage({ data: JSON.stringify({
+    type: "state",
+    threadId: "s1",
+    data: officialThread("idle", [failedTurn]),
+  }) });
+  flushAnimationFrame();
+  await flush();
+  assert.strictEqual(rendererRuntime.state.turnErrors.length, 0, "thread/read snapshot should clear transient errors");
+
+  threadSource.onmessage({ data: JSON.stringify({
+    type: "turnError",
+    threadId: "s1",
+    data: retryError,
+  }) });
+  flushAnimationFrame();
+  await flush();
+  const nextTurn = officialTurn("inProgress", []);
+  nextTurn.id = "turn-2";
+  threadSource.onmessage({ data: JSON.stringify({
+    type: "turnStarted",
+    threadId: "s1",
+    data: nextTurn,
+  }) });
+  flushAnimationFrame();
+  await flush();
+  assert.strictEqual(rendererRuntime.state.turnErrors.length, 0, "new turn should clear prior transient errors");
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

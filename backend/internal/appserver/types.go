@@ -77,6 +77,13 @@ type TurnError struct {
 	AdditionalDetails *string         `json:"additionalDetails"`
 }
 
+type ErrorNotification struct {
+	Error     TurnError `json:"error"`
+	WillRetry bool      `json:"willRetry"`
+	ThreadID  string    `json:"threadId"`
+	TurnID    string    `json:"turnId"`
+}
+
 type ThreadStartedNotification struct {
 	Thread Thread `json:"thread"`
 }
