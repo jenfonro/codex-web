@@ -57,7 +57,7 @@ function reconcileThreadView(html) {
   const scroll = currentRoot.querySelector("[data-thread-scroll]");
   const stickToBottom = isThreadScrollAtBottom(scroll);
   syncNodeFromNext(currentRoot, nextRoot, "[data-codex-thread-header]");
-  reconcileThreadConversation(currentRoot, nextRoot);
+  reconcileThreadTurns(currentRoot, nextRoot);
   syncComposerSurface(currentRoot, nextRoot);
   if (stickToBottom) {
     requestAnimationFrame(() => {
@@ -80,10 +80,10 @@ function syncNodeFromNext(currentRoot, nextRoot, selector) {
   }
 }
 
-function reconcileThreadConversation(currentRoot, nextRoot) {
-  const currentList = currentRoot.querySelector("[data-codex-conversation-list]");
-  const nextList = nextRoot.querySelector("[data-codex-conversation-list]");
-  reconcileConversationList(currentList, nextList);
+function reconcileThreadTurns(currentRoot, nextRoot) {
+  const currentList = currentRoot.querySelector("[data-codex-turn-list]");
+  const nextList = nextRoot.querySelector("[data-codex-turn-list]");
+  reconcileTurnList(currentList, nextList);
 }
 
 function syncComposerSurface(currentRoot, nextRoot) {
@@ -99,19 +99,19 @@ function syncComposerSurface(currentRoot, nextRoot) {
   currentSurface.replaceWith(nextSurface);
 }
 
-function reconcileConversationList(currentList, nextList) {
+function reconcileTurnList(currentList, nextList) {
   const currentByKey = new Map();
   for (const child of Array.from(currentList.children)) {
-    currentByKey.set(child.dataset.codexConversationKey, child);
+    currentByKey.set(child.dataset.codexTurnKey, child);
   }
 
   const nextChildren = Array.from(nextList.children);
   for (let index = 0; index < nextChildren.length; index += 1) {
     const nextChild = nextChildren[index];
-    const key = nextChild.dataset.codexConversationKey;
+    const key = nextChild.dataset.codexTurnKey;
     const currentChild = currentByKey.get(key);
     const child = currentChild
-      ? reconcileConversationItem(currentChild, nextChild)
+      ? reconcileTurn(currentChild, nextChild)
       : nextChild;
     if (currentChild) currentByKey.delete(key);
     const reference = currentList.children.item(index);
@@ -123,8 +123,8 @@ function reconcileConversationList(currentList, nextList) {
   }
 }
 
-function reconcileConversationItem(currentChild, nextChild) {
-  if (currentChild.dataset.codexConversationSignature === nextChild.dataset.codexConversationSignature) {
+function reconcileTurn(currentChild, nextChild) {
+  if (currentChild.dataset.codexTurnSignature === nextChild.dataset.codexTurnSignature) {
     syncMarkdownNodes(currentChild, nextChild);
     return currentChild;
   }
@@ -244,14 +244,14 @@ function renderConversationState(thread) {
   const turnErrors = state.turnErrors.filter((notification) => notification.threadId === thread.id);
   return `
     <div class="relative shrink-0">
-      ${renderConversationList(thread.turns, turnErrors)}
+      ${renderTurnList(thread.turns, turnErrors)}
     </div>`;
 }
 
-function renderConversationList(turns, turnErrors) {
+function renderTurnList(turns, turnErrors) {
   return `
-      <div class="flex flex-col" style="gap: 12px;" data-codex-conversation-list>
-        ${turns.map((turn, turnIndex) => renderConversationTurnFrame(
+      <div class="flex flex-col" style="gap: 12px;" data-codex-turn-list>
+        ${turns.map((turn, turnIndex) => renderConversationTurn(
           turn,
           turnIndex,
           turnErrors.filter((notification) => notification.turnId === turn.id),
@@ -259,10 +259,16 @@ function renderConversationList(turns, turnErrors) {
       </div>`;
 }
 
-function renderConversationTurnFrame(turn, turnIndex, turnErrors) {
+function renderConversationTurn(turn, turnIndex, turnErrors) {
   const refs = turn.items.map((item, itemIndex) => ({ turn, item, itemIndex }));
   const signature = `${turn.status}:${JSON.stringify(turn.error)}:${JSON.stringify(turnErrors)}:${refs.map(itemRefSignature).join("|")}`;
-  return `<div data-codex-conversation-key="turn:${escapeAttr(turn.id)}" data-codex-conversation-signature="${escapeAttr(signature)}">${renderConversationTurn(turn, refs, turnIndex, turnErrors)}</div>`;
+  const user = refs.find((ref) => ref.item.type === "userMessage");
+  const responseRefs = refs.filter((ref) => ref !== user);
+  return `
+    <div class="flex flex-col" style="gap: var(--conversation-tool-assistant-gap, 8px);" data-turn-id="${escapeAttr(turn.id)}" data-codex-turn-key="${escapeAttr(turn.id)}" data-codex-turn-signature="${escapeAttr(signature)}">
+      <div class="flex flex-col empty:hidden" data-codex-turn-user>${user ? renderTurnUser(user) : ""}</div>
+      <div class="flex flex-col empty:hidden" style="gap: var(--conversation-tool-assistant-gap, 8px);" data-codex-turn-response>${renderTurnResponse(turn, responseRefs, turnIndex, turnErrors)}</div>
+    </div>`;
 }
 
 function itemRefSignature(ref) {
@@ -270,18 +276,6 @@ function itemRefSignature(ref) {
     return `${ref.item.type}:${ref.item.id}:streaming:${ref.item.phase}`;
   }
   return `${ref.turn.status}:${JSON.stringify(ref.item)}`;
-}
-
-function renderConversationTurn(turn, refs, turnIndex, turnErrors) {
-  const userIndex = refs.findIndex((ref) => ref.item.type === "userMessage");
-  if (userIndex >= 0) {
-    const user = refs[userIndex];
-    const followups = refs.filter((_, index) => index !== userIndex);
-    return renderUserTurn(turn, user, followups, turnIndex, turnErrors);
-  }
-  const content = refs.map((ref, itemIndex) => renderItemRef(ref, `${turnIndex}-${itemIndex}`));
-  content.push(...renderTurnStatus(turn, refs, turnErrors));
-  return `<div class="flex flex-col" style="gap: 12px;">${content.join("")}</div>`;
 }
 
 function renderTurnStatus(turn, refs, turnErrors) {
@@ -292,7 +286,7 @@ function renderTurnStatus(turn, refs, turnErrors) {
   if (failure) {
     content.push(renderTurnError(failure));
   } else if ((retry || lifecycle.isTurnRunning(turn)) && !refs.some(lifecycle.isItemPending)) {
-    content.push(renderTurnPending(turn));
+    content.push(renderTurnPending());
   }
   return content;
 }
@@ -342,32 +336,10 @@ function renderThreadRow(thread) {
     </div>`;
 }
 
-function renderItemRef(ref, index) {
-  if (ref.item.type === "agentMessage") {
-    if (lifecycle.isStreamingAssistant(ref) && ref.item.text.length === 0) return renderTurnPending(ref.turn);
-    return renderAssistantMessage(ref, index);
-  }
-  if (ref.item.type === "fileChange") return renderFileChangeTurn(ref, index);
-  if (ref.item.type === "plan" || ref.item.type === "contextCompaction") return renderSummaryTurn(ref);
-  if (lifecycle.isActivityItem(ref)) return renderActivity(ref);
-  if (ref.item.type === "userMessage") return renderTurnContainer("user", renderUserContent(ref), renderEmptyAfterContent(), ref);
-  throw new Error(`Unhandled thread item type: ${ref.item.type}`);
-}
-
-function renderTurnContainer(role, content, afterContent, ref) {
-  const turnId = ref.turn.id;
-  const unit = ref.itemIndex;
+function renderTurnUser(ref) {
   return `
-    <div data-turn-id="${escapeAttr(turnId)}">
-      <div class="flex flex-col gap-0">
-        <div class="flex flex-col">
-          <div class="scroll-mt-4" data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, unit, role))}" ${role === "user" ? "data-codex-conversation-user-anchor=\"true\"" : ""}>
-            ${content}
-          </div>
-        </div>
-        <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
-        ${afterContent}
-      </div>
+    <div class="scroll-mt-4" data-content-search-unit-key="${escapeAttr(contentSearchKey(ref.turn.id, ref.itemIndex, "user"))}" data-codex-conversation-user-anchor="true">
+      ${renderUserContent(ref)}
     </div>`;
 }
 
@@ -375,48 +347,39 @@ function contentSearchKey(turnId, unit, role) {
   return `${turnId}:${unit}:${role}`;
 }
 
-function renderUserTurn(turn, user, followups, index, turnErrors) {
-  return renderTurnContainer("user", renderUserContent(user), renderUserTurnAfterContent(turn, followups, index, turnErrors), user);
-}
-
-function renderUserTurnAfterContent(turn, followups, index, turnErrors) {
-  const split = activitySummary.splitTurnFollowups(followups);
+function renderTurnResponse(turn, refs, index, turnErrors) {
+  const split = activitySummary.splitTurnFollowups(refs);
   const finalFollowup = split.finalFollowup;
   const streamFollowups = split.streamFollowups;
   const processFollowups = split.processFollowups;
-  const statusContent = renderTurnStatus(turn, followups, turnErrors);
+  const statusContent = renderTurnStatus(turn, refs, turnErrors);
   const inlineContent = streamFollowups
     .map((ref, offset) => renderInlineTurnFollowupBody(ref, index, offset))
     .concat(statusContent);
   const turnId = turn.id;
-
-  if (!streamFollowups.length && !processFollowups.length && !statusContent.length && !finalFollowup) {
-    return `
-        <div class="flex flex-col"><div class="-mx-1.5 px-1.5" style="overflow: hidden; opacity: 1; height: auto;"></div></div>
-        <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
-        <div class="flex flex-col"><div></div></div>`;
-  }
-
-  if (finalFollowup && !streamFollowups.length && !processFollowups.length && !statusContent.length) {
-    const finalUnit = finalFollowup.itemIndex;
-    return `<div class="flex flex-col" data-codex-conversation-final-assistant="true"><div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, finalUnit, "assistant"))}">${renderAssistantContent(finalFollowup, `${index}-final`, false)}</div></div>`;
-  }
-
-  const finalAttrs = finalFollowup ? ' data-codex-conversation-final-assistant="true"' : "";
-  const finalContentKey = finalFollowup
-    ? ` data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, finalFollowup.itemIndex, "assistant"))}"`
-    : "";
-  return `
-        <div class="flex flex-col">
+  const sections = [];
+  if (inlineContent.length) {
+    sections.push(`
+      <div class="flex flex-col" data-codex-turn-stream>
           <div class="-mx-1.5 px-1.5" style="overflow: hidden; opacity: 1; height: auto;">
             <div class="flex flex-col space-y-0">
               ${inlineContent.map(renderInlineTurnSegment).join("")}
             </div>
           </div>
+      </div>`);
+  }
+  if (processFollowups.length) {
+    sections.push(`<div class="flex flex-col" data-codex-turn-process>${renderTurnProcessBlock(turn, processFollowups, index)}</div>`);
+  }
+  if (finalFollowup) {
+    sections.push(`
+      <div class="flex flex-col" data-codex-turn-final>
+        <div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, finalFollowup.itemIndex, "assistant"))}">
+          ${renderAssistantContent(finalFollowup, `${index}-final`)}
         </div>
-        ${processFollowups.length ? `<div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div><div class="flex flex-col">${renderTurnProcessBlock(turn, processFollowups, index)}</div>` : ""}
-        <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
-        <div class="flex flex-col"${finalAttrs}><div${finalContentKey}>${finalFollowup ? renderAssistantContent(finalFollowup, `${index}-final`, false) : ""}</div></div>`;
+      </div>`);
+  }
+  return sections.join("");
 }
 
 function renderInlineTurnFollowup(ref, turnIndex, offset) {
@@ -448,7 +411,7 @@ function renderInlineFollowupContent(ref, turnIndex, offset) {
   if (ref.item.type === "plan" || ref.item.type === "contextCompaction") return renderSummaryBody(summaryText(ref));
   if (ref.item.type === "agentMessage") {
     if (lifecycle.isStreamingAssistant(ref) && ref.item.text.length === 0) return renderThinkingPlaceholder("正在思考");
-    return renderAssistantContent(ref, `${turnIndex}-${offset}`, false);
+    return renderAssistantContent(ref, `${turnIndex}-${offset}`);
   }
   throw new Error(`Unhandled followup item type: ${ref.item.type}`);
 }
@@ -477,54 +440,29 @@ function renderUserBubble(ref) {
             <span class="text-xs text-token-text-tertiary">${timeFromTurn(ref.turn)}</span>
           </span>
           <div class="flex items-center gap-0.5">
-            ${renderMessageIconButton("复制消息", "copy", "p-0.5", true)}
+            ${renderCopyMessageButton()}
           </div>
         </div>
       </div>
     </div>`;
 }
 
-function renderAssistantMessage(ref, index) {
-  return renderTurnContainer("assistant", renderAssistantContent(ref, index, true), renderEmptyAfterContent(), ref);
-}
-
-function renderAssistantContent(ref, index, includeActions) {
+function renderAssistantContent(ref, index) {
   const itemAttr = ` data-codex-markdown-item-id="${escapeAttr(ref.item.id)}"`;
   const messageText = markdown.render(ref.item.text, { variant: "assistant" });
-  const actionClass = "-translate-x-1.5 mt-1.5 flex h-5 items-center justify-start gap-0.5 [&_button]:focus-visible:ring-2 [&_button]:focus-visible:ring-token-focus-border [&_button]:focus-visible:ring-offset-0 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100";
   return `
     <div class="group flex min-w-0 flex-col">
       <div data-selected-text-overlay-target="codex-assistant-${index}" class="codex-message-content text-size-chat"${itemAttr}>${messageText}</div>
-      ${includeActions ? `<div class="${actionClass}">
-        ${renderMessageIconButton("复制", "copy", "p-0.5", false)}
-        ${renderMessageIconButton("从此处开始分叉", "branch", "p-0.5", false)}
-        <span class="ml-1.5 flex h-full items-center opacity-0 group-focus-within:opacity-100 group-hover:opacity-100" data-assistant-message-sent-time="true"><span class="text-xs text-token-text-tertiary">${timeFromTurn(ref.turn)}</span></span>
-      </div>` : ""}
     </div>`;
 }
 
-function renderMessageIconButton(label, iconKind, sizeClass, withFocusRing) {
-  const iconName = iconKind === "branch" ? "branchMessage" : "copyMessage";
-  const focusClass = withFocusRing ? " focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:ring-offset-0" : "";
+function renderCopyMessageButton() {
   return `
     <span data-state="closed" class="contents">
-      <button type="button" class="border-token-border no-drag cursor-interaction flex items-center gap-1 border whitespace-nowrap select-none focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 rounded-full text-token-text-tertiary enabled:hover:bg-token-list-hover-background data-[state=open]:bg-token-list-hover-background border-transparent flex items-center justify-center ${sizeClass}${focusClass}" aria-label="${escapeAttr(label)}">
-        ${icons.svg(iconName, "icon-xs")}
+      <button type="button" class="border-token-border no-drag cursor-interaction flex items-center gap-1 border whitespace-nowrap select-none focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 rounded-full text-token-text-tertiary enabled:hover:bg-token-list-hover-background data-[state=open]:bg-token-list-hover-background border-transparent flex items-center justify-center p-0.5 focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:ring-offset-0" aria-label="复制消息">
+        ${icons.svg("copyMessage", "icon-xs")}
       </button>
     </span>`;
-}
-
-function renderSummaryTurn(ref) {
-  return `
-    <div data-turn-id="${escapeAttr(ref.turn.id)}">
-      <div class="flex flex-col gap-0">
-        <div class="flex flex-col">
-          ${renderSummaryBody(summaryText(ref))}
-        </div>
-        <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
-        <div class="flex flex-col"><div></div></div>
-      </div>
-    </div>`;
 }
 
 function summaryText(ref) {
@@ -576,24 +514,6 @@ function renderTurnProcessContent(refs, turnIndex) {
     .join("");
 }
 
-function renderActivity(ref) {
-  return `
-    <div data-turn-id="${escapeAttr(ref.turn.id)}">
-      <div class="flex flex-col gap-0">
-        <div class="flex flex-col"><div class="scroll-mt-4"></div></div>
-        <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
-        <div class="flex flex-col">
-          <div class="text-size-chat text-token-text-secondary">
-            ${renderActivityContent(ref)}
-          </div>
-          <div class="text-size-chat pt-1 text-token-text-secondary"></div>
-        </div>
-        <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
-        <div class="flex flex-col"><div></div></div>
-      </div>
-    </div>`;
-}
-
 function renderActivityContent(ref) {
   if (lifecycle.isItemPending(ref) && ref.item.type === "reasoning") return renderThinkingPlaceholder("正在思考");
   if (lifecycle.isItemPending(ref)) return renderRunningActivityDisclosure(ref);
@@ -618,8 +538,8 @@ function renderActivityContent(ref) {
     </div>`;
 }
 
-function renderTurnPending(turn) {
-  return `<div data-turn-id="${escapeAttr(turn.id)}" class="text-size-chat text-token-text-secondary">${renderThinkingPlaceholder("正在思考")}</div>`;
+function renderTurnPending() {
+  return `<div class="text-size-chat text-token-text-secondary">${renderThinkingPlaceholder("正在思考")}</div>`;
 }
 
 function renderRetryStatus(message) {
@@ -693,14 +613,6 @@ function renderShimmerText(text, className) {
           ${label}
           <span aria-hidden="true" class="codex-shimmer-sweep"><span class="codex-shimmer-highlight">${label}</span></span>
         </span>`;
-}
-
-function renderFileChangeTurn(ref, index) {
-  return renderTurnContainer("tool-summary", renderFileChangeContent(ref, index), renderEmptyAfterContent(), ref);
-}
-
-function renderEmptyAfterContent() {
-  return `<div class="flex flex-col"><div></div></div>`;
 }
 
 function renderFileChangeContent(ref, index) {

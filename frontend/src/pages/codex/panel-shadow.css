@@ -662,6 +662,7 @@ svg {
 .grid { display: grid; }
 .contents { display: contents; }
 .hidden { display: none; }
+.empty\:hidden:empty { display: none; }
 
 .relative { position: relative; }
 .absolute { position: absolute; }
