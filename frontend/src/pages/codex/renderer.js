@@ -385,6 +385,9 @@ function renderUserTurnAfterContent(turn, followups, index, turnErrors) {
   const streamFollowups = split.streamFollowups;
   const processFollowups = split.processFollowups;
   const statusContent = renderTurnStatus(turn, followups, turnErrors);
+  const inlineContent = streamFollowups
+    .map((ref, offset) => renderInlineTurnFollowupBody(ref, index, offset))
+    .concat(statusContent);
   const turnId = turn.id;
 
   if (!streamFollowups.length && !processFollowups.length && !statusContent.length && !finalFollowup) {
@@ -407,8 +410,7 @@ function renderUserTurnAfterContent(turn, followups, index, turnErrors) {
         <div class="flex flex-col">
           <div class="-mx-1.5 px-1.5" style="overflow: hidden; opacity: 1; height: auto;">
             <div class="flex flex-col space-y-0">
-              ${streamFollowups.map((ref, offset) => renderInlineTurnFollowup(ref, index, offset)).join("")}
-              ${statusContent.join("")}
+              ${inlineContent.map(renderInlineTurnSegment).join("")}
             </div>
           </div>
         </div>
@@ -418,18 +420,25 @@ function renderUserTurnAfterContent(turn, followups, index, turnErrors) {
 }
 
 function renderInlineTurnFollowup(ref, turnIndex, offset) {
+  return renderInlineTurnSegment(renderInlineTurnFollowupBody(ref, turnIndex, offset), offset);
+}
+
+function renderInlineTurnFollowupBody(ref, turnIndex, offset) {
   const content = renderInlineFollowupContent(ref, turnIndex, offset);
   const direct = lifecycle.isActivityItem(ref);
   const turnId = ref.turn.id;
   const unit = ref.itemIndex;
-  const wrapped = direct
+  return direct
     ? content
     : `<div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, unit, "assistant"))}">${content}</div>`;
-  if (offset === 0) return `<div style="overflow: hidden;">${wrapped}</div>`;
+}
+
+function renderInlineTurnSegment(content, offset) {
+  if (offset === 0) return `<div style="overflow: hidden;">${content}</div>`;
   return `
     <div style="overflow: hidden;">
       <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
-      ${wrapped}
+      ${content}
     </div>`;
 }
 
