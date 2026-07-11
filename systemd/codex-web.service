@@ -8,11 +8,12 @@ After=docker.service network-online.target
 Type=simple
 User=root
 WorkingDirectory=/root/code/codex-web
-Environment=CODEX_WEB_IMAGE=codex-web:local
+Environment=CODEX_WEB_IMAGE=codex-web-runtime:0.144.1
 Environment=CODEX_WEB_CONTAINER=codex-web
 Environment=CODEX_WEB_PORT=58888
-Environment=CODEX_WEB_DOCKER_CODEX_HOME=/root/code/codex-web/build/docker/codex-home
-Environment=CODEX_WEB_DOCKER_WORKSPACE=/root
+Environment=CODEX_WEB_BINARY=/root/code/codex-web/build/codex-web
+Environment=CODEX_WEB_CODEX_HOME=/root/code/codex-web/build/docker/codex-home
+Environment=CODEX_WEB_WORKSPACE=/root
 Environment=CODEX_WEB_CONTAINER_WORKSPACE=/root
 ExecStart=/root/code/codex-web/scripts/run-container.sh
 ExecStop=/usr/bin/docker rm -f ${CODEX_WEB_CONTAINER}
