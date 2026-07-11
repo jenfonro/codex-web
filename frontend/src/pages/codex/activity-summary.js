@@ -40,7 +40,7 @@
 
   function isProcessSignal(ref) {
     if (lifecycle.isActivityItem(ref)) return true;
-    if (ref.item.type === "fileChange" || ref.item.type === "plan" || ref.item.type === "contextCompaction") return true;
+    if (ref.item.type === "fileChange" || ref.item.type === "plan") return true;
     return isAssistant(ref) && ref.item.phase === "commentary";
   }
 

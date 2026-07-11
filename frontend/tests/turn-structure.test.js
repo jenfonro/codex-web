@@ -46,11 +46,27 @@ const turn = {
   ],
 };
 
+const compactionTurn = {
+  id: "turn-2",
+  itemsView: "full",
+  status: "completed",
+  error: null,
+  startedAt: null,
+  completedAt: null,
+  durationMs: null,
+  items: [
+    {
+      id: "compact-1",
+      type: "contextCompaction",
+    },
+  ],
+};
+
 const thread = {
   id: "thread-1",
   name: "Thread",
   status: { type: "idle" },
-  turns: [turn],
+  turns: [turn, compactionTurn],
 };
 
 const context = {
@@ -77,6 +93,13 @@ const context = {
   },
   CodexPanelActivitySummary: {
     splitTurnFollowups(refs) {
+      if (refs[0]?.item.type === "contextCompaction") {
+        return {
+          processFollowups: [],
+          finalFollowup: null,
+          streamFollowups: refs,
+        };
+      }
       return {
         processFollowups: [],
         finalFollowup: refs[0],
@@ -106,7 +129,11 @@ const renderer = context.CodexPanelRenderer.create({
     activeThreadId: thread.id,
   },
   mount: { root: mountRoot },
-  icons: { svg() { return ""; } },
+  icons: {
+    svg(name, className) {
+      return `<svg data-icon="${name}" class="${className}"></svg>`;
+    },
+  },
 });
 renderer.render();
 
@@ -118,3 +145,7 @@ assert.ok(html.includes("data-codex-turn-response"));
 assert.ok(html.indexOf("data-codex-turn-user") < html.indexOf("data-codex-turn-response"));
 assert.ok(html.includes("Question"));
 assert.ok(html.includes("Answer"));
+assert.strictEqual((html.match(/data-turn-id="turn-2"/g) || []).length, 1);
+assert.strictEqual((html.match(/codex-context-compaction-line/g) || []).length, 2);
+assert.ok(html.includes("codex-context-compaction-icon"));
+assert.ok(html.includes("上下文已自动压缩"));

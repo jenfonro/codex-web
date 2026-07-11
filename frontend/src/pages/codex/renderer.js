@@ -408,7 +408,8 @@ function renderInlineTurnSegment(content, offset) {
 function renderInlineFollowupContent(ref, turnIndex, offset) {
   if (lifecycle.isActivityItem(ref)) return renderActivityContent(ref);
   if (ref.item.type === "fileChange") return renderFileChangeContent(ref, `${turnIndex}-${offset}`);
-  if (ref.item.type === "plan" || ref.item.type === "contextCompaction") return renderSummaryBody(summaryText(ref));
+  if (ref.item.type === "plan") return renderPlanSummary(ref.item.text);
+  if (ref.item.type === "contextCompaction") return renderContextCompaction();
   if (ref.item.type === "agentMessage") {
     if (lifecycle.isStreamingAssistant(ref) && ref.item.text.length === 0) return renderThinkingPlaceholder("正在思考");
     return renderAssistantContent(ref, `${turnIndex}-${offset}`);
@@ -465,17 +466,7 @@ function renderCopyMessageButton() {
     </span>`;
 }
 
-function summaryText(ref) {
-  switch (ref.item.type) {
-    case "plan":
-      return ref.item.text;
-    case "contextCompaction":
-      return "上下文已压缩";
-  }
-  throw new Error(`Unhandled summary item type: ${ref.item.type}`);
-}
-
-function renderSummaryBody(text) {
+function renderPlanSummary(text) {
   return `
           <div class="text-size-chat text-token-text-secondary">
             <button type="button" class="text-size-chat hover:bg-token-bg-subtle inline-flex items-center gap-1 rounded-md border border-transparent focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:outline-none" aria-expanded="false">
@@ -486,6 +477,18 @@ function renderSummaryBody(text) {
           <div class="text-size-chat pt-1 text-token-text-secondary">
             <div class="w-full border-t border-token-border-light"></div>
           </div>`;
+}
+
+function renderContextCompaction() {
+  return `
+    <div class="codex-context-compaction">
+      <span class="codex-context-compaction-line"></span>
+      <span class="codex-context-compaction-label">
+        ${icons.svg("contextCompaction", "codex-context-compaction-icon")}
+        <span>上下文已自动压缩</span>
+      </span>
+      <span class="codex-context-compaction-line"></span>
+    </div>`;
 }
 
 function renderTurnProcessBlock(turn, processFollowups, turnIndex) {
