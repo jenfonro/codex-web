@@ -8,12 +8,7 @@ RUN apt-get update \
   && npm install -g "@openai/codex@0.144.1" \
   && npm cache clean --force
 
-ENV CODEX_WEB_ADDR=0.0.0.0:58888 \
-  CODEX_HOME=/codex-home \
-  CODEX_WEB_ROOT=/workspace \
-  CODEX_WEB_CODEX_BIN=/usr/local/bin/codex
-
-RUN mkdir -p /app /codex-home /workspace
+RUN mkdir -p /app /codex-home
 
 EXPOSE 58888
 
