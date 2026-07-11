@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, "..");
 const listeners = new Map();
 const eventSources = [];
 const renderCalls = [];
+const animationFrames = [];
 let rendererRuntime = null;
 
 class FakeEventSource {
@@ -25,6 +26,10 @@ class FakeEventSource {
 
 function flush() {
   return new Promise((resolve) => setImmediate(resolve));
+}
+
+function flushAnimationFrame() {
+  animationFrames.shift()();
 }
 
 function officialTurn(status, items) {
@@ -91,7 +96,8 @@ const context = {
   setTimeout,
   clearTimeout,
   requestAnimationFrame(callback) {
-    callback();
+    animationFrames.push(callback);
+    return animationFrames.length;
   },
   location: { search: "" },
   CodexIcons: { svg() { return ""; } },
@@ -172,10 +178,19 @@ vm.runInContext(
       { id: "agent-1", type: "agentMessage", text: "Hel", phase: "final_answer", memoryCitation: null },
     ])]),
   }) });
+  flushAnimationFrame();
   await flush();
 
   const rendersBeforeStream = renderCalls.length;
-  const update = {
+  const firstUpdate = {
+    type: "turnUpdated",
+    threadId: "s1",
+    data: officialTurn("inProgress", [
+        { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
+        { id: "agent-1", type: "agentMessage", text: "Hell", phase: "final_answer", memoryCitation: null },
+    ]),
+  };
+  const secondUpdate = {
     type: "turnUpdated",
     threadId: "s1",
     data: officialTurn("inProgress", [
@@ -184,13 +199,20 @@ vm.runInContext(
     ]),
   };
 
-  threadSource.onmessage({ data: JSON.stringify(update) });
+  threadSource.onmessage({ data: JSON.stringify(firstUpdate) });
+  threadSource.onmessage({ data: JSON.stringify(secondUpdate) });
+  flushAnimationFrame();
   await flush();
 
   assert.strictEqual(renderCalls.length, rendersBeforeStream + 1, "streaming update should schedule one unified render");
 
   const activeThread = rendererRuntime.state.threads.find((thread) => thread.id === "s1");
-  assert.strictEqual(activeThread.turns[0].items[1].text, "Hello", "streaming turn should replace the previous turn state");
+  assert.strictEqual(activeThread.turns[0].items[1].text, "Hell", "the first queued delta should render before the next delta");
+
+  flushAnimationFrame();
+  await flush();
+  assert.strictEqual(renderCalls.length, rendersBeforeStream + 2, "the second delta should render on the next frame");
+  assert.strictEqual(activeThread.turns[0].items[1].text, "Hello", "the second queued delta should remain visible");
 
   const completedUpdate = {
     type: "turnUpdated",
@@ -202,9 +224,10 @@ vm.runInContext(
   };
 
   threadSource.onmessage({ data: JSON.stringify(completedUpdate) });
+  flushAnimationFrame();
   await flush();
 
-  assert.strictEqual(renderCalls.length, rendersBeforeStream + 2, "completion update should schedule one unified render");
+  assert.strictEqual(renderCalls.length, rendersBeforeStream + 3, "completion update should schedule one unified render");
   assert.strictEqual(activeThread.turns[0].items[1].text, "Hello", "completed turn should contain the final text");
 })().catch((error) => {
   console.error(error);

@@ -47,6 +47,10 @@ function relativeTime(value) {
   return `${Math.floor(hours / 24)} 天`;
 }
 
+function threadTitle(thread) {
+  return thread.name === null ? thread.preview : thread.name;
+}
+
 function escapeHTML(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
     "&": "&amp;",
@@ -66,6 +70,7 @@ function escapeAttr(value) {
     activityIcon,
     timeFromTurn,
     relativeTime,
+    threadTitle,
     escapeHTML,
     escapeAttr,
   };

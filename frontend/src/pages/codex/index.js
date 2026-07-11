@@ -20,7 +20,8 @@
   };
   const renderer = rendererFactory.create(runtime);
   const threadStartedWaiters = new Map();
-  let renderFrame = 0;
+  const stateUpdateQueue = [];
+  let stateUpdateFrame = 0;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });
@@ -57,7 +58,7 @@
     }
     const source = new EventSource("/api/threads/state-events");
     source.onmessage = (event) => {
-      applyStateUpdate(JSON.parse(event.data));
+      enqueueStateUpdate(JSON.parse(event.data));
     };
     state.threadListEventSource = source;
   }
@@ -70,7 +71,7 @@
     const qs = new URLSearchParams({ threadId: threadID });
     const source = new EventSource(`/api/threads/state-events?${qs.toString()}`);
     source.onmessage = (event) => {
-      applyStateUpdate(JSON.parse(event.data));
+      enqueueStateUpdate(JSON.parse(event.data));
     };
     state.threadEventSource = source;
   }
@@ -98,6 +99,20 @@ function applyStateUpdate(update) {
   renderStateUpdate(update);
 }
 
+function enqueueStateUpdate(update) {
+  stateUpdateQueue.push(update);
+  if (stateUpdateFrame) return;
+  stateUpdateFrame = global.requestAnimationFrame(applyNextStateUpdate);
+}
+
+function applyNextStateUpdate() {
+  stateUpdateFrame = 0;
+  applyStateUpdate(stateUpdateQueue.shift());
+  if (stateUpdateQueue.length) {
+    stateUpdateFrame = global.requestAnimationFrame(applyNextStateUpdate);
+  }
+}
+
 function appendTurn(threadID, turn) {
   const thread = state.threads.find((item) => item.id === threadID);
   thread.turns.push(turn);
@@ -112,15 +127,7 @@ function replaceTurn(threadID, turn) {
 
 function renderStateUpdate(update) {
   if (state.view !== "list" && state.activeThreadId !== update.threadId) return;
-  requestRender();
-}
-
-function requestRender() {
-  if (renderFrame) return;
-  renderFrame = global.requestAnimationFrame(() => {
-    renderFrame = 0;
-    renderer.render();
-  });
+  renderer.render();
 }
 
 function handleClick(event) {

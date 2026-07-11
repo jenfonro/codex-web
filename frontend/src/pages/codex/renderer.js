@@ -5,6 +5,7 @@
     activityLabel,
     activityIcon,
     timeFromTurn,
+    threadTitle,
     escapeHTML,
     escapeAttr,
   } = global.CodexPanelUtils;
@@ -420,7 +421,10 @@ function renderInlineFollowupContent(ref, turnIndex, offset) {
   if (lifecycle.isActivityItem(ref)) return renderActivityContent(ref);
   if (ref.item.type === "fileChange") return renderFileChangeContent(ref, `${turnIndex}-${offset}`);
   if (ref.item.type === "plan" || ref.item.type === "contextCompaction") return renderSummaryBody(summaryText(ref));
-  if (ref.item.type === "agentMessage") return renderAssistantContent(ref, `${turnIndex}-${offset}`, false);
+  if (ref.item.type === "agentMessage") {
+    if (lifecycle.isStreamingAssistant(ref) && ref.item.text.length === 0) return renderThinkingPlaceholder("正在思考");
+    return renderAssistantContent(ref, `${turnIndex}-${offset}`, false);
+  }
   throw new Error(`Unhandled followup item type: ${ref.item.type}`);
 }
 
@@ -937,10 +941,6 @@ function clearComposer(input) {
 
     function activeThread() {
       return state.threads.find((thread) => thread.id === state.activeThreadId);
-    }
-
-    function threadTitle(thread) {
-      return thread.name === null ? "" : thread.name;
     }
 
     function isActiveThreadRunning() {
