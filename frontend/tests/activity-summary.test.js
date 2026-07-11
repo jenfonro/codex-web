@@ -6,10 +6,7 @@ const path = require("path");
 const vm = require("vm");
 
 const root = path.resolve(__dirname, "..");
-const context = {
-  window: null,
-  CodexPanelUtils: {},
-};
+const context = { window: null };
 context.window = context;
 vm.createContext(context);
 for (const file of ["lifecycle.js", "activity-summary.js"]) {
@@ -21,61 +18,25 @@ for (const file of ["lifecycle.js", "activity-summary.js"]) {
 }
 
 const { splitTurnFollowups, summaryLabel } = context.CodexPanelActivitySummary;
+const turn = {
+  id: "turn-1",
+  itemsView: "full",
+  status: "completed",
+  error: null,
+  startedAt: null,
+  completedAt: null,
+  durationMs: 62000,
+  items: [],
+};
+const reasoning = { turn, item: { id: "reason-1", type: "reasoning", summary: ["Checked"], content: [] }, itemIndex: 0 };
+const commentary = { turn, item: { id: "agent-1", type: "agentMessage", text: "Working", phase: "commentary", memoryCitation: null }, itemIndex: 1 };
+const final = { turn, item: { id: "agent-2", type: "agentMessage", text: "Done", phase: "final_answer", memoryCitation: null }, itemIndex: 2 };
 
-const streaming = splitTurnFollowups([
-  { kind: "turn_started", data: { status: "running" } },
-  { kind: "assistant_message", text: "partial answer", data: { streaming: true } },
-]);
+turn.items = [reasoning.item, commentary.item, final.item];
+const split = splitTurnFollowups([reasoning, commentary, final]);
 
-assert.strictEqual(streaming.finalFollowup, null);
-assert.strictEqual(
-  streaming.streamFollowups.map((event) => event.kind).join(","),
-  "turn_started,assistant_message",
-);
-
-const completed = splitTurnFollowups([
-  { kind: "turn_started", data: { status: "running" } },
-  { kind: "assistant_message", text: "final answer", data: { phase: "final_answer", streaming: false } },
-]);
-
-assert.strictEqual(completed.finalFollowup.kind, "assistant_message");
-assert.strictEqual(completed.finalFollowup.text, "final answer");
-assert.strictEqual(completed.streamFollowups.length, 0);
-
-const durationSplit = splitTurnFollowups([
-  {
-    kind: "turn_started",
-    time: "2026-07-10T00:00:00.000Z",
-    data: { status: "completed", durationMs: 62000 },
-  },
-  {
-    kind: "assistant_message",
-    text: "final answer",
-    time: "2026-07-10T00:00:00.000Z",
-    data: { phase: "final_answer", streaming: false, durationMs: 62000 },
-  },
-]);
-
-assert.strictEqual(
-  summaryLabel({ kind: "user_message", time: "2026-07-10T00:00:00.000Z", data: { durationMs: 62000 } }, durationSplit),
-  "已处理 1m 2s",
-);
-
-const noDurationSplit = splitTurnFollowups([
-  {
-    kind: "turn_started",
-    time: "2026-07-10T00:00:00.000Z",
-    data: { status: "completed" },
-  },
-  {
-    kind: "assistant_message",
-    text: "final answer",
-    time: "2026-07-10T00:00:45.000Z",
-    data: { phase: "final_answer", streaming: false },
-  },
-]);
-
-assert.strictEqual(
-  summaryLabel({ kind: "user_message", time: "2026-07-10T00:00:00.000Z" }, noDurationSplit),
-  "已处理",
-);
+assert.strictEqual(split.processFollowups.length, 2);
+assert.strictEqual(split.finalFollowup, final);
+assert.strictEqual(split.streamFollowups.length, 0);
+assert.strictEqual(summaryLabel(turn), "已处理 1m 2s");
+assert.strictEqual(summaryLabel({ ...turn, durationMs: null }), "已处理");

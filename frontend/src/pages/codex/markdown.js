@@ -2,9 +2,6 @@
 
 (function defineCodexMarkdown(global) {
   const MarkdownIt = global.markdownit;
-  if (!MarkdownIt) {
-    throw new Error("markdown-it is required before CodexMarkdown");
-  }
 
   const classNames = {
     markdownRoot: "_markdownRoot_lzkx4_428",
@@ -52,7 +49,7 @@
     renderer.rules.heading_open = (tokens, index, options, env, activeRenderer) => {
       const token = tokens[index];
       const level = token.tag.replace("h", "");
-      token.attrJoin("class", `${classNames.heading} ${classNames[`heading${level}`] || ""}`.trim());
+      token.attrJoin("class", `${classNames.heading} ${classNames[`heading${level}`]}`);
       return activeRenderer.renderToken(tokens, index, options);
     };
     renderer.rules.bullet_list_open = openWithClass(`${classNames.list} ${classNames.unorderedList}`);
@@ -80,18 +77,17 @@
     renderer.rules.fence = renderCodeBlock;
     renderer.rules.code_block = renderCodeBlock;
     renderer.rules.codex_task_checkbox = (tokens, index) => {
-      const checked = tokens[index].meta?.checked ? " checked" : "";
+      const checked = tokens[index].meta.checked ? " checked" : "";
       return `<input class="codex-markdown-task-checkbox" type="checkbox" disabled${checked}>`;
     };
   }
 
-  const defaultLinkOpen = markdown.renderer.rules.link_open || renderToken;
   markdown.renderer.rules.link_open = (tokens, index, options, env, renderer) => {
     const token = tokens[index];
     token.attrJoin("class", "codex-markdown-link");
     token.attrSet("target", "_blank");
     token.attrSet("rel", "noopener noreferrer");
-    return defaultLinkOpen(tokens, index, options, env, renderer);
+    return renderer.renderToken(tokens, index, options);
   };
 
   function openWithClass(className) {
@@ -103,18 +99,14 @@
 
   function renderCodeBlock(tokens, index) {
     const token = tokens[index];
-    const language = codeFenceLanguage(token.info || "");
+    const language = codeFenceLanguage(token.info);
     const languageClass = language ? ` class="language-${markdown.utils.escapeHtml(language)}"` : "";
     const code = markdown.utils.escapeHtml(token.content);
     return `<div class="${classNames.codeBlock}"><pre class="${classNames.codeBlockPlaceholder}"><code${languageClass}>${code}</code></pre></div>\n`;
   }
 
   function codeFenceLanguage(info) {
-    return String(info || "").trim().split(/\s+/)[0].replace(/[^\w-]/g, "");
-  }
-
-  function renderToken(tokens, index, options, env, renderer) {
-    return renderer.renderToken(tokens, index, options);
+    return info.trim().split(/\s+/)[0].replace(/[^\w-]/g, "");
   }
 
   function markTaskLists(state) {
@@ -134,7 +126,7 @@
         hasTaskItem = true;
         token.attrJoin("class", classNames.taskListItem);
         inline.content = inline.content.slice(match[0].length);
-        if (inline.children?.length) {
+        if (inline.children.length) {
           trimTaskMarkerFromInlineChildren(inline.children, match[0].length);
           const checkbox = new state.Token("codex_task_checkbox", "", 0);
           checkbox.meta = { checked: match[1].toLowerCase() === "x" };
@@ -166,9 +158,9 @@
     }
   }
 
-  function render(text, options = {}) {
-    const source = String(text || "");
-    const variant = options.variant ? ` codex-markdown-${options.variant}` : "";
+  function render(text, options) {
+    const source = text;
+    const variant = ` codex-markdown-${options.variant}`;
     const body = markdown.render(source);
     return `<div class="codex-markdown ${classNames.markdownRoot} ${classNames.markdownContent}${variant}">${body}</div>`;
   }

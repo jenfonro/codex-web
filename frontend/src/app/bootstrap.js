@@ -3,19 +3,18 @@
 initCodexApp();
 
 function initCodexApp() {
-  window.CodexAppFrame?.render();
+  window.CodexAppFrame.render();
   initSidebarResize();
 }
 
 function initSidebarResize() {
-  const handleID = window.CodexAppFrame?.IDS?.sidebarResizeHandle || "codexSidebarResizeHandle";
+  const handleID = window.CodexAppFrame.IDS.sidebarResizeHandle;
   const handle = document.getElementById(handleID);
-  if (!handle) return;
 
   const storageKey = "codex-web:sidebar-width";
-  const saved = Number(window.localStorage.getItem(storageKey));
-  if (Number.isFinite(saved) && saved > 0) {
-    setSidebarWidth(saved);
+  const saved = window.localStorage.getItem(storageKey);
+  if (saved !== null) {
+    setSidebarWidth(Number(saved));
   }
 
   let dragging = false;

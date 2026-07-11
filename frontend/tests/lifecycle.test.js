@@ -6,9 +6,7 @@ const path = require("path");
 const vm = require("vm");
 
 const root = path.resolve(__dirname, "..");
-const context = {
-  window: null,
-};
+const context = { window: null };
 context.window = context;
 vm.createContext(context);
 vm.runInContext(
@@ -17,20 +15,48 @@ vm.runInContext(
   { filename: "lifecycle.js" },
 );
 
-const {
-  eventKind,
-  eventStatus,
-  isActivityEvent,
-  isActivityPending,
-} = context.CodexPanelLifecycle;
+const lifecycle = context.CodexPanelLifecycle;
+const turn = {
+  id: "turn-1",
+  itemsView: "full",
+  status: "inProgress",
+  error: null,
+  startedAt: null,
+  completedAt: null,
+  durationMs: null,
+  items: [
+    { id: "reason-1", type: "reasoning", summary: [], content: [] },
+    {
+      id: "command-1",
+      type: "commandExecution",
+      command: "pwd",
+      cwd: "/workspace",
+      processId: null,
+      source: "agent",
+      status: "inProgress",
+      commandActions: [],
+      aggregatedOutput: null,
+      exitCode: null,
+      durationMs: null,
+    },
+  ],
+};
 
-assert.strictEqual(eventKind({ kind: "reasoning" }), "reasoning");
-assert.strictEqual(eventKind({}, "assistant_message"), "assistant_message");
-assert.strictEqual(eventStatus({ data: { status: "RUNNING" } }), "running");
-
-assert.strictEqual(isActivityEvent({ kind: "reasoning" }), true);
-assert.strictEqual(isActivityEvent({ kind: "assistant_message" }), false);
-
-assert.strictEqual(isActivityPending({ kind: "reasoning" }), true);
-assert.strictEqual(isActivityPending({ kind: "reasoning", data: { status: "completed" } }), false);
-assert.strictEqual(isActivityPending({ kind: "tool_call", data: { status: "running" } }), true);
+assert.strictEqual(lifecycle.isTurnRunning(turn), true);
+assert.strictEqual(lifecycle.isActivityItem({ turn, item: turn.items[0], itemIndex: 0 }), true);
+assert.strictEqual(lifecycle.isItemPending({ turn, item: turn.items[0], itemIndex: 0 }), false);
+assert.strictEqual(lifecycle.isItemPending({ turn, item: turn.items[1], itemIndex: 1 }), true);
+assert.strictEqual(lifecycle.isStreamingAssistant({
+  turn: {
+    id: "turn-2",
+    items: [{ id: "agent-1", type: "agentMessage", text: "", phase: null, memoryCitation: null }],
+    itemsView: "full",
+    status: "inProgress",
+    error: null,
+    startedAt: null,
+    completedAt: null,
+    durationMs: null,
+  },
+  item: { id: "agent-1", type: "agentMessage", text: "", phase: null, memoryCitation: null },
+  itemIndex: 0,
+}), true);

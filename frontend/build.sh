@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DIST_DIR="${SCRIPT_DIR}/dist"
-ASSET_VERSION="${CODEX_WEB_ASSET_VERSION:-$(date -u +%Y%m%d%H%M%S)}"
+ASSET_VERSION="$(date -u +%Y%m%d%H%M%S)"
 
 rm -rf "${DIST_DIR}"
 mkdir -p "${DIST_DIR}"

@@ -4,15 +4,12 @@
   function createCodexPanelState() {
     return {
       view: "list",
-      apiAvailable: false,
       popover: "",
       modelMenuExpanded: false,
-      sessions: [],
-      activeSessionId: "",
-      statesBySession: new Map(),
-      appliedSeqBySession: new Map(),
-      eventSource: null,
-      sessionEventSource: null,
+      threads: [],
+      activeThreadId: "",
+      threadEventSource: null,
+      threadListEventSource: null,
     };
   }
 

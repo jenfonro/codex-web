@@ -6,7 +6,7 @@ if [[ ! -f "./backend/go.mod" || ! -d "./frontend" ]]; then
   exit 1
 fi
 
-FRONTEND_DIR="${FRONTEND_DIR:-./frontend}"
+FRONTEND_DIR="./frontend"
 DST_DIST="./backend/public/dist"
 
 if [[ ! -d "${FRONTEND_DIR}" ]]; then

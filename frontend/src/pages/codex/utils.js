@@ -1,40 +1,44 @@
 "use strict";
 
 (function defineCodexPanelUtils(global) {
-function activityLabel(event) {
-  switch (event.kind) {
-    case "turn_started":
+function activityLabel(ref) {
+  switch (ref.item.type) {
     case "reasoning":
-      return event.text || "正在思考";
-    case "tool_call":
-      return summarizeToolActivity(event.text || "正在编辑文件");
-    default:
-      return event.text || "正在思考";
+      return ref.item.summary.join("\n");
+    case "commandExecution":
+      return "exec_command";
+    case "mcpToolCall":
+    case "dynamicToolCall":
+      return ref.item.tool;
+    case "webSearch":
+      return ref.item.query;
+    case "imageView":
+      return ref.item.path;
   }
+  throw new Error(`Unhandled activity item type: ${ref.item.type}`);
 }
 
-function activityIcon(event) {
-  if (event.kind === "tool_call") return "editFile";
-  return "";
+function activityIcon(ref) {
+  switch (ref.item.type) {
+    case "reasoning":
+      return "";
+    case "commandExecution":
+    case "mcpToolCall":
+    case "dynamicToolCall":
+    case "webSearch":
+    case "imageView":
+      return "editFile";
+  }
+  throw new Error(`Unhandled activity item type: ${ref.item.type}`);
 }
 
-function summarizeToolActivity(text) {
-  const value = String(text || "");
-  if (/创建/.test(value)) return "已创建 1 个文件";
-  if (/编辑|修改|写入/.test(value)) return "已编辑 1 个文件";
-  return value || "已编辑 1 个文件";
-}
-
-function timeFromEvent(event) {
-  const date = event.time ? new Date(event.time) : null;
-  if (!date || Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+function timeFromTurn(turn) {
+  return new Date(turn.startedAt * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 function relativeTime(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  const date = new Date(value * 1000);
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
   if (seconds < 60) return "刚刚";
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes} 分`;
@@ -57,13 +61,10 @@ function escapeAttr(value) {
   return escapeHTML(value);
 }
 
-
-
   global.CodexPanelUtils = {
     activityLabel,
     activityIcon,
-    summarizeToolActivity,
-    timeFromEvent,
+    timeFromTurn,
     relativeTime,
     escapeHTML,
     escapeAttr,

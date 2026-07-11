@@ -1,8 +1,8 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
-	"io"
 	"io/fs"
 	"log"
 	"mime"
@@ -11,74 +11,51 @@ import (
 	"strings"
 
 	"codex-web/backend/internal/config"
-	"codex-web/backend/internal/host"
-	"codex-web/backend/internal/session"
+	"codex-web/backend/internal/thread"
 	"codex-web/backend/public"
 )
 
 type App struct {
-	cfg      appConfig
-	hostsvc  *host.Service
-	sessions *session.Manager
+	cfg     config.App
+	threads *thread.Manager
 }
 
-func New() (*App, error) {
-	cfg, err := loadConfig()
-	if err != nil {
-		return nil, err
-	}
+func New() *App {
+	cfg := config.Load()
 	app := &App{
-		cfg:     cfg,
-		hostsvc: host.New(cfg.RootDir, cfg.CodexHome),
-		sessions: session.New(session.Config{
+		cfg: cfg,
+		threads: thread.New(thread.Config{
 			CodexBin:  cfg.CodexBin,
 			CodexHome: cfg.CodexHome,
 			RootDir:   cfg.RootDir,
 		}),
 	}
-	return app, nil
+	return app
 }
 
 func (a *App) Run() error {
+	if err := a.threads.Initialize(context.Background()); err != nil {
+		return err
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/", a.handleAPI)
 	mux.Handle("/", a.staticHandler())
 
 	log.Printf("codex-web listening on http://%s", a.cfg.Addr)
-	log.Printf("codex-web data dir: %s", a.cfg.DataDir)
 	log.Printf("codex-web codex home: %s", a.cfg.CodexHome)
 	log.Printf("codex-web workspace root: %s", a.cfg.RootDir)
 	return http.ListenAndServe(a.cfg.Addr, mux)
 }
 
-func loadConfig() (appConfig, error) {
-	loaded, err := config.Load()
-	if err != nil {
-		return appConfig{}, err
-	}
-	cfg := appConfig{
-		Addr:      loaded.Addr,
-		DataDir:   loaded.DataDir,
-		CodexHome: loaded.CodexHome,
-		RootDir:   loaded.RootDir,
-		CodexBin:  loaded.CodexBin,
-	}
-	return cfg, nil
-}
-
 func (a *App) handleAPI(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api")
 	switch {
-	case path == "/sessions":
-		a.handleSessions(w, r)
-	case path == "/sessions/state-events":
-		a.handleSessionStateEvents(w, r)
-	case strings.HasPrefix(path, "/sessions/"):
-		a.handleSessionItem(w, r, strings.TrimPrefix(path, "/sessions/"))
-	case path == "/workspace":
-		a.handleWorkspace(w, r)
-	case path == "/git":
-		a.handleGit(w, r)
+	case path == "/threads":
+		a.handleThreads(w, r)
+	case path == "/threads/state-events":
+		a.handleThreadStateEvents(w, r)
+	case strings.HasPrefix(path, "/threads/"):
+		a.handleThreadAction(w, r, strings.TrimPrefix(path, "/threads/"))
 	default:
 		writeError(w, http.StatusNotFound, "not found")
 	}
@@ -117,36 +94,29 @@ func (a *App) staticHandler() http.Handler {
 	})
 }
 
-func readJSON(r *http.Request, v any) error {
+func readJSON(r *http.Request, v any) {
 	defer r.Body.Close()
-	dec := json.NewDecoder(io.LimitReader(r.Body, 2*1024*1024))
-	dec.DisallowUnknownFields()
+	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(v); err != nil {
-		return err
+		panic(err)
 	}
-	return nil
 }
 
 func writeJSON(w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(value)
+	if err := json.NewEncoder(w).Encode(value); err != nil {
+		panic(err)
+	}
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(apiError{Error: message})
+	if err := json.NewEncoder(w).Encode(apiError{Error: message}); err != nil {
+		panic(err)
+	}
 }
 
 func methodNotAllowed(w http.ResponseWriter) {
 	writeError(w, http.StatusMethodNotAllowed, "method not allowed")
-}
-
-func firstString(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
 }

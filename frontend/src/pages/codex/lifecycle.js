@@ -1,42 +1,45 @@
 "use strict";
 
 (function defineCodexPanelLifecycle(global) {
-  const activityKinds = ["turn_started", "reasoning", "tool_call"];
-  const defaultPendingActivityKinds = ["turn_started", "reasoning"];
-  const terminalStatuses = ["completed", "error", "interrupted", "idle"];
+  const activityTypes = new Set([
+    "reasoning",
+    "commandExecution",
+    "mcpToolCall",
+    "dynamicToolCall",
+    "webSearch",
+    "imageView",
+  ]);
 
-  function eventKind(event, defaultKind = "") {
-    return String(event?.kind || defaultKind || "");
+  function isTurnRunning(turn) {
+    return turn.status === "inProgress";
   }
 
-  function eventStatus(event) {
-    return String(event?.data?.status || "").toLowerCase();
+  function isCurrentItem(ref) {
+    return isTurnRunning(ref.turn) && ref.itemIndex === ref.turn.items.length - 1;
   }
 
-  function isRunningStatus(status) {
-    return String(status || "").toLowerCase() === "running";
+  function isStreamingAssistant(ref) {
+    return ref.item.type === "agentMessage" && isCurrentItem(ref);
   }
 
-  function isTerminalStatus(status) {
-    return terminalStatuses.includes(String(status || "").toLowerCase());
+  function isActivityItem(ref) {
+    return activityTypes.has(ref.item.type);
   }
 
-  function isActivityEvent(event) {
-    return activityKinds.includes(eventKind(event));
-  }
-
-  function isActivityPending(event) {
-    if (!isActivityEvent(event)) return false;
-    const status = eventStatus(event);
-    if (isRunningStatus(status)) return true;
-    if (isTerminalStatus(status)) return false;
-    return defaultPendingActivityKinds.includes(eventKind(event));
+  function isItemPending(ref) {
+    if (ref.item.type === "reasoning" || ref.item.type === "agentMessage") {
+      return isCurrentItem(ref);
+    }
+    if (ref.item.type === "commandExecution" || ref.item.type === "fileChange" || ref.item.type === "mcpToolCall" || ref.item.type === "dynamicToolCall") {
+      return ref.item.status === "inProgress";
+    }
+    return false;
   }
 
   global.CodexPanelLifecycle = {
-    eventKind,
-    eventStatus,
-    isActivityEvent,
-    isActivityPending,
+    isTurnRunning,
+    isStreamingAssistant,
+    isActivityItem,
+    isItemPending,
   };
 })(window);

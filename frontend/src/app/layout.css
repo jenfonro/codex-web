@@ -46,7 +46,6 @@ button {
 .codex-icon,
 .codex-app-mark-icon,
 .codex-rail-icon,
-.codex-status-icon,
 .codex-surface-mark {
   display: block;
   flex: 0 0 auto;
@@ -190,13 +189,6 @@ button {
 
 .codex-host-pill button:hover {
   background: var(--cw-hover);
-}
-
-.codex-host-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--cw-soft-muted);
 }
 
 .codex-app-main {
@@ -507,28 +499,6 @@ button {
 
 .codex-statusbar-right {
   flex: 0 0 auto;
-}
-
-.codex-status-item {
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 0 6px;
-  color: var(--cw-muted);
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-}
-
-.codex-status-item:hover {
-  color: var(--cw-foreground);
-  background: var(--cw-hover);
-}
-
-.codex-status-icon {
-  width: 14px;
-  height: 14px;
 }
 
 @media (max-width: 900px) {

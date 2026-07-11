@@ -239,7 +239,7 @@
   opacity: .8;
 }
 
-[data-codex-session-id] {
+[data-codex-thread-id] {
   --task-row-trailing-inset: calc(var(--spacing) * 1.5);
   height: var(--height-token-row);
   padding: var(--padding-row-y) var(--padding-row-cell-x, var(--padding-row-x));
@@ -247,8 +247,8 @@
   cursor: pointer;
 }
 
-[data-codex-session-id]:hover,
-[data-codex-session-id]:focus-visible {
+[data-codex-thread-id]:hover,
+[data-codex-thread-id]:focus-visible {
   background-color: var(--color-token-list-hover-background);
 }
 
@@ -467,18 +467,18 @@
   overflow: hidden;
 }
 
-.codex-session-status-spinner {
+.codex-thread-status-spinner {
   position: relative;
   display: inline-flex;
   width: 14px;
   height: 14px;
   flex: 0 0 14px;
   color: var(--color-token-input-placeholder-foreground);
-  animation: codex-session-status-spin 0.9s linear infinite;
+  animation: codex-thread-status-spin 0.9s linear infinite;
 }
 
-.codex-session-status-spinner::before,
-.codex-session-status-spinner::after {
+.codex-thread-status-spinner::before,
+.codex-thread-status-spinner::after {
   content: "";
   position: absolute;
   inset: 1px;
@@ -486,11 +486,11 @@
   border-radius: 999px;
 }
 
-.codex-session-status-spinner::before {
+.codex-thread-status-spinner::before {
   border: 1.5px solid color-mix(in srgb, currentColor 26%, transparent);
 }
 
-.codex-session-status-spinner::after {
+.codex-thread-status-spinner::after {
   border: 1.5px solid transparent;
   border-top-color: currentColor;
   border-right-color: currentColor;
@@ -554,7 +554,7 @@
   opacity: .85;
 }
 
-@keyframes codex-session-status-spin {
+@keyframes codex-thread-status-spin {
   to {
     transform: rotate(360deg);
   }
@@ -1135,10 +1135,6 @@ svg {
 
 #root > span.pointer-events-none.fixed.inset-0 {
   padding-bottom: 0;
-}
-
-.codex-error-message {
-  color: var(--color-token-error-foreground);
 }
 
 .codex-chevron-right {

@@ -2,10 +2,18 @@
 
 window.CodexIcons = {
   svg(name, className = "", overrides = {}) {
-    const body = ICON_PATHS[name];
-    if (!body) return "";
-    const attrs = { ...(ICON_ATTRS[name] || { width: 20, height: 20, viewBox: "0 0 20 20" }), ...overrides };
-    const fillAttr = attrs.fill === false ? "" : ` fill="${attrs.fill || "none"}"`;
+    const body = ICON_PATHS[name].trim();
+    const attrs = {
+      width: 20,
+      height: 20,
+      viewBox: "0 0 20 20",
+      fill: "none",
+      xmlns: true,
+      ariaHidden: false,
+      ...ICON_ATTRS[name],
+      ...overrides,
+    };
+    const fillAttr = attrs.fill === false ? "" : ` fill="${attrs.fill}"`;
     const xmlnsAttr = attrs.xmlns === false ? "" : ' xmlns="http://www.w3.org/2000/svg"';
     const ariaHiddenAttr = attrs.ariaHidden ? ' aria-hidden="true"' : "";
     return `<svg width="${attrs.width}" height="${attrs.height}" viewBox="${attrs.viewBox}"${fillAttr}${xmlnsAttr} class="${className}"${ariaHiddenAttr}>${body}</svg>`;

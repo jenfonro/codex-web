@@ -14,10 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
-
-const defaultRequestTimeout = 60 * time.Second
 
 type Client struct {
 	cfg Config
@@ -48,6 +45,79 @@ type rpcMessage struct {
 	Error  *RPCError       `json:"error,omitempty"`
 }
 
+type rpcRequest struct {
+	ID     string `json:"id"`
+	Method string `json:"method"`
+	Params any    `json:"params"`
+}
+
+type rpcNotification struct {
+	Method string `json:"method"`
+}
+
+type rpcErrorResponse struct {
+	ID    json.RawMessage `json:"id"`
+	Error RPCError        `json:"error"`
+}
+
+var optOutNotificationMethods = []string{
+	"thread/archived",
+	"thread/deleted",
+	"thread/unarchived",
+	"thread/closed",
+	"skills/changed",
+	"thread/goal/updated",
+	"thread/goal/cleared",
+	"thread/settings/updated",
+	"thread/tokenUsage/updated",
+	"hook/started",
+	"hook/completed",
+	"turn/diff/updated",
+	"turn/plan/updated",
+	"item/autoApprovalReview/started",
+	"item/autoApprovalReview/completed",
+	"rawResponseItem/completed",
+	"command/exec/outputDelta",
+	"process/outputDelta",
+	"process/exited",
+	"item/commandExecution/terminalInteraction",
+	"item/fileChange/outputDelta",
+	"item/fileChange/patchUpdated",
+	"serverRequest/resolved",
+	"item/mcpToolCall/progress",
+	"mcpServer/oauthLogin/completed",
+	"mcpServer/startupStatus/updated",
+	"account/updated",
+	"account/rateLimits/updated",
+	"app/list/updated",
+	"remoteControl/status/changed",
+	"externalAgentConfig/import/progress",
+	"externalAgentConfig/import/completed",
+	"fs/changed",
+	"thread/compacted",
+	"model/rerouted",
+	"model/verification",
+	"turn/moderationMetadata",
+	"model/safetyBuffering/updated",
+	"warning",
+	"guardianWarning",
+	"deprecationNotice",
+	"configWarning",
+	"fuzzyFileSearch/sessionUpdated",
+	"fuzzyFileSearch/sessionCompleted",
+	"thread/realtime/started",
+	"thread/realtime/itemAdded",
+	"thread/realtime/transcript/delta",
+	"thread/realtime/transcript/done",
+	"thread/realtime/outputAudio/delta",
+	"thread/realtime/sdp",
+	"thread/realtime/error",
+	"thread/realtime/closed",
+	"windows/worldWritableWarning",
+	"windowsSandbox/setupCompleted",
+	"account/login/completed",
+}
+
 func New(cfg Config) *Client {
 	return &Client{
 		cfg:         cfg,
@@ -56,25 +126,18 @@ func New(cfg Config) *Client {
 	}
 }
 
-func (c *Client) ListThreads(ctx context.Context, limit int) ([]Thread, error) {
-	if limit <= 0 {
-		limit = 200
-	}
+func (c *Client) ListThreads(ctx context.Context) ([]Thread, error) {
 	var threads []Thread
 	var cursor *string
-	for len(threads) < limit {
-		pageLimit := limit - len(threads)
-		if pageLimit > 100 {
-			pageLimit = 100
-		}
+	for {
 		var response ThreadListResponse
-		err := c.RequestJSON(ctx, "thread/list", map[string]any{
-			"cursor":        cursor,
-			"limit":         pageLimit,
-			"sortKey":       "recency_at",
-			"sortDirection": "desc",
-			"archived":      false,
-			"sourceKinds": []string{
+		err := c.RequestJSON(ctx, "thread/list", ThreadListParams{
+			Cursor:        cursor,
+			Limit:         100,
+			SortKey:       "recency_at",
+			SortDirection: "desc",
+			Archived:      false,
+			SourceKinds: []string{
 				"appServer",
 				"cli",
 				"vscode",
@@ -85,7 +148,7 @@ func (c *Client) ListThreads(ctx context.Context, limit int) ([]Thread, error) {
 			return nil, err
 		}
 		threads = append(threads, response.Data...)
-		if response.NextCursor == nil || *response.NextCursor == "" {
+		if response.NextCursor == nil {
 			break
 		}
 		cursor = response.NextCursor
@@ -95,59 +158,51 @@ func (c *Client) ListThreads(ctx context.Context, limit int) ([]Thread, error) {
 
 func (c *Client) ReadThread(ctx context.Context, threadID string) (Thread, error) {
 	var response ThreadReadResponse
-	err := c.RequestJSON(ctx, "thread/read", map[string]any{
-		"threadId":     threadID,
-		"includeTurns": true,
+	err := c.RequestJSON(ctx, "thread/read", ThreadReadParams{
+		ThreadID:     threadID,
+		IncludeTurns: true,
 	}, &response)
 	return response.Thread, err
 }
 
 func (c *Client) StartThread(ctx context.Context, cwd string) (Thread, error) {
-	params := map[string]any{
-		"cwd":          cwd,
-		"threadSource": "codexWeb",
-	}
 	var response ThreadStartResponse
-	err := c.RequestJSON(ctx, "thread/start", params, &response)
+	err := c.RequestJSON(ctx, "thread/start", ThreadStartParams{
+		CWD:          cwd,
+		ThreadSource: "codexWeb",
+	}, &response)
 	return response.Thread, err
 }
 
 func (c *Client) ResumeThread(ctx context.Context, threadID, cwd string) (Thread, error) {
-	params := map[string]any{
-		"threadId": threadID,
-	}
-	if strings.TrimSpace(cwd) != "" {
-		params["cwd"] = cwd
-	}
 	var response ThreadResumeResponse
-	err := c.RequestJSON(ctx, "thread/resume", params, &response)
+	err := c.RequestJSON(ctx, "thread/resume", ThreadResumeParams{
+		ThreadID: threadID,
+		CWD:      cwd,
+	}, &response)
 	return response.Thread, err
 }
 
-func (c *Client) StartTurn(ctx context.Context, threadID, prompt, cwd string) (Turn, error) {
-	params := map[string]any{
-		"threadId": threadID,
-		"input": []map[string]any{
+func (c *Client) StartTurn(ctx context.Context, threadID, prompt, cwd string) error {
+	var response TurnStartResponse
+	return c.RequestJSON(ctx, "turn/start", TurnStartParams{
+		ThreadID: threadID,
+		CWD:      cwd,
+		Input: []TextInput{
 			{
-				"type":          "text",
-				"text":          prompt,
-				"text_elements": []any{},
+				Type:         "text",
+				Text:         prompt,
+				TextElements: []struct{}{},
 			},
 		},
-	}
-	if strings.TrimSpace(cwd) != "" {
-		params["cwd"] = cwd
-	}
-	var response TurnStartResponse
-	err := c.RequestJSON(ctx, "turn/start", params, &response)
-	return response.Turn, err
+	}, &response)
 }
 
 func (c *Client) InterruptTurn(ctx context.Context, threadID, turnID string) error {
-	var response map[string]any
-	return c.RequestJSON(ctx, "turn/interrupt", map[string]any{
-		"threadId": threadID,
-		"turnId":   turnID,
+	var response struct{}
+	return c.RequestJSON(ctx, "turn/interrupt", TurnInterruptParams{
+		ThreadID: threadID,
+		TurnID:   turnID,
 	}, &response)
 }
 
@@ -156,12 +211,6 @@ func (c *Client) RequestJSON(ctx context.Context, method string, params any, out
 	if err != nil {
 		return err
 	}
-	if out == nil {
-		return nil
-	}
-	if len(raw) == 0 {
-		raw = []byte("{}")
-	}
 	if err := json.Unmarshal(raw, out); err != nil {
 		return fmt.Errorf("decode app-server %s response: %w", method, err)
 	}
@@ -169,29 +218,10 @@ func (c *Client) RequestJSON(ctx context.Context, method string, params any, out
 }
 
 func (c *Client) Request(ctx context.Context, method string, params any) (json.RawMessage, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if deadline, ok := ctx.Deadline(); !ok || time.Until(deadline) <= 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, defaultRequestTimeout)
-		defer cancel()
-	}
 	if err := c.ensureStarted(ctx); err != nil {
 		return nil, err
 	}
 	return c.requestStarted(ctx, method, params)
-}
-
-func (c *Client) Notify(ctx context.Context, method string, params any) error {
-	if err := c.ensureStarted(ctx); err != nil {
-		return err
-	}
-	msg := map[string]any{"method": method}
-	if params != nil {
-		msg["params"] = params
-	}
-	return c.writeMessage(msg)
 }
 
 func (c *Client) Subscribe() (<-chan Notification, func()) {
@@ -203,10 +233,9 @@ func (c *Client) Subscribe() (<-chan Notification, func()) {
 	c.mu.Unlock()
 	return ch, func() {
 		c.mu.Lock()
-		if existing := c.subscribers[id]; existing != nil {
-			delete(c.subscribers, id)
-			close(existing)
-		}
+		existing := c.subscribers[id]
+		delete(c.subscribers, id)
+		close(existing)
 		c.mu.Unlock()
 	}
 }
@@ -220,13 +249,14 @@ func (c *Client) Close() error {
 	c.initialized = false
 	c.failPendingLocked(errors.New("app-server closed"))
 	c.mu.Unlock()
+	var closeErr error
 	if stdin != nil {
-		_ = stdin.Close()
+		closeErr = stdin.Close()
 	}
 	if cmd != nil && cmd.Process != nil {
-		return cmd.Process.Kill()
+		return errors.Join(closeErr, cmd.Process.Kill())
 	}
-	return nil
+	return closeErr
 }
 
 func (c *Client) ensureStarted(ctx context.Context) error {
@@ -244,25 +274,23 @@ func (c *Client) ensureStarted(ctx context.Context) error {
 		return err
 	}
 
-	if _, err := c.requestStarted(ctx, "initialize", map[string]any{
-		"clientInfo": map[string]any{
-			"name":    "codex_web",
-			"title":   "Codex Web",
-			"version": "0.1.0",
+	if _, err := c.requestStarted(ctx, "initialize", InitializeParams{
+		ClientInfo: ClientInfo{
+			Name:    "codex_web",
+			Title:   "Codex Web",
+			Version: "0.1.0",
 		},
-		"capabilities": map[string]any{
-			"experimentalApi":                true,
-			"requestAttestation":             false,
-			"mcpServerOpenaiFormElicitation": false,
-			"optOutNotificationMethods":      []string{},
+		Capabilities: ClientCapabilities{
+			ExperimentalAPI:                true,
+			RequestAttestation:             false,
+			MCPServerOpenAIFormElicitation: false,
+			OptOutNotificationMethods:      optOutNotificationMethods,
 		},
 	}); err != nil {
-		_ = c.Close()
-		return err
+		return errors.Join(err, c.Close())
 	}
-	if err := c.writeMessage(map[string]any{"method": "initialized"}); err != nil {
-		_ = c.Close()
-		return err
+	if err := c.writeMessage(rpcNotification{Method: "initialized"}); err != nil {
+		return errors.Join(err, c.Close())
 	}
 
 	c.mu.Lock()
@@ -274,9 +302,7 @@ func (c *Client) ensureStarted(ctx context.Context) error {
 func (c *Client) startProcess() error {
 	args := []string{"app-server", "--stdio"}
 	cmd := exec.Command(c.cfg.CodexBin, args...)
-	if strings.TrimSpace(c.cfg.RootDir) != "" {
-		cmd.Dir = c.cfg.RootDir
-	}
+	cmd.Dir = c.cfg.RootDir
 	cmd.Env = append(os.Environ(), "CODEX_HOME="+c.cfg.CodexHome)
 
 	stdin, err := cmd.StdinPipe()
@@ -285,17 +311,14 @@ func (c *Client) startProcess() error {
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		_ = stdin.Close()
-		return fmt.Errorf("open app-server stdout: %w", err)
+		return errors.Join(fmt.Errorf("open app-server stdout: %w", err), stdin.Close())
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		_ = stdin.Close()
-		return fmt.Errorf("open app-server stderr: %w", err)
+		return errors.Join(fmt.Errorf("open app-server stderr: %w", err), stdin.Close())
 	}
 	if err := cmd.Start(); err != nil {
-		_ = stdin.Close()
-		return fmt.Errorf("start codex app-server: %w", err)
+		return errors.Join(fmt.Errorf("start codex app-server: %w", err), stdin.Close())
 	}
 
 	c.mu.Lock()
@@ -314,19 +337,17 @@ func (c *Client) requestStarted(ctx context.Context, method string, params any) 
 	ch := make(chan rpcResult, 1)
 
 	c.mu.Lock()
-	c.pending[id] = ch
+	c.pending[strconv.Quote(id)] = ch
 	c.mu.Unlock()
 
-	msg := map[string]any{
-		"method": method,
-		"id":     id,
-	}
-	if params != nil {
-		msg["params"] = params
+	msg := rpcRequest{
+		Method: method,
+		ID:     id,
+		Params: params,
 	}
 	if err := c.writeMessage(msg); err != nil {
 		c.mu.Lock()
-		delete(c.pending, id)
+		delete(c.pending, strconv.Quote(id))
 		c.mu.Unlock()
 		return nil, err
 	}
@@ -334,7 +355,7 @@ func (c *Client) requestStarted(ctx context.Context, method string, params any) 
 	select {
 	case <-ctx.Done():
 		c.mu.Lock()
-		delete(c.pending, id)
+		delete(c.pending, strconv.Quote(id))
 		c.mu.Unlock()
 		return nil, ctx.Err()
 	case result := <-ch:
@@ -359,9 +380,6 @@ func (c *Client) writeMessage(value any) error {
 	c.mu.Lock()
 	stdin := c.stdin
 	c.mu.Unlock()
-	if stdin == nil {
-		return errors.New("app-server stdin is not open")
-	}
 
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
@@ -380,11 +398,8 @@ func (c *Client) readLoop(reader io.Reader) {
 			c.handleLine(bytes.TrimSpace(line))
 		}
 		if err != nil {
-			if !errors.Is(err, io.EOF) {
-				log.Printf("codex app-server stdout read failed: %v", err)
-			}
 			c.mu.Lock()
-			c.failPendingLocked(errors.New("app-server stdout closed"))
+			c.failPendingLocked(err)
 			c.mu.Unlock()
 			return
 		}
@@ -396,18 +411,19 @@ func (c *Client) handleLine(line []byte) {
 	dec := json.NewDecoder(bytes.NewReader(line))
 	dec.UseNumber()
 	if err := dec.Decode(&msg); err != nil {
-		log.Printf("codex app-server sent invalid JSON-RPC: %v", err)
-		return
+		panic(err)
 	}
 
-	id := rpcID(msg.ID)
+	id := bytes.TrimSpace(msg.ID)
 	switch {
-	case id != "" && msg.Method == "":
-		c.deliverResponse(id, msg.Result, msg.Error)
-	case id != "" && msg.Method != "":
-		c.handleServerRequest(id, msg.Method, msg.Params)
+	case len(id) > 0 && msg.Method == "":
+		c.deliverResponse(string(id), msg.Result, msg.Error)
+	case len(id) > 0 && msg.Method != "":
+		c.handleServerRequest(id, msg.Method)
 	case msg.Method != "":
-		c.publish(Notification{Method: msg.Method, Params: rawParamsMap(msg.Params)})
+		c.publish(Notification{Method: msg.Method, Params: msg.Params})
+	default:
+		panic("app-server message has neither response id nor method")
 	}
 }
 
@@ -417,7 +433,7 @@ func (c *Client) deliverResponse(id string, result json.RawMessage, rpcErr *RPCE
 	delete(c.pending, id)
 	c.mu.Unlock()
 	if ch == nil {
-		return
+		panic("unexpected app-server response id: " + id)
 	}
 	if rpcErr != nil {
 		ch <- rpcResult{err: rpcErr}
@@ -426,44 +442,16 @@ func (c *Client) deliverResponse(id string, result json.RawMessage, rpcErr *RPCE
 	ch <- rpcResult{result: result}
 }
 
-func (c *Client) handleServerRequest(id, method string, rawParams json.RawMessage) {
-	params := rawParamsMap(rawParams)
-	c.publish(Notification{
-		Method:    method,
-		Params:    params,
-		RequestID: id,
-		IsRequest: true,
-	})
-
-	result, ok := automaticServerRequestResult(method)
-	if ok {
-		if err := c.writeMessage(map[string]any{"id": id, "result": result}); err != nil {
-			log.Printf("reply to app-server request %s failed: %v", method, err)
-		}
-		return
-	}
-	errPayload := map[string]any{
-		"id": id,
-		"error": map[string]any{
-			"code":    -32601,
-			"message": "unsupported server request: " + method,
+func (c *Client) handleServerRequest(id json.RawMessage, method string) {
+	errPayload := rpcErrorResponse{
+		ID: id,
+		Error: RPCError{
+			Code:    -32601,
+			Message: "unsupported server request: " + method,
 		},
 	}
 	if err := c.writeMessage(errPayload); err != nil {
-		log.Printf("reject app-server request %s failed: %v", method, err)
-	}
-}
-
-func automaticServerRequestResult(method string) (map[string]any, bool) {
-	switch method {
-	case "item/commandExecution/requestApproval":
-		return map[string]any{"decision": "decline"}, true
-	case "item/fileChange/requestApproval":
-		return map[string]any{"decision": "decline"}, true
-	case "tool/requestUserInput":
-		return map[string]any{"answers": map[string]any{}}, true
-	default:
-		return nil, false
+		panic(err)
 	}
 }
 
@@ -476,10 +464,7 @@ func (c *Client) publish(notification Notification) {
 	c.mu.Unlock()
 
 	for _, ch := range subscribers {
-		select {
-		case ch <- notification:
-		default:
-		}
+		ch <- notification
 	}
 }
 
@@ -492,6 +477,9 @@ func (c *Client) stderrLoop(reader io.Reader) {
 		if line != "" {
 			log.Printf("codex app-server: %s", line)
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		panic(err)
 	}
 }
 
@@ -507,10 +495,9 @@ func (c *Client) waitLoop(cmd *exec.Cmd) {
 		c.cmd = nil
 		c.stdin = nil
 		c.initialized = false
-		c.failPendingLocked(errors.New("app-server exited"))
+		c.failPendingLocked(fmt.Errorf("app-server exited with code %d", cmd.ProcessState.ExitCode()))
 	}
 	c.mu.Unlock()
-	c.publish(Notification{Method: "appserver/disconnected", Params: map[string]any{"error": fmt.Sprint(err)}})
 }
 
 func (c *Client) failPendingLocked(err error) {
@@ -518,34 +505,4 @@ func (c *Client) failPendingLocked(err error) {
 		delete(c.pending, id)
 		ch <- rpcResult{err: err}
 	}
-}
-
-func rpcID(raw json.RawMessage) string {
-	raw = bytes.TrimSpace(raw)
-	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
-		return ""
-	}
-	var text string
-	if err := json.Unmarshal(raw, &text); err == nil {
-		return text
-	}
-	var num json.Number
-	if err := json.Unmarshal(raw, &num); err == nil {
-		return num.String()
-	}
-	return string(raw)
-}
-
-func rawParamsMap(raw json.RawMessage) map[string]any {
-	raw = bytes.TrimSpace(raw)
-	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
-		return nil
-	}
-	var params map[string]any
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.UseNumber()
-	if err := dec.Decode(&params); err != nil {
-		return nil
-	}
-	return params
 }

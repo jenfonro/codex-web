@@ -27,6 +27,47 @@ function flush() {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
+function officialTurn(status, items) {
+  return {
+    id: "turn-1",
+    items,
+    itemsView: "full",
+    status,
+    error: null,
+    startedAt: null,
+    completedAt: null,
+    durationMs: null,
+  };
+}
+
+function officialThread(status, turns) {
+  return {
+    id: "s1",
+    extra: null,
+    sessionId: "s1",
+    forkedFromId: null,
+    parentThreadId: null,
+    preview: "",
+    ephemeral: false,
+    historyMode: "legacy",
+    modelProvider: "openai",
+    createdAt: 1783555200,
+    updatedAt: 1783555200,
+    recencyAt: null,
+    status: { type: status, activeFlags: status === "active" ? [] : undefined },
+    path: null,
+    cwd: "/workspace",
+    cliVersion: "0.144.1",
+    source: "appServer",
+    threadSource: "codexWeb",
+    agentNickname: null,
+    agentRole: null,
+    gitInfo: null,
+    name: "Thread",
+    turns,
+  };
+}
+
 const rootNode = {
   addEventListener(type, handler) {
     listeners.set(type, handler);
@@ -61,29 +102,11 @@ const context = {
   },
   CodexPanelAPI: {
     async fetchJSON(url) {
-      if (url === "/api/sessions") {
-        return { sessions: [{ id: "s1", title: "Session", status: "running", updatedAt: "2026-07-09T00:00:00Z" }] };
-      }
-      if (url === "/api/sessions/s1/state") {
-        return {
-          session: { id: "s1", title: "Session", status: "running", updatedAt: "2026-07-09T00:00:00Z" },
-          lastSeq: 1,
-          turns: [{
-            id: "turn-1",
-            status: "running",
-            items: [
-              { id: "user-1", type: "userMessage", text: "hello", status: "completed" },
-              { id: "agent-1", type: "agentMessage", text: "Hel", status: "running", phase: "final_answer" },
-            ],
-          }],
-        };
+      if (url === "/api/threads") {
+        return [officialThread("active", [])];
       }
       throw new Error(`unexpected URL ${url}`);
     },
-    parseSessions(value) { return value; },
-    parseSession(value) { return value; },
-    parseSessionState(value) { return value; },
-    parseStateUpdate(value) { return value; },
   },
   CodexPanelUtils: {
     relativeTime() { return ""; },
@@ -93,15 +116,12 @@ const context = {
     createCodexPanelState() {
       return {
         view: "list",
-        apiAvailable: false,
         popover: "",
         modelMenuExpanded: false,
-        sessions: [],
-        activeSessionId: "",
-        statesBySession: new Map(),
-        appliedSeqBySession: new Map(),
-        eventSource: null,
-        sessionEventSource: null,
+        threads: [],
+        activeThreadId: "",
+        threadEventSource: null,
+        threadListEventSource: null,
       };
     },
   },
@@ -133,9 +153,9 @@ vm.runInContext(
   assert.ok(click, "click listener should be registered");
 
   const row = {
-    dataset: { codexSessionId: "s1" },
+    dataset: { codexThreadId: "s1" },
     closest(selector) {
-      if (selector === "[data-codex-session-id]") return row;
+      if (selector === "[data-codex-thread-id]") return row;
       return null;
     },
   };
@@ -143,45 +163,49 @@ vm.runInContext(
   await flush();
   await flush();
 
+  const threadSource = eventSources.find((source) => source.url.includes("threadId=s1"));
+  threadSource.onmessage({ data: JSON.stringify({
+    type: "state",
+    threadId: "s1",
+    data: officialThread("active", [officialTurn("inProgress", [
+      { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
+      { id: "agent-1", type: "agentMessage", text: "Hel", phase: "final_answer", memoryCitation: null },
+    ])]),
+  }) });
+  await flush();
+
   const rendersBeforeStream = renderCalls.length;
   const update = {
-    type: "item",
-    sessionId: "s1",
-    seq: 2,
-    session: { id: "s1", title: "Session", status: "running", updatedAt: "2026-07-09T00:00:01Z" },
-    turn: {
-      id: "turn-1",
-      status: "running",
-      items: [{ id: "agent-1", type: "agentMessage", text: "Hello", status: "running", phase: "final_answer" }],
-    },
-    item: { id: "agent-1", type: "agentMessage", text: "Hello", status: "running", phase: "final_answer" },
+    type: "turnUpdated",
+    threadId: "s1",
+    data: officialTurn("inProgress", [
+        { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
+        { id: "agent-1", type: "agentMessage", text: "Hello", phase: "final_answer", memoryCitation: null },
+    ]),
   };
 
-  for (const source of eventSources) {
-    source.onmessage?.({ data: JSON.stringify(update) });
-  }
+  threadSource.onmessage({ data: JSON.stringify(update) });
   await flush();
 
   assert.strictEqual(renderCalls.length, rendersBeforeStream + 1, "streaming update should schedule one unified render");
 
-  const activeState = rendererRuntime.state.statesBySession.get("s1");
-  assert.strictEqual(activeState.turns[0].items[1].text, "Hello", "streaming text should be merged into item state");
+  const activeThread = rendererRuntime.state.threads.find((thread) => thread.id === "s1");
+  assert.strictEqual(activeThread.turns[0].items[1].text, "Hello", "streaming turn should replace the previous turn state");
 
   const completedUpdate = {
-    type: "item",
-    sessionId: "s1",
-    seq: 3,
-    turn: { id: "turn-1", status: "completed" },
-    item: { id: "agent-1", type: "agentMessage", status: "completed", phase: "final_answer" },
+    type: "turnUpdated",
+    threadId: "s1",
+    data: officialTurn("completed", [
+        { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
+        { id: "agent-1", type: "agentMessage", text: "Hello", phase: "final_answer", memoryCitation: null },
+    ]),
   };
 
-  for (const source of eventSources) {
-    source.onmessage?.({ data: JSON.stringify(completedUpdate) });
-  }
+  threadSource.onmessage({ data: JSON.stringify(completedUpdate) });
   await flush();
 
   assert.strictEqual(renderCalls.length, rendersBeforeStream + 2, "completion update should schedule one unified render");
-  assert.strictEqual(activeState.turns[0].items[1].text, "Hello", "completion without text should not erase streamed text");
+  assert.strictEqual(activeThread.turns[0].items[1].text, "Hello", "completed turn should contain the final text");
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

@@ -8,7 +8,7 @@
   };
 
   const railItems = [
-    { label: "Sessions", icon: "history" },
+    { label: "Threads", icon: "history" },
     { label: "Search", icon: "target" },
     { label: "Workspace", icon: "localMode" },
     { label: "Git", icon: "branchMessage" },
@@ -21,21 +21,8 @@
     { label: "Settings", icon: "settings" },
   ];
 
-  const statusLeftItems = [
-    { id: "codex.status.host", label: "Host", icon: "localMode" },
-    { id: "codex.status.sessions", label: "Session problems", text: "0 / 0" },
-    { id: "codex.status.streams", label: "Active streams", text: "0" },
-  ];
-
-  const statusRightItems = [
-    { id: "codex.status.mode", label: "Mode", text: "Codex Web" },
-    { id: "codex.status.runtime", label: "Runtime", icon: "target", text: "online" },
-  ];
-
   function render(target = document.getElementById(IDS.root)) {
-    if (!target || target.dataset.codexAppFrameRendered === "true") return;
     target.innerHTML = renderAppFrame();
-    target.dataset.codexAppFrameRendered = "true";
   }
 
   function renderAppFrame() {
@@ -66,10 +53,6 @@
           </button>
           <div class="codex-host-pill" aria-label="Codex host status">
             <button type="button" class="codex-host-path">root</button>
-            <button type="button" class="codex-host-count" aria-label="Unread sessions">
-              <span class="codex-host-dot" aria-hidden="true"></span>
-              <span>2</span>
-            </button>
             <button type="button" class="codex-host-action" aria-label="Switch chat">
               ${icon("newChat", "codex-icon")}
               ${icon("chevron20x21", "codex-icon codex-icon-xs")}
@@ -142,7 +125,7 @@
           <dl class="codex-shortcuts">
             ${renderShortcut("Open Codex", ["Ctrl", "Alt", "I"])}
             ${renderShortcut("Command palette", ["Ctrl", "Shift", "P"])}
-            ${renderShortcut("Search sessions", ["Ctrl", "Shift", "F"])}
+            ${renderShortcut("Search threads", ["Ctrl", "Shift", "F"])}
           </dl>
         </div>
       </section>`;
@@ -159,21 +142,9 @@
   function renderStatusbar() {
     return `
       <footer class="codex-statusbar" id="codexStatusbar" role="status" aria-live="off">
-        <div class="codex-statusbar-left">
-          ${statusLeftItems.map(renderStatusItem).join("")}
-        </div>
-        <div class="codex-statusbar-right">
-          ${statusRightItems.map(renderStatusItem).join("")}
-        </div>
+        <div class="codex-statusbar-left"></div>
+        <div class="codex-statusbar-right"></div>
       </footer>`;
-  }
-
-  function renderStatusItem(item) {
-    return `
-      <button type="button" class="codex-status-item" id="${item.id}" aria-label="${item.label}">
-        ${item.icon ? icon(item.icon, "codex-status-icon") : ""}
-        ${item.text ? `<span>${item.text}</span>` : ""}
-      </button>`;
   }
 
   function renderIconButton(label, iconName, className, disabled = false) {
@@ -182,7 +153,7 @@
   }
 
   function icon(name, className = "codex-icon") {
-    return global.CodexIcons?.svg(name, className, { ariaHidden: true }) || "";
+    return global.CodexIcons.svg(name, className, { ariaHidden: true });
   }
 
   global.CodexAppFrame = { IDS, render };
