@@ -245,11 +245,11 @@ vm.runInContext(
   assert.strictEqual(activityAriaHidden, "false");
   assert.strictEqual(activityContent.hidden, false);
   assert.strictEqual(activityContent.dataset.codexActivityEntering, "true");
-  activityToggle.documentTop = 735;
+  threadScroll.scrollHeight = 1060;
   resizeObserver.trigger();
-  assert.strictEqual(threadScroll.scrollTop, 685, "activity expansion should preserve the clicked summary position");
+  assert.strictEqual(threadScroll.scrollTop, 760, "activity expansion near the bottom should absorb inserted height");
   flushAnimationFrame();
-  assert.strictEqual(threadScroll.scrollTop, 685, "activity anchor must settle after one animation frame");
+  assert.strictEqual(threadScroll.scrollTop, 760, "bottom anchor must settle after one animation frame");
 
   threadScroll.scrollTop = 100;
   activityToggle.documentTop = 150;

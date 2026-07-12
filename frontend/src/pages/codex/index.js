@@ -282,9 +282,17 @@ async function submitComposer() {
 function preserveActivityTogglePosition(toggle, activity, scroll) {
   if (!scroll) return;
 
+  const keepBottom = isScrollNearBottom(scroll);
+  let scrollHeight = scroll.scrollHeight;
   const top = toggle.getBoundingClientRect().top;
   let frame = 0;
   const adjust = () => {
+    if (keepBottom) {
+      const nextScrollHeight = scroll.scrollHeight;
+      scroll.scrollTop += nextScrollHeight - scrollHeight;
+      scrollHeight = nextScrollHeight;
+      return;
+    }
     if (toggle.isConnected) {
       scroll.scrollTop += toggle.getBoundingClientRect().top - top;
     }
@@ -315,6 +323,10 @@ function preserveActivityTogglePosition(toggle, activity, scroll) {
     if (frame) global.cancelAnimationFrame(frame);
     observer?.disconnect();
   }, 250);
+}
+
+function isScrollNearBottom(scroll) {
+  return scroll && scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 80;
 }
 
 function startActivityEnterAnimation(content) {
