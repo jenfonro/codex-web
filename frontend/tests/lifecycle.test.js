@@ -43,7 +43,6 @@ const turn = {
 };
 
 assert.strictEqual(lifecycle.isTurnRunning(turn), true);
-assert.strictEqual(lifecycle.isActivityItem({ turn, item: turn.items[0], itemIndex: 0 }), true);
 assert.strictEqual(lifecycle.isItemPending({ turn, item: turn.items[0], itemIndex: 0 }), false);
 assert.strictEqual(lifecycle.isItemPending({ turn, item: turn.items[1], itemIndex: 1 }), true);
 assert.strictEqual(lifecycle.isStreamingAssistant({

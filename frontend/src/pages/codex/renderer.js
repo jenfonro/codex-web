@@ -2,8 +2,6 @@
 
 (function defineCodexPanelRenderer(global) {
   const {
-    activityLabel,
-    activityIcon,
     timeFromTurn,
     threadTitle,
     escapeHTML,
@@ -282,7 +280,7 @@ function renderTurnStatus(turn, refs, turnErrors) {
   const content = [];
   const retry = turnErrors.findLast((notification) => notification.willRetry);
   const failure = turn.error ?? turnErrors.findLast((notification) => !notification.willRetry)?.error;
-  if (retry) content.push(renderRetryStatus(retry.error.message));
+  if (retry) content.push(renderRetryStatus(retry.error));
   if (failure) {
     content.push(renderTurnError(failure));
   } else if ((retry || lifecycle.isTurnRunning(turn)) && !refs.some(lifecycle.isItemPending)) {
@@ -355,6 +353,7 @@ function renderTurnResponse(turn, refs, index, turnErrors) {
   const statusContent = renderTurnStatus(turn, refs, turnErrors);
   const inlineContent = streamFollowups
     .map((ref, offset) => renderInlineTurnFollowupBody(ref, index, offset))
+    .filter(Boolean)
     .concat(statusContent);
   const turnId = turn.id;
   const sections = [];
@@ -388,12 +387,10 @@ function renderInlineTurnFollowup(ref, turnIndex, offset) {
 
 function renderInlineTurnFollowupBody(ref, turnIndex, offset) {
   const content = renderInlineFollowupContent(ref, turnIndex, offset);
-  const direct = lifecycle.isActivityItem(ref);
+  if (!content) return "";
   const turnId = ref.turn.id;
   const unit = ref.itemIndex;
-  return direct
-    ? content
-    : `<div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, unit, "assistant"))}">${content}</div>`;
+  return `<div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, unit, "assistant"))}">${content}</div>`;
 }
 
 function renderInlineTurnSegment(content, offset) {
@@ -406,13 +403,31 @@ function renderInlineTurnSegment(content, offset) {
 }
 
 function renderInlineFollowupContent(ref, turnIndex, offset) {
-  if (lifecycle.isActivityItem(ref)) return renderActivityContent(ref);
-  if (ref.item.type === "fileChange") return renderFileChangeContent(ref, `${turnIndex}-${offset}`);
-  if (ref.item.type === "plan") return renderPlanSummary(ref.item.text);
-  if (ref.item.type === "contextCompaction") return renderContextCompaction();
-  if (ref.item.type === "agentMessage") {
-    if (lifecycle.isStreamingAssistant(ref) && ref.item.text.length === 0) return renderThinkingPlaceholder("正在思考");
-    return renderAssistantContent(ref, `${turnIndex}-${offset}`);
+  switch (ref.item.type) {
+    case "agentMessage":
+      if (lifecycle.isStreamingAssistant(ref) && ref.item.text.length === 0) return renderThinkingPlaceholder("正在思考");
+      return renderAssistantContent(ref, `${turnIndex}-${offset}`);
+    case "reasoning":
+      return renderReasoningContent(ref);
+    case "commandExecution":
+      return renderCommandExecutionContent(ref);
+    case "fileChange":
+      return renderFileChangeContent(ref);
+    case "mcpToolCall":
+    case "dynamicToolCall":
+      return "";
+    case "webSearch":
+      return renderWebSearchContent(ref);
+    case "imageView":
+      return "";
+    case "enteredReviewMode":
+    case "exitedReviewMode":
+    case "sleep":
+      return "";
+    case "plan":
+      return renderPlanContent(ref);
+    case "contextCompaction":
+      return renderContextCompaction();
   }
   throw new Error(`Unhandled followup item type: ${ref.item.type}`);
 }
@@ -466,17 +481,15 @@ function renderCopyMessageButton() {
     </span>`;
 }
 
-function renderPlanSummary(text) {
+function renderPlanContent(ref) {
   return `
-          <div class="text-size-chat text-token-text-secondary">
-            <button type="button" class="text-size-chat hover:bg-token-bg-subtle inline-flex items-center gap-1 rounded-md border border-transparent focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:outline-none" aria-expanded="false">
-              <span><span class="text-token-foreground/60">${escapeHTML(text)}</span></span>
-              ${icons.svg("chevronRight", "icon-2xs text-token-foreground/40 transition-transform duration-200 rotate-0")}
-            </button>
-          </div>
-          <div class="text-size-chat pt-1 text-token-text-secondary">
-            <div class="w-full border-t border-token-border-light"></div>
-          </div>`;
+    <details class="codex-plan-summary">
+      <summary class="codex-plan-summary-header">
+        <span class="codex-plan-summary-title">计划</span>
+        ${icons.svg("chevronRight", "codex-plan-summary-chevron icon-2xs shrink-0")}
+      </summary>
+      <div class="codex-plan-summary-body">${renderMarkdownBody(ref.item.text, "plan")}</div>
+    </details>`;
 }
 
 function renderContextCompaction() {
@@ -517,36 +530,39 @@ function renderTurnProcessContent(refs, turnIndex) {
     .join("");
 }
 
-function renderActivityContent(ref) {
-  if (lifecycle.isItemPending(ref) && ref.item.type === "reasoning") return renderThinkingPlaceholder("正在思考");
-  if (lifecycle.isItemPending(ref)) return renderRunningActivityDisclosure(ref);
-
-  const label = activityLabel(ref);
-  const iconName = activityIcon(ref);
-  return `
-    <div class="min-w-0 text-size-chat relative overflow-visible py-0">
-      <div class="flex min-w-0 flex-col">
-        <button type="button" class="group/activity-header inline-flex min-w-0 max-w-full self-start items-center gap-1.5 p-0 text-left cursor-interaction" aria-expanded="false">
-          <span class="text-size-chat flex min-w-0 shrink items-center gap-1.5 truncate">
-            <span class="text-token-conversation-summary-trailing flex min-w-0 max-w-full items-center truncate shrink overflow-hidden [mask-image:linear-gradient(to_right,black_calc(100%_-_0.25rem),transparent)] [mask-repeat:no-repeat] pr-1 group-hover/activity-header:text-token-foreground">
-              <span class="inline-flex max-w-full min-w-0 items-center gap-1.5 overflow-hidden">
-                ${iconName ? icons.svg(iconName, "icon-xs shrink-0 text-token-input-placeholder-foreground") : ""}
-                <span class="min-w-0 flex-1 truncate">${escapeHTML(label)}</span>
-              </span>
-            </span>
-          </span>
-          ${icons.svg("chevronRight", "icon-2xs shrink-0 text-token-input-placeholder-foreground opacity-0 group-hover/activity-header:opacity-100 group-hover/activity-header:text-token-foreground group-focus-visible/activity-header:opacity-100 group-focus-visible/activity-header:text-token-foreground transition-transform duration-300")}
-        </button>
-      </div>
-    </div>`;
+function renderReasoningContent(ref) {
+  const pending = lifecycle.isItemPending(ref);
+  const text = reasoningSummary(ref.item.summary);
+  if (pending && text.length === 0) return renderThinkingPlaceholder("正在思考");
+  return renderToolDisclosure({
+    className: "codex-reasoning-disclosure",
+    label: pending ? "正在思考" : "已思考",
+    body: renderMarkdownBody(text, "reasoning"),
+    pending,
+    expanded: pending,
+  });
 }
 
 function renderTurnPending() {
   return `<div class="text-size-chat text-token-text-secondary">${renderThinkingPlaceholder("正在思考")}</div>`;
 }
 
-function renderRetryStatus(message) {
-  return `<div class="codex-turn-retry text-size-chat">${escapeHTML(message.replace("Reconnecting...", "正在重新连接"))}</div>`;
+function renderRetryStatus(error) {
+  const progress = /^Reconnecting(?:\.\.\.)?\s+(\d+)\/(\d+)$/.exec(error.message);
+  const label = progress
+    ? `正在重新连接 ${progress[1]}/${progress[2]}`
+    : error.message;
+  if (error.additionalDetails === null || error.additionalDetails.trim().length === 0) {
+    return `<div class="codex-stream-error codex-stream-error-static text-size-chat">${escapeHTML(label)}</div>`;
+  }
+  return `
+    <details class="codex-stream-error text-size-chat">
+      <summary class="codex-stream-error-summary">
+        <span class="codex-stream-error-label">${escapeHTML(label)}</span>
+        ${icons.svg("chevron20x21", "codex-stream-error-chevron icon-2xs")}
+      </summary>
+      <div class="codex-stream-error-details">${escapeHTML(error.additionalDetails)}</div>
+    </details>`;
 }
 
 function renderTurnError(error) {
@@ -567,46 +583,82 @@ function renderThinkingPlaceholder(label) {
     </div>`;
 }
 
-function renderRunningActivityDisclosure(ref) {
-  const label = activityLabel(ref);
-  const iconName = activityIcon(ref);
-  const body = renderActivityDisclosureBody(ref);
-  const chevronClass = body
-    ? "icon-2xs shrink-0 text-token-input-placeholder-foreground opacity-0 group-hover/activity-header:opacity-100 group-hover/activity-header:text-token-foreground group-focus-visible/activity-header:opacity-100 group-focus-visible/activity-header:text-token-foreground transition-transform duration-300 rotate-90 opacity-100"
-    : "icon-2xs shrink-0 text-token-input-placeholder-foreground opacity-0 group-hover/activity-header:opacity-100 group-hover/activity-header:text-token-foreground group-focus-visible/activity-header:opacity-100 group-focus-visible/activity-header:text-token-foreground transition-transform duration-300";
+function renderToolDisclosure({ className, label, body, pending = false, expanded = false }) {
+  const labelHTML = pending
+    ? renderShimmerText(label, "text-size-chat min-w-0 truncate text-token-conversation-summary-leading group-hover/activity-header:text-token-foreground")
+    : `<span class="min-w-0 truncate text-token-conversation-summary-trailing group-hover/activity-header:text-token-foreground">${escapeHTML(label)}</span>`;
+  if (!body) {
+    return `
+      <div class="codex-tool-row ${className}">
+        <span class="text-size-chat flex min-w-0 shrink items-center gap-1.5 truncate">${labelHTML}</span>
+      </div>`;
+  }
+  const open = expanded ? " open" : "";
   return `
-    <div class="min-w-0 text-size-chat relative overflow-visible py-0">
-      <div class="flex min-w-0 flex-col">
-        <button type="button" class="group/activity-header inline-flex min-w-0 max-w-full self-start items-center gap-1.5 p-0 text-left cursor-interaction" aria-expanded="${body ? "true" : "false"}">
-          <span class="text-size-chat flex min-w-0 shrink items-center gap-1.5 truncate">
-            ${iconName ? icons.svg(iconName, "icon-xs shrink-0 text-token-input-placeholder-foreground") : ""}
-            ${renderShimmerText(label, "text-size-chat min-w-0 truncate text-token-conversation-summary-leading group-hover/activity-header:text-token-foreground")}
-          </span>
-          ${icons.svg("chevronRight", chevronClass)}
-        </button>
-        ${body}
-      </div>
-    </div>`;
+    <details class="codex-tool-disclosure ${className}"${open}>
+      <summary class="group/activity-header codex-tool-disclosure-summary">
+        <span class="text-size-chat flex min-w-0 shrink items-center gap-1.5 truncate">${labelHTML}</span>
+        ${icons.svg("chevronRight", "codex-tool-disclosure-chevron icon-2xs shrink-0 text-token-input-placeholder-foreground transition-transform duration-300")}
+      </summary>
+      <div class="codex-tool-disclosure-body">${body}</div>
+    </details>`;
 }
 
-function renderActivityDisclosureBody(ref) {
-  switch (ref.item.type) {
-    case "commandExecution":
-      return `
-        <div aria-hidden="false" class="overflow-visible" style="pointer-events: auto;">
-          <div class="flex flex-col gap-2 pt-2 pb-1 pl-6">
-            <div class="codex-message-content text-size-chat text-token-text-secondary">${markdown.render(ref.item.command, { variant: "activity" })}</div>
-            ${ref.item.aggregatedOutput === null ? "" : `<div class="codex-message-content text-size-chat text-token-text-secondary">${markdown.render(ref.item.aggregatedOutput, { variant: "activity" })}</div>`}
-          </div>
-        </div>`;
-    case "reasoning":
-    case "mcpToolCall":
-    case "dynamicToolCall":
-    case "webSearch":
-    case "imageView":
-      return "";
-  }
-  throw new Error(`Unhandled activity item type: ${ref.item.type}`);
+function renderMarkdownBody(text, variant) {
+  if (!text) return "";
+  return `<div class="codex-message-content text-size-chat text-token-text-secondary">${markdown.render(text, { variant })}</div>`;
+}
+
+function renderCommandExecutionContent(ref) {
+  const pending = lifecycle.isItemPending(ref);
+  const body = [
+    `<pre class="codex-command-source"><code>${escapeHTML(ref.item.command)}</code></pre>`,
+    ref.item.aggregatedOutput === null
+      ? ""
+      : `<pre class="codex-command-output"><code>${escapeHTML(ref.item.aggregatedOutput)}</code></pre>`,
+  ].join("");
+  return renderToolDisclosure({
+    className: "codex-command-disclosure",
+    label: commandExecutionLabel(ref.item, pending),
+    body,
+    pending,
+    expanded: pending,
+  });
+}
+
+function reasoningSummary(summary) {
+  const [first, ...rest] = summary;
+  if (!first || rest.length === 0) return first ?? "";
+  if (first.startsWith("**")) return [first, ...rest].join("\n\n");
+  return [`**${first}**`, ...rest].join("\n\n");
+}
+
+function commandExecutionLabel(item, pending) {
+  if (item.commandActions.length !== 1) return commandStatusLabel(pending);
+  const action = item.commandActions[0];
+  if (action.type === "read") return `${pending ? "正在读取" : "已读取"} ${action.name}`;
+  if (action.type === "search") return `${pending ? "正在搜索" : "已搜索"} ${action.query ?? ""}`.trim();
+  if (action.type === "listFiles") return `${pending ? "正在列出" : "已列出"} ${action.path ?? ""}`.trim();
+  return commandStatusLabel(pending);
+}
+
+function commandStatusLabel(pending) {
+  if (pending) return "正在运行命令";
+  return "已运行命令";
+}
+
+function renderWebSearchContent(ref) {
+  const pending = lifecycle.isItemPending(ref);
+  const label = pending ? "正在搜索网页" : "已搜索网页";
+  const labelHTML = pending
+    ? renderShimmerText(label, "text-token-conversation-summary-leading")
+    : `<span class="text-token-conversation-summary-leading">${label}</span>`;
+  const query = webSearchDetail(ref.item).trim();
+  return `
+    <div class="codex-web-search-row">
+      ${labelHTML}
+      ${query ? `<span class="codex-web-search-query"> ${escapeHTML(query)}</span>` : ""}
+    </div>`;
 }
 
 function renderShimmerText(text, className) {
@@ -618,12 +670,42 @@ function renderShimmerText(text, className) {
         </span>`;
 }
 
-function renderFileChangeContent(ref, index) {
-  const text = ref.item.changes.map((change) => change.path).join("\n");
-  return `
-    <div class="group flex min-w-0 flex-col gap-2">
-      <div data-selected-text-overlay-target="codex-tool-summary-${index}" class="codex-message-content codex-tool-summary-content text-size-chat">${markdown.render(text, { variant: "tool-summary" })}</div>
-    </div>`;
+function renderFileChangeContent(ref) {
+  const rows = ref.item.changes.map((change) => {
+    const action = fileChangeActionLabel(change.kind.type, ref.item.status);
+    const body = renderPatchChangeBody(change);
+    if (!body) {
+      return `<div class="codex-patch-file-row"><span>${escapeHTML(action)}</span><span class="codex-patch-file-path">${escapeHTML(change.path)}</span></div>`;
+    }
+    return `
+      <details class="codex-patch-file" open>
+        <summary class="codex-patch-file-summary">
+          <span>${escapeHTML(action)}</span>
+          <span class="codex-patch-file-path">${escapeHTML(change.path)}</span>
+          ${icons.svg("chevronRight", "codex-patch-file-chevron icon-2xs shrink-0")}
+        </summary>
+        <div class="codex-patch-file-body">${body}</div>
+      </details>`;
+  }).join("");
+  return `<div class="codex-patch-file-list">${rows}</div>`;
+}
+
+function renderPatchChangeBody(change) {
+  if (change.kind.type === "delete") return `<div class="codex-patch-empty-state">内容已删除</div>`;
+  if (!change.diff) return "";
+  return `<pre class="codex-patch-diff"><code>${escapeHTML(change.diff)}</code></pre>`;
+}
+
+function fileChangeActionLabel(kind, status) {
+  if (status === "inProgress") {
+    if (kind === "add") return "正在创建";
+    if (kind === "delete") return "正在删除";
+    return "正在编辑";
+  }
+  if (status === "declined" || status === "failed") return "已拒绝";
+  if (kind === "add") return "已创建";
+  if (kind === "delete") return "已删除";
+  return "已编辑";
 }
 
 function renderHomeComposer() {
@@ -678,6 +760,42 @@ function renderComposerSurface(placeholder, includeExternalFooter) {
       ${includeExternalFooter ? renderExternalFooter() : ""}
       ${renderFloatingPopover()}
     </div>`;
+}
+
+function webSearchDetail(item) {
+  const action = item.action;
+  if (action) {
+    if (action.type === "search") {
+      const query = action.query?.trim();
+      if (query) return formatWebSearchQuery(query);
+      const queries = action.queries ?? [];
+      const first = queries.map((value) => value.trim()).find(Boolean) ?? "";
+      if (first) return `${formatWebSearchQuery(first)}${queries.length > 1 ? " ..." : ""}`;
+    }
+    if (action.type === "openPage") return action.url ?? item.query;
+    if (action.type === "findInPage") {
+      if (action.pattern && action.url) return `'${action.pattern}' in ${action.url}`;
+      if (action.pattern) return `'${action.pattern}'`;
+      if (action.url) return action.url;
+    }
+  }
+  return item.query;
+}
+
+function formatWebSearchQuery(query) {
+  const sites = [];
+  const withoutSites = query.replace(/\bsite:([^\s]+)/giu, (match, value) => {
+    try {
+      const host = new URL(`https://${value}`).hostname.replace(/^www\./u, "");
+      if (!sites.includes(host)) sites.push(host);
+      return "";
+    } catch {
+      return match;
+    }
+  });
+  if (sites.length === 0) return query;
+  const text = withoutSites.replace(/\bOR\b/gu, " ").replace(/\s+/gu, " ").trim();
+  return text ? `${text} | ${sites.join(" · ")}` : query;
 }
 
 function composerSurfaceSignature(includeExternalFooter) {

@@ -235,7 +235,7 @@ vm.runInContext(
     error: {
       message: "Reconnecting... 1/5",
       codexErrorInfo: null,
-      additionalDetails: null,
+      additionalDetails: "unexpected status 503 Service Unavailable, url: https://api.zelt.cn/v1/responses",
     },
     willRetry: true,
     threadId: "s1",

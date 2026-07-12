@@ -32,6 +32,7 @@ const reasoning = { turn, item: { id: "reason-1", type: "reasoning", summary: ["
 const commentary = { turn, item: { id: "agent-1", type: "agentMessage", text: "Working", phase: "commentary", memoryCitation: null }, itemIndex: 1 };
 const final = { turn, item: { id: "agent-2", type: "agentMessage", text: "Done", phase: "final_answer", memoryCitation: null }, itemIndex: 2 };
 const compaction = { turn, item: { id: "compact-1", type: "contextCompaction" }, itemIndex: 3 };
+const plan = { turn, item: { id: "plan-1", type: "plan", text: "Plan" }, itemIndex: 1 };
 
 turn.items = [reasoning.item, commentary.item, final.item];
 const split = splitTurnFollowups([reasoning, commentary, final]);
@@ -42,5 +43,8 @@ assert.strictEqual(split.streamFollowups.length, 0);
 const compacted = splitTurnFollowups([reasoning, compaction, final]);
 assert.deepStrictEqual(Array.from(compacted.processFollowups), [reasoning]);
 assert.deepStrictEqual(Array.from(compacted.streamFollowups), [compaction]);
+const planned = splitTurnFollowups([reasoning, plan, final]);
+assert.deepStrictEqual(Array.from(planned.processFollowups), [reasoning]);
+assert.deepStrictEqual(Array.from(planned.streamFollowups), [plan]);
 assert.strictEqual(summaryLabel(turn), "已处理 1m 2s");
 assert.strictEqual(summaryLabel({ ...turn, durationMs: null }), "已处理");

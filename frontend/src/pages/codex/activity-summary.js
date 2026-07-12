@@ -39,8 +39,12 @@
   }
 
   function isProcessSignal(ref) {
-    if (lifecycle.isActivityItem(ref)) return true;
-    if (ref.item.type === "fileChange" || ref.item.type === "plan") return true;
+    if ([
+      "reasoning",
+      "commandExecution",
+      "fileChange",
+      "webSearch",
+    ].includes(ref.item.type)) return true;
     return isAssistant(ref) && ref.item.phase === "commentary";
   }
 

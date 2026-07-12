@@ -1,37 +1,6 @@
 "use strict";
 
 (function defineCodexPanelUtils(global) {
-function activityLabel(ref) {
-  switch (ref.item.type) {
-    case "reasoning":
-      return ref.item.summary.join("\n");
-    case "commandExecution":
-      return "exec_command";
-    case "mcpToolCall":
-    case "dynamicToolCall":
-      return ref.item.tool;
-    case "webSearch":
-      return ref.item.query;
-    case "imageView":
-      return ref.item.path;
-  }
-  throw new Error(`Unhandled activity item type: ${ref.item.type}`);
-}
-
-function activityIcon(ref) {
-  switch (ref.item.type) {
-    case "reasoning":
-      return "";
-    case "commandExecution":
-    case "mcpToolCall":
-    case "dynamicToolCall":
-    case "webSearch":
-    case "imageView":
-      return "editFile";
-  }
-  throw new Error(`Unhandled activity item type: ${ref.item.type}`);
-}
-
 function timeFromTurn(turn) {
   return new Date(turn.startedAt * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
@@ -66,8 +35,6 @@ function escapeAttr(value) {
 }
 
   global.CodexPanelUtils = {
-    activityLabel,
-    activityIcon,
     timeFromTurn,
     relativeTime,
     threadTitle,

@@ -77,8 +77,6 @@ const context = {
     return 1;
   },
   CodexPanelUtils: {
-    activityLabel() { return ""; },
-    activityIcon() { return ""; },
     timeFromTurn() { return ""; },
     threadTitle(value) { return value.name; },
     escapeHTML(value) { return String(value); },
@@ -89,7 +87,6 @@ const context = {
     isStreamingAssistant() { return false; },
     isTurnRunning() { return false; },
     isItemPending() { return false; },
-    isActivityItem() { return false; },
   },
   CodexPanelActivitySummary: {
     splitTurnFollowups(refs) {
