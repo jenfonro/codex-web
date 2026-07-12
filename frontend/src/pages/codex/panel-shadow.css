@@ -736,7 +736,7 @@
 .codex-turn-error {
   display: flex;
   min-width: 0;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   padding: 12px;
   border: 1px solid var(--color-token-border-default);
@@ -749,7 +749,6 @@
 .codex-turn-error-icon {
   display: inline-flex;
   flex: 0 0 16px;
-  margin-top: 1px;
   color: var(--color-token-foreground);
 }
 
