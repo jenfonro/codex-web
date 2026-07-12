@@ -270,8 +270,7 @@ function renderTurnList(turns, turnErrors) {
 
 function renderConversationTurn(turn, turnIndex, turnErrors) {
   const refs = turn.items.map((item, itemIndex) => ({ turn, item, itemIndex }));
-  const processExpanded = state.expandedProcessTurns.has(turn.id);
-  const signature = `${processExpanded}:${turn.status}:${JSON.stringify(turn.error)}:${JSON.stringify(turnErrors)}:${refs.map(itemRefSignature).join("|")}`;
+  const signature = `${turn.status}:${JSON.stringify(turn.error)}:${JSON.stringify(turnErrors)}:${refs.map(itemRefSignature).join("|")}`;
   const segments = splitTurnSegments(refs);
   return `
     <div class="flex flex-col gap-8" data-turn-id="${escapeAttr(turn.id)}" data-codex-turn-key="${escapeAttr(turn.id)}" data-codex-turn-signature="${escapeAttr(signature)}">
@@ -545,12 +544,12 @@ function renderContextCompaction() {
 
 function renderTurnProcessBlock(turn, processFollowups, turnIndex) {
   const label = activitySummary.summaryLabel(turn);
-  const expanded = processFollowups.some(lifecycle.isItemPending) || state.expandedProcessTurns.has(turn.id);
-  const open = expanded ? " open" : "";
+  const expanded = processFollowups.some(lifecycle.isItemPending);
+  const stateName = expanded ? "open" : "closed";
   return `
           <div class="text-size-chat text-token-text-secondary codex-turn-activity">
-            <details class="codex-turn-activity-details"${open}>
-              <summary class="codex-turn-activity-summary" data-codex-turn-activity-toggle>
+            <div class="codex-turn-activity-details" data-state="${stateName}" data-codex-turn-activity>
+              <button type="button" class="codex-turn-activity-summary" aria-expanded="${expanded}" data-codex-turn-activity-toggle>
                 <span class="text-size-chat hover:bg-token-bg-subtle inline-flex cursor-interaction items-center gap-1 rounded-md border border-transparent focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:outline-none">
                   <span><span class="codex-status-label">${escapeHTML(label)}</span></span>
                   ${icons.svg("chevronRight", "codex-turn-activity-chevron icon-2xs text-token-foreground/40 transition-transform duration-200 rotate-0")}
@@ -558,11 +557,15 @@ function renderTurnProcessBlock(turn, processFollowups, turnIndex) {
                 <span class="text-size-chat block pt-1 text-token-text-secondary">
                   <span class="block w-full border-t border-token-border-light"></span>
                 </span>
-              </summary>
-              ${expanded ? `<div class="codex-turn-activity-expanded">
-                ${renderTurnProcessContent(processFollowups, turnIndex)}
-              </div>` : ""}
-            </details>
+              </button>
+              <div class="codex-turn-activity-collapsible" aria-hidden="${!expanded}" data-codex-turn-activity-content>
+                <div class="codex-turn-activity-clip">
+                  <div class="codex-turn-activity-expanded">
+                    ${renderTurnProcessContent(processFollowups, turnIndex)}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>`;
 }
 

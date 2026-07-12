@@ -143,7 +143,6 @@ const state = {
   modelMenuExpanded: false,
   threads: [thread],
   turnErrors: [],
-  expandedProcessTurns: new Set([turn.id]),
   activeThreadId: thread.id,
   threadHistory: {
     turns: thread.turns,
@@ -187,24 +186,16 @@ assert.ok(!html.includes('data-icon="editFile"'), "tool types must not share the
 assert.ok(!rendererSource.includes("renderStructuredToolBody"), "tool bodies must not share a guessed renderer");
 assert.ok(!rendererSource.includes("renderSemanticDisclosure"), "unrelated items must not share a semantic renderer");
 
-state.expandedProcessTurns = new Set();
 renderer.render();
 const collapsedProcessHTML = mountRoot.innerHTML;
 assert.ok(collapsedProcessHTML.includes("codex-turn-activity-summary"), "collapsed activity must keep its summary row");
-assert.ok(!collapsedProcessHTML.includes("codex-reasoning-disclosure"), "collapsed activity must not render reasoning body");
-assert.ok(!collapsedProcessHTML.includes("codex-command-disclosure"), "collapsed activity must not render command body");
-assert.ok(!collapsedProcessHTML.includes("codex-patch-file-list"), "collapsed activity must not render file changes");
+assert.ok(collapsedProcessHTML.includes('class="codex-turn-activity-details" data-state="closed"'));
+assert.ok(collapsedProcessHTML.includes('aria-expanded="false" data-codex-turn-activity-toggle'));
+assert.ok(collapsedProcessHTML.includes('aria-hidden="true" data-codex-turn-activity-content'));
+assert.ok(collapsedProcessHTML.includes("codex-reasoning-disclosure"), "collapsed activity must retain reasoning body for animation");
+assert.ok(collapsedProcessHTML.includes("codex-command-disclosure"), "collapsed activity must retain command body for animation");
+assert.ok(collapsedProcessHTML.includes("codex-patch-file-list"), "collapsed activity must retain file changes for animation");
 assert.ok(collapsedProcessHTML.includes("Answer"), "collapsed activity must keep the final answer visible");
-const collapsedTurnSignature = collapsedProcessHTML.match(/data-codex-turn-signature="([^"]+)"/)[1];
-
-state.expandedProcessTurns = new Set([turn.id]);
-renderer.render();
-const expandedProcessHTML = mountRoot.innerHTML;
-const expandedTurnSignature = expandedProcessHTML.match(/data-codex-turn-signature="([^"]+)"/)[1];
-assert.notStrictEqual(expandedTurnSignature, collapsedTurnSignature, "expansion state must invalidate the reconciled turn");
-assert.ok(expandedProcessHTML.includes('<details class="codex-turn-activity-details" open>'));
-assert.ok(expandedProcessHTML.includes("codex-reasoning-disclosure"), "expanded activity must render reasoning body");
-assert.ok(expandedProcessHTML.includes("codex-command-disclosure"), "expanded activity must render command body");
 
 turn.status = "inProgress";
 state.turnErrors = [{

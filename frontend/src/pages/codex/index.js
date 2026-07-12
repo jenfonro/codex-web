@@ -49,7 +49,6 @@
       turns: [],
       loading: true,
     };
-    state.expandedProcessTurns = new Set();
     state.view = "thread";
     state.popover = "";
     renderer.render();
@@ -162,14 +161,12 @@ function handleClick(event) {
   const threadRow = event.target.closest("[data-codex-thread-id]");
 
   if (activityToggle) {
-    event.preventDefault();
-    const turnID = activityToggle.closest("[data-turn-id]").dataset.turnId;
-    if (state.expandedProcessTurns.has(turnID)) {
-      state.expandedProcessTurns.delete(turnID);
-    } else {
-      state.expandedProcessTurns.add(turnID);
-    }
-    renderer.render();
+    const activity = activityToggle.closest("[data-codex-turn-activity]");
+    const expanded = activity.dataset.state !== "open";
+    activity.dataset.state = expanded ? "open" : "closed";
+    activityToggle.setAttribute("aria-expanded", String(expanded));
+    activity.querySelector("[data-codex-turn-activity-content]")
+      .setAttribute("aria-hidden", String(!expanded));
     return;
   }
 
@@ -188,7 +185,6 @@ function handleClick(event) {
       turns: [],
       loading: false,
     };
-    state.expandedProcessTurns = new Set();
     state.popover = "";
     state.modelMenuExpanded = false;
     if (state.threadEventSource) state.threadEventSource.close();

@@ -119,7 +119,6 @@ const context = {
         modelMenuExpanded: false,
         threads: [],
         turnErrors: [],
-        expandedProcessTurns: new Set(),
         activeThreadId: "",
         threadHistory: {
           turns: [],

@@ -164,7 +164,6 @@ const state = {
   modelMenuExpanded: false,
   threads: [thread],
   turnErrors: [],
-  expandedProcessTurns: new Set(),
   activeThreadId: thread.id,
   threadHistory: {
     turns: thread.turns,

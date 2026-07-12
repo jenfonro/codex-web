@@ -531,19 +531,46 @@
 }
 
 .codex-turn-activity-summary {
-  list-style: none;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  text-align: inherit;
+  background: transparent;
 }
 
-.codex-turn-activity-summary::-webkit-details-marker {
-  display: none;
+.codex-turn-activity-collapsible {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 220ms cubic-bezier(.2, .8, .2, 1),
+    opacity 180ms ease;
 }
 
-.codex-turn-activity-details[open] .codex-turn-activity-chevron {
+.codex-turn-activity-details[data-state="open"] .codex-turn-activity-collapsible {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.codex-turn-activity-clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.codex-turn-activity-details[data-state="open"] .codex-turn-activity-chevron {
   transform: rotate(90deg);
 }
 
 .codex-turn-activity-expanded {
   padding-top: var(--conversation-tool-assistant-gap, 8px);
+  transform: translateY(6px);
+  transition: transform 220ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.codex-turn-activity-details[data-state="open"] .codex-turn-activity-expanded {
+  transform: translateY(0);
 }
 
 .codex-tool-disclosure,
