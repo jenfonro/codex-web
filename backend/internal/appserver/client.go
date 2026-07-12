@@ -156,13 +156,16 @@ func (c *Client) ListThreads(ctx context.Context) ([]Thread, error) {
 	return threads, nil
 }
 
-func (c *Client) ReadThread(ctx context.Context, threadID string) (Thread, error) {
-	var response ThreadReadResponse
-	err := c.RequestJSON(ctx, "thread/read", ThreadReadParams{
-		ThreadID:     threadID,
-		IncludeTurns: true,
+func (c *Client) ListTurns(ctx context.Context, threadID string, cursor *string) (ThreadTurnsListResponse, error) {
+	var response ThreadTurnsListResponse
+	err := c.RequestJSON(ctx, "thread/turns/list", ThreadTurnsListParams{
+		ThreadID:      threadID,
+		Cursor:        cursor,
+		Limit:         8,
+		SortDirection: "desc",
+		ItemsView:     "full",
 	}, &response)
-	return response.Thread, err
+	return response, err
 }
 
 func (c *Client) StartThread(ctx context.Context, cwd string) (Thread, error) {
@@ -177,8 +180,9 @@ func (c *Client) StartThread(ctx context.Context, cwd string) (Thread, error) {
 func (c *Client) ResumeThread(ctx context.Context, threadID, cwd string) (Thread, error) {
 	var response ThreadResumeResponse
 	err := c.RequestJSON(ctx, "thread/resume", ThreadResumeParams{
-		ThreadID: threadID,
-		CWD:      cwd,
+		ThreadID:     threadID,
+		CWD:          cwd,
+		ExcludeTurns: true,
 	}, &response)
 	return response.Thread, err
 }

@@ -125,7 +125,7 @@ const state = {
   activeThreadId: thread.id,
   threadHistory: {
     turns: thread.turns,
-    beforeTurnId: null,
+    nextCursor: null,
     loading: false,
     loadingOlder: false,
   },
@@ -155,7 +155,7 @@ assert.ok(html.includes("codex-context-compaction-icon"));
 
 state.threadHistory = {
   turns: [],
-  beforeTurnId: null,
+  nextCursor: null,
   loading: true,
   loadingOlder: false,
 };

@@ -41,7 +41,7 @@ func (a *App) handleThreadAction(w http.ResponseWriter, r *http.Request, tail st
 	action := parts[1]
 	switch {
 	case r.Method == http.MethodGet && action == "turns":
-		page, err := a.threads.Turns(threadID, r.URL.Query().Get("beforeTurnId"))
+		page, err := a.threads.Turns(threadID, r.URL.Query().Get("cursor"))
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return

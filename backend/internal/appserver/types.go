@@ -172,9 +172,18 @@ type ThreadListParams struct {
 	SourceKinds   []string `json:"sourceKinds"`
 }
 
-type ThreadReadParams struct {
-	ThreadID     string `json:"threadId"`
-	IncludeTurns bool   `json:"includeTurns"`
+type ThreadTurnsListParams struct {
+	ThreadID      string  `json:"threadId"`
+	Cursor        *string `json:"cursor"`
+	Limit         int     `json:"limit"`
+	SortDirection string  `json:"sortDirection"`
+	ItemsView     string  `json:"itemsView"`
+}
+
+type ThreadTurnsListResponse struct {
+	Data            []Turn  `json:"data"`
+	NextCursor      *string `json:"nextCursor"`
+	BackwardsCursor *string `json:"backwardsCursor"`
 }
 
 type ThreadStartParams struct {
@@ -183,8 +192,9 @@ type ThreadStartParams struct {
 }
 
 type ThreadResumeParams struct {
-	ThreadID string `json:"threadId"`
-	CWD      string `json:"cwd"`
+	ThreadID     string `json:"threadId"`
+	CWD          string `json:"cwd"`
+	ExcludeTurns bool   `json:"excludeTurns"`
 }
 
 type TextInput struct {
@@ -220,10 +230,6 @@ type ClientCapabilities struct {
 type InitializeParams struct {
 	ClientInfo   ClientInfo         `json:"clientInfo"`
 	Capabilities ClientCapabilities `json:"capabilities"`
-}
-
-type ThreadReadResponse struct {
-	Thread Thread `json:"thread"`
 }
 
 type ThreadStartResponse struct {

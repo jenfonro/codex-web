@@ -101,6 +101,37 @@ func TestThreadResumeResponseDecodesInitialTurnsPage(t *testing.T) {
 	}
 }
 
+func TestOfficialHistoryRequestParameters(t *testing.T) {
+	cursor := `{"turnId":"turn-1","includeAnchor":false}`
+	params := ThreadTurnsListParams{
+		ThreadID:      "thread-1",
+		Cursor:        &cursor,
+		Limit:         8,
+		SortDirection: "desc",
+		ItemsView:     "full",
+	}
+	payload, err := json.Marshal(params)
+	if err != nil {
+		t.Fatalf("marshal thread/turns/list params: %v", err)
+	}
+	want := `{"threadId":"thread-1","cursor":"{\"turnId\":\"turn-1\",\"includeAnchor\":false}","limit":8,"sortDirection":"desc","itemsView":"full"}`
+	if string(payload) != want {
+		t.Fatalf("thread/turns/list params = %s, want %s", payload, want)
+	}
+
+	resume, err := json.Marshal(ThreadResumeParams{
+		ThreadID:     "thread-1",
+		CWD:          "/workspace",
+		ExcludeTurns: true,
+	})
+	if err != nil {
+		t.Fatalf("marshal thread/resume params: %v", err)
+	}
+	if !strings.Contains(string(resume), `"excludeTurns":true`) {
+		t.Fatalf("thread/resume params = %s", resume)
+	}
+}
+
 type captureWriteCloser struct {
 	bytes.Buffer
 }

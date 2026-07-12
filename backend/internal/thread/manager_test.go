@@ -82,9 +82,9 @@ func TestManagerListPreservesAppServerTimestamps(t *testing.T) {
 func TestManagerListNeverContainsLoadedHistory(t *testing.T) {
 	backend := newFakeBackend()
 	backend.threads = []appserver.Thread{officialThread("thread-1", "idle", 100, nil)}
-	backend.readThread = officialThread("thread-1", "idle", 100, []appserver.Turn{
+	backend.initialTurns = officialTurnsPage([]appserver.Turn{
 		officialTurn("turn-1", "completed", rawItems(userMessageItem("user-1", "history"))),
-	})
+	}, nil)
 	manager := NewWithBackend(Config{}, backend)
 	initializeManager(t, manager)
 	if _, _, err := manager.State("thread-1"); err != nil {
@@ -100,14 +100,20 @@ func TestManagerListNeverContainsLoadedHistory(t *testing.T) {
 	}
 }
 
-func TestManagerPagesHistoryByStableTurnCursor(t *testing.T) {
+func TestManagerPagesHistoryWithAppServerCursor(t *testing.T) {
 	backend := newFakeBackend()
 	turns := make([]appserver.Turn, 20)
 	for index := range turns {
 		turns[index] = officialTurn(fmt.Sprintf("turn-%02d", index), "completed", nil)
 	}
 	backend.threads = []appserver.Thread{officialThread("thread-1", "idle", 100, nil)}
-	backend.readThread = officialThread("thread-1", "idle", 100, turns)
+	cursor1 := "cursor-1"
+	cursor2 := "cursor-2"
+	backend.initialTurns = officialTurnsPage(turns[12:20], &cursor1)
+	backend.turnPages = map[string]appserver.ThreadTurnsListResponse{
+		cursor1: officialTurnsPage(turns[4:12], &cursor2),
+		cursor2: officialTurnsPage(turns[0:4], nil),
+	}
 	manager := NewWithBackend(Config{}, backend)
 	initializeManager(t, manager)
 
@@ -115,15 +121,15 @@ func TestManagerPagesHistoryByStableTurnCursor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("State() error = %v", err)
 	}
-	assertTurnPage(t, snapshot.Page, 12, 20, "turn-12")
+	assertTurnPage(t, snapshot.Page, 12, 20, cursor1)
 
-	middle, err := manager.Turns("thread-1", *snapshot.Page.BeforeTurnID)
+	middle, err := manager.Turns("thread-1", *snapshot.Page.NextCursor)
 	if err != nil {
 		t.Fatalf("Turns() middle error = %v", err)
 	}
-	assertTurnPage(t, middle, 4, 12, "turn-04")
+	assertTurnPage(t, middle, 4, 12, cursor2)
 
-	oldest, err := manager.Turns("thread-1", *middle.BeforeTurnID)
+	oldest, err := manager.Turns("thread-1", *middle.NextCursor)
 	if err != nil {
 		t.Fatalf("Turns() oldest error = %v", err)
 	}
@@ -205,7 +211,7 @@ func TestManagerSendDoesNotReplaceStateWithResumeResponse(t *testing.T) {
 	}
 }
 
-func TestManagerStateLoadsThreadReadItems(t *testing.T) {
+func TestManagerStateLoadsOfficialTurnPageItems(t *testing.T) {
 	backend := newFakeBackend()
 	turn := officialTurn("turn-1", "completed", rawItems(
 		userMessageItem("user-1", "inspect"),
@@ -215,7 +221,7 @@ func TestManagerStateLoadsThreadReadItems(t *testing.T) {
 	))
 	turn.StartedAt = int64Ptr(100)
 	backend.threads = []appserver.Thread{officialThread("thread-1", "idle", 100, []appserver.Turn{})}
-	backend.readThread = officialThread("thread-1", "idle", 130, []appserver.Turn{turn})
+	backend.initialTurns = officialTurnsPage([]appserver.Turn{turn}, nil)
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
 	initializeManager(t, manager)
 
@@ -243,10 +249,10 @@ func TestManagerStateLoadsThreadReadItems(t *testing.T) {
 func TestManagerStateReadsHistoryAfterLiveTurnStarts(t *testing.T) {
 	backend := newFakeBackend()
 	backend.threads = []appserver.Thread{officialThread("thread-1", "idle", 100, []appserver.Turn{})}
-	backend.readThread = officialThread("thread-1", "active", 102, []appserver.Turn{
+	backend.initialTurns = officialTurnsPage([]appserver.Turn{
 		officialTurn("turn-old", "completed", rawItems(userMessageItem("user-old", "earlier"))),
 		officialTurn("turn-live", "inProgress", rawItems(userMessageItem("user-live", "current"))),
-	})
+	}, nil)
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
 	initializeManager(t, manager)
 
@@ -678,7 +684,8 @@ type fakeBackend struct {
 
 	startThread  appserver.Thread
 	resumeThread appserver.Thread
-	readThread   appserver.Thread
+	initialTurns appserver.ThreadTurnsListResponse
+	turnPages    map[string]appserver.ThreadTurnsListResponse
 	startTurn    appserver.Turn
 
 	resumedThreadID     string
@@ -697,7 +704,7 @@ func newFakeBackend() *fakeBackend {
 func seedThread(t *testing.T, manager *Manager, backend *fakeBackend) {
 	t.Helper()
 	backend.threads = []appserver.Thread{officialThread("thread-1", "idle", 100, []appserver.Turn{})}
-	backend.readThread = backend.threads[0]
+	backend.initialTurns = officialTurnsPage(nil, nil)
 	initializeManager(t, manager)
 	if _, _, err := manager.State("thread-1"); err != nil {
 		t.Fatalf("State() error = %v", err)
@@ -730,8 +737,11 @@ func (f *fakeBackend) ListThreads(context.Context) ([]appserver.Thread, error) {
 	return append([]appserver.Thread(nil), f.threads...), nil
 }
 
-func (f *fakeBackend) ReadThread(context.Context, string) (appserver.Thread, error) {
-	return f.readThread, nil
+func (f *fakeBackend) ListTurns(_ context.Context, _ string, cursor *string) (appserver.ThreadTurnsListResponse, error) {
+	if cursor == nil {
+		return f.initialTurns, nil
+	}
+	return f.turnPages[*cursor], nil
 }
 
 func (f *fakeBackend) StartThread(context.Context, string) (appserver.Thread, error) {
@@ -979,7 +989,7 @@ func assertTurnErrorUpdate(t *testing.T, updates <-chan StateUpdate, want appser
 	}
 }
 
-func assertTurnPage(t *testing.T, page TurnPage, start, end int, before string) {
+func assertTurnPage(t *testing.T, page TurnPage, start, end int, nextCursor string) {
 	t.Helper()
 	if len(page.Turns) != end-start {
 		t.Fatalf("page len = %d, want %d", len(page.Turns), end-start)
@@ -990,13 +1000,24 @@ func assertTurnPage(t *testing.T, page TurnPage, start, end int, before string) 
 			t.Fatalf("page turn %d = %q, want %q", index, turn.ID, want)
 		}
 	}
-	if before == "" {
-		if page.BeforeTurnID != nil {
-			t.Fatalf("beforeTurnId = %q, want nil", *page.BeforeTurnID)
+	if nextCursor == "" {
+		if page.NextCursor != nil {
+			t.Fatalf("nextCursor = %q, want nil", *page.NextCursor)
 		}
 		return
 	}
-	if page.BeforeTurnID == nil || *page.BeforeTurnID != before {
-		t.Fatalf("beforeTurnId = %#v, want %q", page.BeforeTurnID, before)
+	if page.NextCursor == nil || *page.NextCursor != nextCursor {
+		t.Fatalf("nextCursor = %#v, want %q", page.NextCursor, nextCursor)
+	}
+}
+
+func officialTurnsPage(turns []appserver.Turn, nextCursor *string) appserver.ThreadTurnsListResponse {
+	data := make([]appserver.Turn, len(turns))
+	for index := range turns {
+		data[len(turns)-1-index] = turns[index]
+	}
+	return appserver.ThreadTurnsListResponse{
+		Data:       data,
+		NextCursor: nextCursor,
 	}
 }

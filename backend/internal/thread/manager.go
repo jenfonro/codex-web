@@ -13,7 +13,7 @@ type Config = appserver.Config
 
 type codexBackend interface {
 	ListThreads(ctx context.Context) ([]appserver.Thread, error)
-	ReadThread(ctx context.Context, threadID string) (appserver.Thread, error)
+	ListTurns(ctx context.Context, threadID string, cursor *string) (appserver.ThreadTurnsListResponse, error)
 	StartThread(ctx context.Context, cwd string) (appserver.Thread, error)
 	ResumeThread(ctx context.Context, threadID, cwd string) (appserver.Thread, error)
 	StartTurn(ctx context.Context, threadID, prompt, cwd string) error
@@ -34,9 +34,10 @@ type Manager struct {
 }
 
 type managedThread struct {
-	thread        appserver.Thread
-	historyLoaded bool
-	sequence      int64
+	thread     appserver.Thread
+	pageLoaded bool
+	nextCursor *string
+	sequence   int64
 }
 
 type StateUpdate struct {
@@ -142,28 +143,28 @@ func (m *Manager) Cancel(threadID string) error {
 }
 
 func (m *Manager) State(threadID string) (Snapshot, int64, error) {
-	if err := m.loadThreadHistory(threadID); err != nil {
+	if err := m.loadInitialTurns(threadID); err != nil {
 		return Snapshot{}, 0, err
 	}
 	m.mu.Lock()
 	managed := m.threads[threadID]
 	snapshot := Snapshot{
 		Thread: summarize(managed.thread),
-		Page:   latestTurnPage(managed.thread.Turns),
+		Page:   cloneTurnPage(managed.thread.Turns, managed.nextCursor),
 	}
 	sequence := managed.sequence
 	m.mu.Unlock()
 	return snapshot, sequence, nil
 }
 
-func (m *Manager) Turns(threadID, beforeTurnID string) (TurnPage, error) {
-	if err := m.loadThreadHistory(threadID); err != nil {
+func (m *Manager) Turns(threadID, cursor string) (TurnPage, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	response, err := m.backend.ListTurns(ctx, threadID, &cursor)
+	if err != nil {
 		return TurnPage{}, err
 	}
-	m.mu.Lock()
-	page, err := turnPageBefore(m.threads[threadID].thread.Turns, beforeTurnID)
-	m.mu.Unlock()
-	return page, err
+	return turnPage(response), nil
 }
 
 func (m *Manager) Subscribe() (<-chan StateUpdate, func()) {
@@ -190,11 +191,11 @@ func (m *Manager) waitForThread(threadID string) {
 	m.mu.Unlock()
 }
 
-func (m *Manager) loadThreadHistory(threadID string) error {
+func (m *Manager) loadInitialTurns(threadID string) error {
 	for {
 		m.mu.Lock()
 		managed := m.threads[threadID]
-		if managed.historyLoaded {
+		if managed.pageLoaded {
 			m.mu.Unlock()
 			return nil
 		}
@@ -202,7 +203,7 @@ func (m *Manager) loadThreadHistory(threadID string) error {
 		m.mu.Unlock()
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		loaded, err := m.backend.ReadThread(ctx, threadID)
+		response, err := m.backend.ListTurns(ctx, threadID, nil)
 		cancel()
 		if err != nil {
 			return err
@@ -214,8 +215,10 @@ func (m *Manager) loadThreadHistory(threadID string) error {
 			m.mu.Unlock()
 			continue
 		}
-		managed = m.replaceThreadLocked(loaded)
-		managed.historyLoaded = true
+		page := turnPage(response)
+		managed.thread.Turns = page.Turns
+		managed.nextCursor = page.NextCursor
+		managed.pageLoaded = true
 		m.mu.Unlock()
 		return nil
 	}
@@ -434,21 +437,15 @@ func (m *Manager) appendListedThreadLocked(thread appserver.Thread) {
 	m.threadOrder = append(m.threadOrder, thread.ID)
 }
 
-func (m *Manager) newManagedThreadLocked(thread appserver.Thread, historyLoaded bool) *managedThread {
+func (m *Manager) newManagedThreadLocked(thread appserver.Thread, pageLoaded bool) *managedThread {
 	if m.threads[thread.ID] != nil {
 		panic("thread already exists: " + thread.ID)
 	}
 	managed := &managedThread{
-		thread:        cloneThread(thread),
-		historyLoaded: historyLoaded,
+		thread:     cloneThread(thread),
+		pageLoaded: pageLoaded,
 	}
 	m.threads[thread.ID] = managed
-	return managed
-}
-
-func (m *Manager) replaceThreadLocked(thread appserver.Thread) *managedThread {
-	managed := m.threads[thread.ID]
-	managed.thread = cloneThread(thread)
 	return managed
 }
 

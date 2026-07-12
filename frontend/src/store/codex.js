@@ -11,7 +11,7 @@
       activeThreadId: "",
       threadHistory: {
         turns: [],
-        beforeTurnId: null,
+        nextCursor: null,
         loading: false,
         loadingOlder: false,
       },

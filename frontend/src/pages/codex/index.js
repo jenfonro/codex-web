@@ -48,7 +48,7 @@
     state.activeThreadId = threadID;
     state.threadHistory = {
       turns: [],
-      beforeTurnId: null,
+      nextCursor: null,
       loading: true,
       loadingOlder: false,
     };
@@ -89,7 +89,7 @@ function applyStateUpdate(update) {
     case "state":
       replaceThread(update.data.thread);
       state.threadHistory.turns = update.data.page.turns;
-      state.threadHistory.beforeTurnId = update.data.page.beforeTurnId;
+      state.threadHistory.nextCursor = update.data.page.nextCursor;
       state.threadHistory.loading = false;
       state.turnErrors = [];
       break;
@@ -166,7 +166,7 @@ function handleClick(event) {
     state.activeThreadId = "";
     state.threadHistory = {
       turns: [],
-      beforeTurnId: null,
+      nextCursor: null,
       loading: false,
       loadingOlder: false,
     };
@@ -262,18 +262,18 @@ function handleScroll(event) {
 async function loadOlderTurns(scroll) {
   const history = state.threadHistory;
   const threadID = state.activeThreadId;
-  if (!threadID || history.loading || history.loadingOlder || history.beforeTurnId === null) return;
+  if (!threadID || history.loading || history.loadingOlder || history.nextCursor === null) return;
 
   history.loadingOlder = true;
-  const beforeTurnID = history.beforeTurnId;
-  const qs = new URLSearchParams({ beforeTurnId: beforeTurnID });
+  const cursor = history.nextCursor;
+  const qs = new URLSearchParams({ cursor });
   try {
     const page = await api.fetchJSON(`/api/threads/${encodeURIComponent(threadID)}/turns?${qs.toString()}`);
-    if (state.activeThreadId !== threadID || state.threadHistory.beforeTurnId !== beforeTurnID) return;
+    if (state.activeThreadId !== threadID || state.threadHistory.nextCursor !== cursor) return;
     const anchor = firstVisibleTurn(scroll);
     const anchorTop = anchor?.getBoundingClientRect().top;
     history.turns = page.turns.concat(history.turns);
-    history.beforeTurnId = page.beforeTurnId;
+    history.nextCursor = page.nextCursor;
     renderer.render();
     if (anchor) {
       const currentAnchor = turnElement(scroll, anchor.dataset.turnId);
@@ -286,7 +286,7 @@ async function loadOlderTurns(scroll) {
 }
 
 function loadOlderIfNeeded() {
-  if (state.view !== "thread" || state.threadHistory.beforeTurnId === null) return;
+  if (state.view !== "thread" || state.threadHistory.nextCursor === null) return;
   const scroll = mount.root.querySelector("[data-thread-scroll]");
   if (scroll && scroll.scrollHeight <= scroll.clientHeight) {
     void loadOlderTurns(scroll);

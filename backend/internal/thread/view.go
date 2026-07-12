@@ -1,12 +1,6 @@
 package thread
 
-import (
-	"fmt"
-
-	"codex-web/backend/internal/appserver"
-)
-
-const historyPageSize = 8
+import "codex-web/backend/internal/appserver"
 
 type Summary struct {
 	ID        string                 `json:"id"`
@@ -17,8 +11,8 @@ type Summary struct {
 }
 
 type TurnPage struct {
-	Turns        []appserver.Turn `json:"turns"`
-	BeforeTurnID *string          `json:"beforeTurnId"`
+	Turns      []appserver.Turn `json:"turns"`
+	NextCursor *string          `json:"nextCursor"`
 }
 
 type Snapshot struct {
@@ -36,29 +30,24 @@ func summarize(value appserver.Thread) Summary {
 	}
 }
 
-func latestTurnPage(turns []appserver.Turn) TurnPage {
-	return turnPageRange(turns, len(turns))
-}
-
-func turnPageBefore(turns []appserver.Turn, beforeTurnID string) (TurnPage, error) {
-	for index := range turns {
-		if turns[index].ID == beforeTurnID {
-			return turnPageRange(turns, index), nil
-		}
-	}
-	return TurnPage{}, fmt.Errorf("turn not found: %s", beforeTurnID)
-}
-
-func turnPageRange(turns []appserver.Turn, end int) TurnPage {
-	start := max(0, end-historyPageSize)
+func turnPage(response appserver.ThreadTurnsListResponse) TurnPage {
 	page := TurnPage{
-		Turns: make([]appserver.Turn, end-start),
+		Turns:      make([]appserver.Turn, len(response.Data)),
+		NextCursor: response.NextCursor,
 	}
-	for index := start; index < end; index++ {
-		page.Turns[index-start] = cloneTurn(turns[index])
+	for index := range response.Data {
+		page.Turns[len(response.Data)-1-index] = cloneTurn(response.Data[index])
 	}
-	if start > 0 {
-		page.BeforeTurnID = &turns[start].ID
+	return page
+}
+
+func cloneTurnPage(turns []appserver.Turn, nextCursor *string) TurnPage {
+	page := TurnPage{
+		Turns:      make([]appserver.Turn, len(turns)),
+		NextCursor: nextCursor,
+	}
+	for index := range turns {
+		page.Turns[index] = cloneTurn(turns[index])
 	}
 	return page
 }

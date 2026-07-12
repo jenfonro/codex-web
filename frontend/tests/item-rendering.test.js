@@ -146,7 +146,7 @@ const state = {
   activeThreadId: thread.id,
   threadHistory: {
     turns: thread.turns,
-    beforeTurnId: null,
+    nextCursor: null,
     loading: false,
     loadingOlder: false,
   },

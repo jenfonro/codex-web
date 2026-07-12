@@ -95,13 +95,13 @@ const context = {
       if (url === "/api/threads") {
         return [officialThread("active")];
       }
-      if (url === "/api/threads/s1/turns?beforeTurnId=turn-1") {
+      if (url === "/api/threads/s1/turns?cursor=cursor-1") {
         paginationRendering = true;
         const turn = officialTurn("completed", []);
         turn.id = "turn-older";
         return {
           turns: [turn],
-          beforeTurnId: null,
+          nextCursor: null,
         };
       }
       throw new Error(`unexpected URL ${url}`);
@@ -122,7 +122,7 @@ const context = {
         activeThreadId: "",
         threadHistory: {
           turns: [],
-          beforeTurnId: null,
+          nextCursor: null,
           loading: false,
           loadingOlder: false,
         },
@@ -183,7 +183,7 @@ vm.runInContext(
           { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
           { id: "agent-1", type: "agentMessage", text: "Hel", phase: "final_answer", memoryCitation: null },
         ])],
-        beforeTurnId: null,
+        nextCursor: null,
       },
     },
   }) });
@@ -303,13 +303,13 @@ vm.runInContext(
       thread: officialThread("idle"),
       page: {
         turns: [failedTurn],
-        beforeTurnId: null,
+        nextCursor: null,
       },
     },
   }) });
   flushAnimationFrame();
   await flush();
-  assert.strictEqual(rendererRuntime.state.turnErrors.length, 0, "thread/read snapshot should clear transient errors");
+  assert.strictEqual(rendererRuntime.state.turnErrors.length, 0, "state snapshot should clear transient errors");
 
   threadSource.onmessage({ data: JSON.stringify({
     type: "turnError",
@@ -329,7 +329,7 @@ vm.runInContext(
   await flush();
   assert.strictEqual(rendererRuntime.state.turnErrors.length, 0, "new turn should clear prior transient errors");
 
-  rendererRuntime.state.threadHistory.beforeTurnId = "turn-1";
+  rendererRuntime.state.threadHistory.nextCursor = "cursor-1";
   const anchor = {
     dataset: { turnId: "turn-1" },
     getBoundingClientRect() {
@@ -353,7 +353,7 @@ vm.runInContext(
   await flush();
   await flush();
   assert.strictEqual(rendererRuntime.state.threadHistory.turns[0].id, "turn-older");
-  assert.strictEqual(rendererRuntime.state.threadHistory.beforeTurnId, null);
+  assert.strictEqual(rendererRuntime.state.threadHistory.nextCursor, null);
   assert.strictEqual(scroll.scrollTop, 500, "prepending history should preserve the visible turn using its measured offset");
 })().catch((error) => {
   console.error(error);
