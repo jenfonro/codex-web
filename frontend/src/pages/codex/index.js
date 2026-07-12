@@ -52,6 +52,7 @@
       loading: true,
       loadingOlder: false,
     };
+    state.expandedProcessTurns = new Set();
     state.view = "thread";
     state.popover = "";
     subscribeThread(threadID);
@@ -145,13 +146,25 @@ function replaceTurn(threadID, turn) {
 function renderStateUpdate(update) {
   if (state.view !== "list" && state.activeThreadId !== update.threadId) return;
   renderer.render();
-  if (update.type === "state") loadOlderIfNeeded();
 }
 
 function handleClick(event) {
+  const activityToggle = event.target.closest("[data-codex-turn-activity-toggle]");
   const popoverButton = event.target.closest("[data-popover]");
   const action = event.target.closest("[data-action]")?.dataset.action;
   const threadRow = event.target.closest("[data-codex-thread-id]");
+
+  if (activityToggle) {
+    event.preventDefault();
+    const turnID = activityToggle.closest("[data-turn-id]").dataset.turnId;
+    if (state.expandedProcessTurns.has(turnID)) {
+      state.expandedProcessTurns.delete(turnID);
+    } else {
+      state.expandedProcessTurns.add(turnID);
+    }
+    renderer.render();
+    return;
+  }
 
   if (popoverButton) {
     const name = popoverButton.dataset.popover;
@@ -170,6 +183,7 @@ function handleClick(event) {
       loading: false,
       loadingOlder: false,
     };
+    state.expandedProcessTurns = new Set();
     state.popover = "";
     state.modelMenuExpanded = false;
     if (state.threadEventSource) state.threadEventSource.close();
@@ -281,15 +295,6 @@ async function loadOlderTurns(scroll) {
     }
   } finally {
     history.loadingOlder = false;
-  }
-  loadOlderIfNeeded();
-}
-
-function loadOlderIfNeeded() {
-  if (state.view !== "thread" || state.threadHistory.nextCursor === null) return;
-  const scroll = mount.root.querySelector("[data-thread-scroll]");
-  if (scroll && scroll.scrollHeight <= scroll.clientHeight) {
-    void loadOlderTurns(scroll);
   }
 }
 

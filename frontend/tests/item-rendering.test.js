@@ -143,6 +143,7 @@ const state = {
   modelMenuExpanded: false,
   threads: [thread],
   turnErrors: [],
+  expandedProcessTurns: new Set([turn.id]),
   activeThreadId: thread.id,
   threadHistory: {
     turns: thread.turns,
@@ -188,6 +189,16 @@ assert.ok(!html.includes('data-icon="editFile"'), "tool types must not share the
 assert.ok(!rendererSource.includes("renderStructuredToolBody"), "tool bodies must not share a guessed renderer");
 assert.ok(!rendererSource.includes("renderSemanticDisclosure"), "unrelated items must not share a semantic renderer");
 
+state.expandedProcessTurns = new Set();
+renderer.render();
+const collapsedProcessHTML = mountRoot.innerHTML;
+assert.ok(collapsedProcessHTML.includes("codex-turn-activity-summary"), "collapsed activity must keep its summary row");
+assert.ok(!collapsedProcessHTML.includes("codex-reasoning-disclosure"), "collapsed activity must not render reasoning body");
+assert.ok(!collapsedProcessHTML.includes("codex-command-disclosure"), "collapsed activity must not render command body");
+assert.ok(!collapsedProcessHTML.includes("codex-patch-file-list"), "collapsed activity must not render file changes");
+assert.ok(collapsedProcessHTML.includes("Answer"), "collapsed activity must keep the final answer visible");
+
+state.expandedProcessTurns = new Set([turn.id]);
 turn.status = "inProgress";
 state.turnErrors = [{
   error: {

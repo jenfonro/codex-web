@@ -62,11 +62,53 @@ const compactionTurn = {
   ],
 };
 
+const multiUserTurn = {
+  id: "turn-3",
+  itemsView: "full",
+  status: "completed",
+  error: null,
+  startedAt: null,
+  completedAt: null,
+  durationMs: 2000,
+  items: [
+    {
+      id: "compact-2",
+      type: "contextCompaction",
+    },
+    {
+      id: "user-2",
+      type: "userMessage",
+      clientId: null,
+      content: [{ type: "text", text: "First followup", text_elements: [] }],
+    },
+    {
+      id: "agent-2",
+      type: "agentMessage",
+      text: "First answer",
+      phase: "final_answer",
+      memoryCitation: null,
+    },
+    {
+      id: "user-3",
+      type: "userMessage",
+      clientId: null,
+      content: [{ type: "text", text: "Second followup", text_elements: [] }],
+    },
+    {
+      id: "agent-3",
+      type: "agentMessage",
+      text: "Second answer",
+      phase: "final_answer",
+      memoryCitation: null,
+    },
+  ],
+};
+
 const thread = {
   id: "thread-1",
   name: "Thread",
   status: { type: "idle" },
-  turns: [turn, compactionTurn],
+  turns: [turn, compactionTurn, multiUserTurn],
 };
 
 const context = {
@@ -122,6 +164,7 @@ const state = {
   modelMenuExpanded: false,
   threads: [thread],
   turnErrors: [],
+  expandedProcessTurns: new Set(),
   activeThreadId: thread.id,
   threadHistory: {
     turns: thread.turns,
@@ -150,8 +193,13 @@ assert.ok(html.indexOf("data-codex-turn-user") < html.indexOf("data-codex-turn-r
 assert.ok(html.includes("Question"));
 assert.ok(html.includes("Answer"));
 assert.strictEqual((html.match(/data-turn-id="turn-2"/g) || []).length, 1);
-assert.strictEqual((html.match(/codex-context-compaction-line/g) || []).length, 2);
+assert.strictEqual((html.match(/codex-context-compaction-line/g) || []).length, 4);
 assert.ok(html.includes("codex-context-compaction-icon"));
+assert.strictEqual((html.match(/data-turn-id="turn-3"/g) || []).length, 1);
+assert.ok(html.includes("First followup"));
+assert.ok(html.includes("First answer"));
+assert.ok(html.includes("Second followup"));
+assert.ok(html.includes("Second answer"));
 
 state.threadHistory = {
   turns: [],

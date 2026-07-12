@@ -118,6 +118,8 @@ var optOutNotificationMethods = []string{
 	"account/login/completed",
 }
 
+const turnPageLimit = 100
+
 func New(cfg Config) *Client {
 	return &Client{
 		cfg:         cfg,
@@ -161,7 +163,7 @@ func (c *Client) ListTurns(ctx context.Context, threadID string, cursor *string)
 	err := c.RequestJSON(ctx, "thread/turns/list", ThreadTurnsListParams{
 		ThreadID:      threadID,
 		Cursor:        cursor,
-		Limit:         8,
+		Limit:         turnPageLimit,
 		SortDirection: "desc",
 		ItemsView:     "full",
 	}, &response)

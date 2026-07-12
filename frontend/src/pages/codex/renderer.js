@@ -271,13 +271,38 @@ function renderTurnList(turns, turnErrors) {
 function renderConversationTurn(turn, turnIndex, turnErrors) {
   const refs = turn.items.map((item, itemIndex) => ({ turn, item, itemIndex }));
   const signature = `${turn.status}:${JSON.stringify(turn.error)}:${JSON.stringify(turnErrors)}:${refs.map(itemRefSignature).join("|")}`;
-  const user = refs.find((ref) => ref.item.type === "userMessage");
-  const responseRefs = refs.filter((ref) => ref !== user);
+  const segments = splitTurnSegments(refs);
   return `
     <div class="flex flex-col" style="gap: var(--conversation-tool-assistant-gap, 8px);" data-turn-id="${escapeAttr(turn.id)}" data-codex-turn-key="${escapeAttr(turn.id)}" data-codex-turn-signature="${escapeAttr(signature)}">
-      <div class="flex flex-col empty:hidden" data-codex-turn-user>${user ? renderTurnUser(user) : ""}</div>
-      <div class="flex flex-col empty:hidden" style="gap: var(--conversation-tool-assistant-gap, 8px);" data-codex-turn-response>${renderTurnResponse(turn, responseRefs, turn.id, turnErrors)}</div>
+      ${segments.map((segment, segmentIndex) => renderConversationSegment(
+        turn,
+        segment,
+        `${turn.id}-${segmentIndex}`,
+        turnErrors,
+        segmentIndex === segments.length - 1,
+      )).join("")}
     </div>`;
+}
+
+function splitTurnSegments(refs) {
+  const segments = [];
+  let segment = { user: null, responseRefs: [] };
+  for (const ref of refs) {
+    if (ref.item.type === "userMessage") {
+      if (segment.user || segment.responseRefs.length) segments.push(segment);
+      segment = { user: ref, responseRefs: [] };
+    } else {
+      segment.responseRefs.push(ref);
+    }
+  }
+  if (segment.user || segment.responseRefs.length) segments.push(segment);
+  return segments;
+}
+
+function renderConversationSegment(turn, segment, index, turnErrors, includeTurnStatus) {
+  return `
+      <div class="flex flex-col empty:hidden" data-codex-turn-user>${segment.user ? renderTurnUser(segment.user) : ""}</div>
+      <div class="flex flex-col empty:hidden" style="gap: var(--conversation-tool-assistant-gap, 8px);" data-codex-turn-response>${renderTurnResponse(turn, segment.responseRefs, index, turnErrors, includeTurnStatus)}</div>`;
 }
 
 function itemRefSignature(ref) {
@@ -356,12 +381,12 @@ function contentSearchKey(turnId, unit, role) {
   return `${turnId}:${unit}:${role}`;
 }
 
-function renderTurnResponse(turn, refs, index, turnErrors) {
+function renderTurnResponse(turn, refs, index, turnErrors, includeTurnStatus) {
   const split = activitySummary.splitTurnFollowups(refs);
   const finalFollowup = split.finalFollowup;
   const streamFollowups = split.streamFollowups;
   const processFollowups = split.processFollowups;
-  const statusContent = renderTurnStatus(turn, refs, turnErrors);
+  const statusContent = includeTurnStatus ? renderTurnStatus(turn, refs, turnErrors) : [];
   const inlineContent = streamFollowups
     .map((ref, offset) => renderInlineTurnFollowupBody(ref, index, offset))
     .filter(Boolean)
@@ -517,10 +542,12 @@ function renderContextCompaction() {
 
 function renderTurnProcessBlock(turn, processFollowups, turnIndex) {
   const label = activitySummary.summaryLabel(turn);
+  const expanded = processFollowups.some(lifecycle.isItemPending) || state.expandedProcessTurns.has(turn.id);
+  const open = expanded ? " open" : "";
   return `
           <div class="text-size-chat text-token-text-secondary codex-turn-activity">
-            <details class="codex-turn-activity-details">
-              <summary class="codex-turn-activity-summary">
+            <details class="codex-turn-activity-details"${open}>
+              <summary class="codex-turn-activity-summary" data-codex-turn-activity-toggle>
                 <span class="text-size-chat hover:bg-token-bg-subtle inline-flex cursor-interaction items-center gap-1 rounded-md border border-transparent focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:outline-none">
                   <span><span class="codex-status-label">${escapeHTML(label)}</span></span>
                   ${icons.svg("chevronRight", "codex-turn-activity-chevron icon-2xs text-token-foreground/40 transition-transform duration-200 rotate-0")}
@@ -529,9 +556,9 @@ function renderTurnProcessBlock(turn, processFollowups, turnIndex) {
                   <span class="block w-full border-t border-token-border-light"></span>
                 </span>
               </summary>
-              <div class="codex-turn-activity-expanded">
+              ${expanded ? `<div class="codex-turn-activity-expanded">
                 ${renderTurnProcessContent(processFollowups, turnIndex)}
-              </div>
+              </div>` : ""}
             </details>
           </div>`;
 }

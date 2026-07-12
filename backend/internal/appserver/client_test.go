@@ -106,7 +106,7 @@ func TestOfficialHistoryRequestParameters(t *testing.T) {
 	params := ThreadTurnsListParams{
 		ThreadID:      "thread-1",
 		Cursor:        &cursor,
-		Limit:         8,
+		Limit:         100,
 		SortDirection: "desc",
 		ItemsView:     "full",
 	}
@@ -114,7 +114,7 @@ func TestOfficialHistoryRequestParameters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal thread/turns/list params: %v", err)
 	}
-	want := `{"threadId":"thread-1","cursor":"{\"turnId\":\"turn-1\",\"includeAnchor\":false}","limit":8,"sortDirection":"desc","itemsView":"full"}`
+	want := `{"threadId":"thread-1","cursor":"{\"turnId\":\"turn-1\",\"includeAnchor\":false}","limit":100,"sortDirection":"desc","itemsView":"full"}`
 	if string(payload) != want {
 		t.Fatalf("thread/turns/list params = %s, want %s", payload, want)
 	}
