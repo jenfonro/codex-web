@@ -93,6 +93,17 @@ const context = {
       if (url === "/api/threads") {
         return [officialThread("active")];
       }
+      if (url === "/api/threads/s1/state") {
+        return {
+          thread: officialThread("active"),
+          history: {
+            turns: [officialTurn("inProgress", [
+              { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
+              { id: "agent-1", type: "agentMessage", text: "Hel", phase: "final_answer", memoryCitation: null },
+            ])],
+          },
+        };
+      }
       throw new Error(`unexpected URL ${url}`);
     },
   },
@@ -158,23 +169,10 @@ vm.runInContext(
   click({ target: row });
   await flush();
   await flush();
+  await flush();
 
   const threadSource = eventSources.find((source) => source.url.includes("threadId=s1"));
-  threadSource.onmessage({ data: JSON.stringify({
-    type: "state",
-    threadId: "s1",
-    data: {
-      thread: officialThread("active"),
-      history: {
-        turns: [officialTurn("inProgress", [
-          { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
-          { id: "agent-1", type: "agentMessage", text: "Hel", phase: "final_answer", memoryCitation: null },
-        ])],
-      },
-    },
-  }) });
-  flushAnimationFrame();
-  await flush();
+  assert.ok(threadSource, "thread SSE should start after state fetch");
 
   const rendersBeforeStream = renderCalls.length;
   const firstUpdate = {
@@ -282,27 +280,6 @@ vm.runInContext(
   await flush();
   assert.strictEqual(rendererRuntime.state.turnErrors.length, 2, "failed turn should retain connection-scoped errors");
 
-  threadSource.onmessage({ data: JSON.stringify({
-    type: "state",
-    threadId: "s1",
-    data: {
-      thread: officialThread("idle"),
-      history: {
-        turns: [failedTurn],
-      },
-    },
-  }) });
-  flushAnimationFrame();
-  await flush();
-  assert.strictEqual(rendererRuntime.state.turnErrors.length, 0, "state snapshot should clear transient errors");
-
-  threadSource.onmessage({ data: JSON.stringify({
-    type: "turnError",
-    threadId: "s1",
-    data: retryError,
-  }) });
-  flushAnimationFrame();
-  await flush();
   const nextTurn = officialTurn("inProgress", []);
   nextTurn.id = "turn-2";
   threadSource.onmessage({ data: JSON.stringify({

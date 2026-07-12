@@ -52,8 +52,8 @@
     state.expandedProcessTurns = new Set();
     state.view = "thread";
     state.popover = "";
-    subscribeThread(threadID);
     renderer.render();
+    void loadThreadState(threadID);
   }
 
   function subscribeThreadList() {
@@ -81,6 +81,17 @@
     };
     state.threadEventSource = source;
   }
+
+async function loadThreadState(threadID) {
+  const snapshot = await api.fetchJSON(`/api/threads/${encodeURIComponent(threadID)}/state`);
+  if (state.activeThreadId !== threadID) return;
+  applyStateUpdate({
+    type: "state",
+    threadId: threadID,
+    data: snapshot,
+  });
+  if (state.activeThreadId === threadID) subscribeThread(threadID);
+}
 
 function applyStateUpdate(update) {
   switch (update.type) {

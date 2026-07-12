@@ -48,15 +48,6 @@ type StateUpdate struct {
 
 const turnLoadTimeout = 2 * time.Minute
 
-func StateSnapshotUpdate(threadID string, snapshot Snapshot, sequence int64) StateUpdate {
-	return StateUpdate{
-		ThreadID: threadID,
-		Sequence: sequence,
-		Type:     "state",
-		Data:     encodeJSON(snapshot),
-	}
-}
-
 func New(cfg Config) *Manager {
 	return NewWithBackend(cfg, appserver.New(cfg))
 }

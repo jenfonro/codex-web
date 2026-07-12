@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-
-	"codex-web/backend/internal/thread"
 )
 
 type promptRequest struct {
@@ -40,6 +38,13 @@ func (a *App) handleThreadAction(w http.ResponseWriter, r *http.Request, tail st
 	threadID := parts[0]
 	action := parts[1]
 	switch {
+	case r.Method == http.MethodGet && action == "state":
+		snapshot, _, err := a.threads.State(threadID)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, snapshot)
 	case r.Method == http.MethodPost && action == "send":
 		var req promptRequest
 		readJSON(r, &req)
@@ -69,20 +74,9 @@ func (a *App) handleThreadStateEvents(w http.ResponseWriter, r *http.Request) {
 	defer unsubscribe()
 
 	threadID := r.URL.Query().Get("threadId")
-	var lastSequence int64
 	w.Header().Set("Content-Type", "text/event-stream; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	if threadID != "" {
-		current, sequence, err := a.threads.State(threadID)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-
-		writeSSE(w, thread.StateSnapshotUpdate(threadID, current, sequence))
-		lastSequence = sequence
-	}
 	flusher.Flush()
 
 	for {
@@ -98,7 +92,7 @@ func (a *App) handleThreadStateEvents(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 			} else {
-				if update.ThreadID != threadID || update.Sequence <= lastSequence {
+				if update.ThreadID != threadID {
 					continue
 				}
 				if update.Type == "threadStarted" || update.Type == "threadUpdated" {
