@@ -546,6 +546,8 @@ function renderTurnProcessBlock(turn, processFollowups, turnIndex) {
   const label = activitySummary.summaryLabel(turn);
   const expanded = processFollowups.some(lifecycle.isItemPending);
   const stateName = expanded ? "open" : "closed";
+  const content = renderTurnProcessContent(processFollowups, turnIndex);
+  const activityContent = expanded ? renderTurnActivityContent(content, true) : "";
   return `
           <div class="text-size-chat text-token-text-secondary codex-turn-activity">
             <div class="codex-turn-activity-details" data-state="${stateName}" data-codex-turn-activity>
@@ -556,14 +558,27 @@ function renderTurnProcessBlock(turn, processFollowups, turnIndex) {
               <div class="codex-turn-activity-divider text-size-chat text-token-text-secondary">
                 <span class="codex-turn-activity-divider-line"></span>
               </div>
-              <div class="codex-turn-activity-collapsible" aria-hidden="${!expanded}"${expanded ? "" : " hidden"} data-codex-turn-activity-content>
-                <div aria-hidden="true" class="codex-turn-activity-gap"></div>
-                <div class="codex-turn-activity-expanded">
-                  ${renderTurnProcessContent(processFollowups, turnIndex)}
-                </div>
-              </div>
+              <template data-codex-turn-activity-template>${renderTurnActivityContent(content, false)}</template>
+              ${activityContent}
             </div>
           </div>`;
+}
+
+function renderTurnActivityContent(content, expanded) {
+  if (!expanded) return `
+                <div class="codex-turn-activity-collapsible" aria-hidden="true" data-codex-turn-activity-content>
+                  <div aria-hidden="true" class="codex-turn-activity-gap"></div>
+                  <div class="codex-turn-activity-expanded">
+                    ${content}
+                  </div>
+                </div>`;
+  return `
+              <div class="codex-turn-activity-collapsible" aria-hidden="false" data-codex-turn-activity-content>
+                <div aria-hidden="true" class="codex-turn-activity-gap"></div>
+                <div class="codex-turn-activity-expanded">
+                  ${content}
+                </div>
+              </div>`;
 }
 
 function renderTurnProcessContent(refs, turnIndex) {

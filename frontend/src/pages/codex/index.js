@@ -169,7 +169,9 @@ function handleClick(event) {
     const activity = activityToggle.closest("[data-codex-turn-activity]");
     const expanded = activity.dataset.state !== "open";
     const scroll = activity.closest("[data-thread-scroll]");
-    const content = activity.querySelector("[data-codex-turn-activity-content]");
+    const content = expanded
+      ? ensureActivityContent(activity)
+      : activity.querySelector("[data-codex-turn-activity-content]");
     preserveActivityTogglePosition(activityToggle, activity, scroll, ACTIVITY_ANCHOR_MS);
     activityToggle.setAttribute("aria-expanded", String(expanded));
     activity.dataset.state = expanded ? "open" : "closed";
@@ -319,16 +321,15 @@ function animateActivityContent(content, expanded) {
   activityAnimationSerial += 1;
   const token = String(activityAnimationSerial);
   const reducedMotion = global.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+  const wasHidden = isActivityContentHidden(content);
 
   if (!content.style || reducedMotion) {
-    content.hidden = !expanded;
     content.setAttribute("aria-hidden", String(!expanded));
+    if (!expanded) content.remove();
     resetActivityContentStyle(content);
     return;
   }
 
-  const wasHidden = content.hidden;
-  content.hidden = false;
   content.setAttribute("aria-hidden", String(!expanded));
   content.dataset.codexActivityAnimating = expanded ? "expand" : "collapse";
   content.dataset.codexActivityAnimationToken = token;
@@ -344,7 +345,7 @@ function animateActivityContent(content, expanded) {
   const finish = () => {
     if (content.dataset.codexActivityAnimationToken !== token) return;
     cancelActivityContentAnimation(content);
-    content.hidden = !expanded;
+    if (!expanded) content.remove();
     resetActivityContentStyle(content);
   };
   const finishOnTransitionEnd = (event) => {
@@ -364,6 +365,20 @@ function animateActivityContent(content, expanded) {
   ].join(", ");
   content.style.opacity = expanded ? "1" : "0";
   content.style.transform = expanded ? "translateY(0)" : "translateY(-8px)";
+}
+
+function ensureActivityContent(activity) {
+  const existing = activity.querySelector("[data-codex-turn-activity-content]");
+  if (existing) return existing;
+  const template = activity.querySelector("[data-codex-turn-activity-template]");
+  const content = template?.content?.firstElementChild?.cloneNode(true);
+  if (!content) return null;
+  template.after(content);
+  return content;
+}
+
+function isActivityContentHidden(content) {
+  return content.hidden || content.getAttribute("aria-hidden") === "true";
 }
 
 function cancelActivityContentAnimation(content) {

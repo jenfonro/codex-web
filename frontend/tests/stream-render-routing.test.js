@@ -16,6 +16,7 @@ let resizeObserver = null;
 let activityState = "closed";
 let activityAriaExpanded = "false";
 let activityAriaHidden = "true";
+let activityContentConnected = false;
 const turnNode = {};
 const activityContentListeners = new Map();
 function createStyle() {
@@ -34,7 +35,7 @@ function createStyle() {
 }
 const activityContent = {
   dataset: {},
-  hidden: true,
+  hidden: false,
   offsetHeight: 0,
   scrollHeight: 60,
   style: createStyle(),
@@ -50,8 +51,27 @@ const activityContent = {
   getBoundingClientRect() {
     return { height: Number.parseFloat(this.style.height) || this.scrollHeight };
   },
+  getAttribute(name) {
+    if (name === "aria-hidden") return activityAriaHidden;
+    return null;
+  },
+  remove() {
+    activityContentConnected = false;
+  },
   setAttribute(name, value) {
     if (name === "aria-hidden") activityAriaHidden = value;
+  },
+};
+const activityTemplate = {
+  content: {
+    firstElementChild: {
+      cloneNode() {
+        return activityContent;
+      },
+    },
+  },
+  after(node) {
+    if (node === activityContent) activityContentConnected = true;
   },
 };
 const threadScroll = {
@@ -70,7 +90,8 @@ const activity = {
     return null;
   },
   querySelector(selector) {
-    if (selector === "[data-codex-turn-activity-content]") return activityContent;
+    if (selector === "[data-codex-turn-activity-content]") return activityContentConnected ? activityContent : null;
+    if (selector === "[data-codex-turn-activity-template]") return activityTemplate;
     return null;
   },
 };
@@ -273,7 +294,7 @@ vm.runInContext(
   assert.strictEqual(activityState, "open");
   assert.strictEqual(activityAriaExpanded, "true");
   assert.strictEqual(activityAriaHidden, "false");
-  assert.strictEqual(activityContent.hidden, false);
+  assert.strictEqual(activityContentConnected, true);
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, "expand");
   assert.strictEqual(activityContent.style.height, "");
   assert.strictEqual(activityContent.style.willChange, "opacity, transform");
@@ -296,12 +317,12 @@ vm.runInContext(
   assert.strictEqual(activityState, "closed");
   assert.strictEqual(activityAriaExpanded, "false");
   assert.strictEqual(activityAriaHidden, "true");
-  assert.strictEqual(activityContent.hidden, false, "collapse should keep content mounted until the height transition finishes");
+  assert.strictEqual(activityContentConnected, true, "collapse should keep content mounted until the transition finishes");
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, "collapse");
   assert.strictEqual(activityContent.style.height, "");
   assert.ok(!activityContent.style.transition.includes("height"), "top-level activity must not animate layout height");
   activityContent.dispatchTransitionEnd();
-  assert.strictEqual(activityContent.hidden, true);
+  assert.strictEqual(activityContentConnected, false);
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, undefined);
 
   threadScroll.scrollTop = 100;
@@ -315,7 +336,7 @@ vm.runInContext(
     },
   });
   assert.strictEqual(activityState, "open");
-  assert.strictEqual(activityContent.hidden, false);
+  assert.strictEqual(activityContentConnected, true);
   assert.strictEqual(threadScroll.scrollTop, 100, "activity expansion must preserve a reading position away from the bottom");
   activityContent.dispatchTransitionEnd();
   while (animationFrames.size > 0) flushAnimationFrame();
