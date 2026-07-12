@@ -47,6 +47,8 @@ type StateUpdate struct {
 	Data     json.RawMessage `json:"data"`
 }
 
+const turnPageRequestTimeout = 2 * time.Minute
+
 func StateSnapshotUpdate(threadID string, snapshot Snapshot, sequence int64) StateUpdate {
 	return StateUpdate{
 		ThreadID: threadID,
@@ -158,7 +160,7 @@ func (m *Manager) State(threadID string) (Snapshot, int64, error) {
 }
 
 func (m *Manager) Turns(threadID, cursor string) (TurnPage, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), turnPageRequestTimeout)
 	defer cancel()
 	response, err := m.backend.ListTurns(ctx, threadID, &cursor)
 	if err != nil {
@@ -202,7 +204,7 @@ func (m *Manager) loadInitialTurns(threadID string) error {
 		sequence := managed.sequence
 		m.mu.Unlock()
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), turnPageRequestTimeout)
 		response, err := m.backend.ListTurns(ctx, threadID, nil)
 		cancel()
 		if err != nil {
