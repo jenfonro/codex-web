@@ -340,33 +340,42 @@ function animateActivityContent(content, expanded, scrollAnchor) {
   activityAnimationSerial += 1;
   const token = String(activityAnimationSerial);
   const reducedMotion = global.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+
+  if (!expanded) {
+    content.setAttribute("aria-hidden", "true");
+    resetActivityContentStyle(content);
+    content.remove();
+    preserveActivityScrollAfterCollapse(scrollAnchor);
+    return;
+  }
+
   const wasHidden = isActivityContentHidden(content);
-  const scrollAnimation = startActivityScrollAnimation(scrollAnchor, content, expanded, reducedMotion);
+  const scrollAnimation = startActivityScrollAnimation(scrollAnchor, content, true, reducedMotion);
 
   if (!content.style || reducedMotion) {
-    content.setAttribute("aria-hidden", String(!expanded));
-    if (!expanded) content.remove();
+    content.setAttribute("aria-hidden", "false");
     scrollAnimation?.finish();
     resetActivityContentStyle(content);
     return;
   }
 
-  content.setAttribute("aria-hidden", String(!expanded));
-  content.dataset.codexActivityAnimating = expanded ? "expand" : "collapse";
+  content.setAttribute("aria-hidden", "false");
+  content.dataset.codexActivityAnimating = "expand";
   content.dataset.codexActivityAnimationToken = token;
 
   content.style.transition = "none";
-  content.style.pointerEvents = expanded ? "auto" : "none";
-  content.style.willChange = "opacity, transform";
-  content.style.opacity = expanded && wasHidden ? "0" : "1";
-  content.style.transform = expanded && wasHidden ? "translateY(-8px)" : "translateY(0)";
+  content.style.pointerEvents = "auto";
+  content.style.overflow = "hidden";
+  content.style.clipPath = wasHidden ? "inset(0 0 100% 0)" : "inset(0 0 0 0)";
+  content.style.willChange = "opacity, transform, clip-path";
+  content.style.opacity = wasHidden ? "0" : "1";
+  content.style.transform = wasHidden ? "translateY(-8px)" : "translateY(0)";
 
   void content.offsetHeight;
 
   const finish = () => {
     if (content.dataset.codexActivityAnimationToken !== token) return;
     cancelActivityContentAnimation(content);
-    if (!expanded) content.remove();
     scrollAnimation?.finish();
     resetActivityContentStyle(content);
   };
@@ -384,9 +393,22 @@ function animateActivityContent(content, expanded, scrollAnchor) {
   content.style.transition = [
     `opacity ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
     `transform ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
+    `clip-path ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
   ].join(", ");
-  content.style.opacity = expanded ? "1" : "0";
-  content.style.transform = expanded ? "translateY(0)" : "translateY(-8px)";
+  content.style.clipPath = "inset(0 0 0 0)";
+  content.style.opacity = "1";
+  content.style.transform = "translateY(0)";
+}
+
+function preserveActivityScrollAfterCollapse(anchor) {
+  if (!anchor) return;
+  const { scroll, bottomOffset } = anchor;
+  if (!scroll) return;
+  if (anchor.keepBottom) {
+    scroll.scrollTop = Math.max(0, scroll.scrollHeight - scroll.clientHeight - bottomOffset);
+    return;
+  }
+  preserveActivityTogglePosition(anchor, ACTIVITY_ANCHOR_MS);
 }
 
 function startActivityScrollAnimation(anchor, content, expanded, reducedMotion) {
@@ -472,7 +494,9 @@ function cancelActivityContentAnimation(content) {
 }
 
 function resetActivityContentStyle(content) {
+  content.style?.removeProperty("clip-path");
   content.style?.removeProperty("opacity");
+  content.style?.removeProperty("overflow");
   content.style?.removeProperty("pointer-events");
   content.style?.removeProperty("transform");
   content.style?.removeProperty("transition");

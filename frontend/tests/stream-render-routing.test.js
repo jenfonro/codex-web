@@ -22,6 +22,7 @@ const turnNode = {};
 const activityContentListeners = new Map();
 function createStyle() {
   return {
+    clipPath: "",
     height: "",
     opacity: "",
     overflow: "",
@@ -58,6 +59,7 @@ const activityContent = {
   },
   remove() {
     activityContentConnected = false;
+    threadScroll.scrollHeight = 1000;
   },
   setAttribute(name, value) {
     if (name === "aria-hidden") activityAriaHidden = value;
@@ -305,7 +307,8 @@ vm.runInContext(
   assert.strictEqual(activityContentConnected, true);
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, "expand");
   assert.strictEqual(activityContent.style.height, "");
-  assert.strictEqual(activityContent.style.willChange, "opacity, transform");
+  assert.ok(activityContent.style.transition.includes("clip-path"), "activity expansion should visually reveal content instead of only fading it in");
+  assert.strictEqual(activityContent.style.willChange, "opacity, transform, clip-path");
   flushAnimationFrame();
   assert.strictEqual(threadScroll.scrollTop, 760, "bottom expansion should move with the inserted activity content");
   activityContent.dispatchTransitionEnd();
@@ -322,15 +325,10 @@ vm.runInContext(
   assert.strictEqual(activityState, "closed");
   assert.strictEqual(activityAriaExpanded, "false");
   assert.strictEqual(activityAriaHidden, "true");
-  assert.strictEqual(activityContentConnected, true, "collapse should keep content mounted until the transition finishes");
-  assert.strictEqual(activityContent.dataset.codexActivityAnimating, "collapse");
-  assert.strictEqual(activityContent.style.height, "");
-  assert.ok(!activityContent.style.transition.includes("height"), "top-level activity must not animate layout height");
-  flushAnimationFrame();
-  assert.strictEqual(threadScroll.scrollTop, 700, "bottom collapse should move back before removing activity content");
-  activityContent.dispatchTransitionEnd();
-  assert.strictEqual(activityContentConnected, false);
+  assert.strictEqual(activityContentConnected, false, "collapse should release layout immediately");
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, undefined);
+  assert.strictEqual(activityContent.style.height, "");
+  assert.strictEqual(threadScroll.scrollTop, 700, "bottom collapse should return as soon as activity content is removed");
   threadScroll.scrollHeight = 1000;
 
   threadScroll.scrollTop = 100;
