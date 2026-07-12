@@ -468,7 +468,10 @@ func (c *Client) publish(notification Notification) {
 	c.mu.Unlock()
 
 	for _, ch := range subscribers {
-		ch <- notification
+		select {
+		case ch <- notification:
+		default:
+		}
 	}
 }
 

@@ -291,7 +291,7 @@ func (m *Manager) handleNotification(notification appserver.Notification) {
 	case "error":
 		m.publishTurnError(notificationParams[appserver.ErrorNotification](notification))
 	default:
-		panic("unhandled app-server notification: " + notification.Method)
+		return
 	}
 }
 
