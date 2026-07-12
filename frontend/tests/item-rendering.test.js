@@ -217,3 +217,16 @@ assert.ok(retryWithoutDetailsHTML.includes("codex-stream-error-static"));
 assert.ok(retryWithoutDetailsHTML.includes("正在重新连接 2/5"));
 assert.ok(!retryWithoutDetailsHTML.includes('<details class="codex-stream-error text-size-chat">'));
 assert.ok(!retryWithoutDetailsHTML.includes("codex-stream-error-chevron"));
+
+state.turnErrors = [];
+turn.status = "failed";
+turn.error = {
+  message: "unexpected status 503 Service Unavailable",
+  codexErrorInfo: null,
+  additionalDetails: null,
+};
+renderer.render();
+const turnErrorHTML = mountRoot.innerHTML;
+assert.ok(turnErrorHTML.includes('<div class="codex-turn-error-icon"><svg'));
+assert.ok(turnErrorHTML.includes('<div class="codex-turn-error-content">'));
+assert.ok(turnErrorHTML.includes('<div class="codex-turn-error-message">unexpected status 503 Service Unavailable</div>'));

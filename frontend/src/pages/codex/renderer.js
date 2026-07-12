@@ -568,8 +568,10 @@ function renderRetryStatus(error) {
 function renderTurnError(error) {
   return `
     <div class="codex-turn-error" role="alert">
-      <span class="codex-turn-error-icon">${icons.svg("errorCircle", "icon-sm")}</span>
-      <div class="codex-turn-error-message">${escapeHTML(error.message)}</div>
+      <div class="codex-turn-error-icon">${icons.svg("errorCircle", "icon-sm")}</div>
+      <div class="codex-turn-error-content">
+        <div class="codex-turn-error-message">${escapeHTML(error.message)}</div>
+      </div>
     </div>`;
 }
 
