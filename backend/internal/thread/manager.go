@@ -194,36 +194,33 @@ func (m *Manager) waitForThread(threadID string) {
 }
 
 func (m *Manager) loadInitialTurns(threadID string) error {
-	for {
-		m.mu.Lock()
-		managed := m.threads[threadID]
-		if managed.pageLoaded {
-			m.mu.Unlock()
-			return nil
-		}
-		sequence := managed.sequence
-		m.mu.Unlock()
-
-		ctx, cancel := context.WithTimeout(context.Background(), turnPageRequestTimeout)
-		response, err := m.backend.ListTurns(ctx, threadID, nil)
-		cancel()
-		if err != nil {
-			return err
-		}
-
-		m.mu.Lock()
-		managed = m.threads[threadID]
-		if managed.sequence != sequence {
-			m.mu.Unlock()
-			continue
-		}
-		page := turnPage(response)
-		managed.thread.Turns = page.Turns
-		managed.nextCursor = page.NextCursor
-		managed.pageLoaded = true
+	m.mu.Lock()
+	managed := m.threads[threadID]
+	if managed.pageLoaded {
 		m.mu.Unlock()
 		return nil
 	}
+	m.mu.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), turnPageRequestTimeout)
+	response, err := m.backend.ListTurns(ctx, threadID, nil)
+	cancel()
+	if err != nil {
+		return err
+	}
+
+	m.mu.Lock()
+	managed = m.threads[threadID]
+	if managed.pageLoaded {
+		m.mu.Unlock()
+		return nil
+	}
+	page := turnPage(response)
+	managed.thread.Turns = page.Turns
+	managed.nextCursor = page.NextCursor
+	managed.pageLoaded = true
+	m.mu.Unlock()
+	return nil
 }
 
 func (m *Manager) watchBackend() {
