@@ -558,7 +558,7 @@ function renderTurnProcessBlock(turn, processFollowups, turnIndex) {
                   <span class="block w-full border-t border-token-border-light"></span>
                 </span>
               </button>
-              <div class="codex-turn-activity-collapsible" aria-hidden="${!expanded}" data-codex-turn-activity-content>
+              <div class="codex-turn-activity-collapsible" aria-hidden="${!expanded}"${expanded ? "" : " hidden"} data-codex-turn-activity-content>
                 <div class="codex-turn-activity-clip">
                   <div class="codex-turn-activity-expanded">
                     ${renderTurnProcessContent(processFollowups, turnIndex)}

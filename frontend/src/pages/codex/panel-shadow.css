@@ -541,16 +541,11 @@
 }
 
 .codex-turn-activity-collapsible {
-  block-size: 0;
-  overflow: clip;
+  min-width: 0;
 }
 
-.codex-turn-activity-details[data-state="open"] .codex-turn-activity-collapsible {
-  block-size: auto;
-}
-
-.codex-turn-activity-clip {
-  min-block-size: 0;
+.codex-turn-activity-collapsible[hidden] {
+  display: none;
 }
 
 .codex-turn-activity-details[data-state="open"] .codex-turn-activity-chevron {
@@ -562,18 +557,16 @@
 }
 
 .codex-turn-activity-details[data-state="open"] .codex-turn-activity-expanded {
-  animation: codex-turn-activity-expand 220ms cubic-bezier(.2, .8, .2, 1);
+  animation: codex-turn-activity-enter 220ms cubic-bezier(.33, 1, .68, 1) both;
 }
 
-@keyframes codex-turn-activity-expand {
+@keyframes codex-turn-activity-enter {
   from {
-    clip-path: inset(0 0 100% 0);
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(-8px);
   }
 
   to {
-    clip-path: inset(0);
     opacity: 1;
     transform: translateY(0);
   }

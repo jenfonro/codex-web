@@ -165,10 +165,11 @@ function handleClick(event) {
     const expanded = activity.dataset.state !== "open";
     const scroll = activity.closest("[data-thread-scroll]");
     const followBottom = expanded && isScrollNearBottom(scroll);
+    const content = activity.querySelector("[data-codex-turn-activity-content]");
     activity.dataset.state = expanded ? "open" : "closed";
     activityToggle.setAttribute("aria-expanded", String(expanded));
-    const content = activity.querySelector("[data-codex-turn-activity-content]");
     content.setAttribute("aria-hidden", String(!expanded));
+    content.hidden = !expanded;
     if (followBottom) {
       scroll.scrollTo({
         top: scroll.scrollHeight,

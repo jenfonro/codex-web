@@ -16,6 +16,7 @@ let activityState = "closed";
 let activityAriaExpanded = "false";
 let activityAriaHidden = "true";
 const activityContent = {
+  hidden: true,
   setAttribute(name, value) {
     if (name === "aria-hidden") activityAriaHidden = value;
   },
@@ -210,6 +211,7 @@ vm.runInContext(
   assert.strictEqual(activityState, "open");
   assert.strictEqual(activityAriaExpanded, "true");
   assert.strictEqual(activityAriaHidden, "false");
+  assert.strictEqual(activityContent.hidden, false);
   assert.strictEqual(activityScrollCalls.length, 1, "activity expansion should request one native smooth scroll");
   assert.strictEqual(activityScrollCalls[0].top, 1000);
   assert.strictEqual(activityScrollCalls[0].behavior, "smooth");
@@ -223,6 +225,7 @@ vm.runInContext(
       },
     },
   });
+  assert.strictEqual(activityContent.hidden, true);
   click({
     target: {
       closest(selector) {
@@ -232,6 +235,7 @@ vm.runInContext(
     },
   });
   assert.strictEqual(activityState, "open");
+  assert.strictEqual(activityContent.hidden, false);
   assert.strictEqual(threadScroll.scrollTop, 100, "activity expansion must preserve a reading position away from the bottom");
   assert.strictEqual(activityScrollCalls.length, 1, "activity expansion away from the bottom must not request scrolling");
 
