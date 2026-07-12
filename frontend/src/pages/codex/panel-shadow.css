@@ -576,11 +576,6 @@
   display: none;
 }
 
-.codex-turn-activity-collapsible[data-codex-activity-animating] {
-  overflow: hidden;
-  will-change: height, opacity, transform;
-}
-
 .codex-turn-activity-details[data-state="open"] .codex-turn-activity-chevron {
   transform: rotate(90deg);
 }

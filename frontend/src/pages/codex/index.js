@@ -24,7 +24,7 @@
   const activityAnimationCleanups = new WeakMap();
   const ACTIVITY_ANIMATION_MS = 220;
   const ACTIVITY_ANIMATION_EASING = "cubic-bezier(.33, 1, .68, 1)";
-  const ACTIVITY_ANCHOR_MS = 340;
+  const ACTIVITY_ANCHOR_MS = 250;
   let stateUpdateFrame = 0;
   let activityAnimationSerial = 0;
 
@@ -277,15 +277,9 @@ async function submitComposer() {
 function preserveActivityTogglePosition(toggle, activity, scroll, durationMs = 250) {
   if (!scroll) return;
 
-  const keepBottom = isScrollNearBottom(scroll);
-  const bottomOffset = Math.max(0, scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight);
   const top = toggle.getBoundingClientRect().top;
   let frame = 0;
   const adjust = () => {
-    if (keepBottom) {
-      scroll.scrollTop = Math.max(0, scroll.scrollHeight - scroll.clientHeight - bottomOffset);
-      return;
-    }
     if (toggle.isConnected) {
       scroll.scrollTop += toggle.getBoundingClientRect().top - top;
     }
@@ -318,10 +312,6 @@ function preserveActivityTogglePosition(toggle, activity, scroll, durationMs = 2
   }, durationMs);
 }
 
-function isScrollNearBottom(scroll) {
-  return scroll && scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 80;
-}
-
 function animateActivityContent(content, expanded) {
   if (!content) return;
 
@@ -343,16 +333,9 @@ function animateActivityContent(content, expanded) {
   content.dataset.codexActivityAnimating = expanded ? "expand" : "collapse";
   content.dataset.codexActivityAnimationToken = token;
 
-  const startHeight = expanded
-    ? (wasHidden ? 0 : activityContentCurrentHeight(content))
-    : activityContentCurrentHeight(content);
-  const endHeight = expanded ? content.scrollHeight : 0;
-
   content.style.transition = "none";
-  content.style.overflow = "hidden";
   content.style.pointerEvents = expanded ? "auto" : "none";
-  content.style.willChange = "height, opacity, transform";
-  content.style.height = `${Math.max(0, startHeight)}px`;
+  content.style.willChange = "opacity, transform";
   content.style.opacity = expanded && wasHidden ? "0" : "1";
   content.style.transform = expanded && wasHidden ? "translateY(-8px)" : "translateY(0)";
 
@@ -365,7 +348,7 @@ function animateActivityContent(content, expanded) {
     resetActivityContentStyle(content);
   };
   const finishOnTransitionEnd = (event) => {
-    if (event.target !== content || event.propertyName !== "height") return;
+    if (event.target !== content || event.propertyName !== "transform") return;
     finish();
   };
   const timeout = global.setTimeout(finish, ACTIVITY_ANIMATION_MS + 80);
@@ -376,20 +359,11 @@ function animateActivityContent(content, expanded) {
 
   content.addEventListener?.("transitionend", finishOnTransitionEnd);
   content.style.transition = [
-    `height ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
     `opacity ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
     `transform ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
   ].join(", ");
-  content.style.height = `${Math.max(0, endHeight)}px`;
   content.style.opacity = expanded ? "1" : "0";
   content.style.transform = expanded ? "translateY(0)" : "translateY(-8px)";
-}
-
-function activityContentCurrentHeight(content) {
-  const rectHeight = content.getBoundingClientRect?.().height;
-  if (Number.isFinite(rectHeight) && rectHeight > 0) return rectHeight;
-  if (Number.isFinite(content.offsetHeight) && content.offsetHeight > 0) return content.offsetHeight;
-  return content.scrollHeight || 0;
 }
 
 function cancelActivityContentAnimation(content) {
@@ -400,9 +374,7 @@ function cancelActivityContentAnimation(content) {
 }
 
 function resetActivityContentStyle(content) {
-  content.style?.removeProperty("height");
   content.style?.removeProperty("opacity");
-  content.style?.removeProperty("overflow");
   content.style?.removeProperty("pointer-events");
   content.style?.removeProperty("transform");
   content.style?.removeProperty("transition");

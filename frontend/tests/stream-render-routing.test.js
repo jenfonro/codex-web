@@ -44,7 +44,7 @@ const activityContent = {
   removeEventListener(type, callback) {
     if (activityContentListeners.get(type) === callback) activityContentListeners.delete(type);
   },
-  dispatchTransitionEnd(propertyName = "height") {
+  dispatchTransitionEnd(propertyName = "transform") {
     activityContentListeners.get("transitionend")?.({ target: this, propertyName });
   },
   getBoundingClientRect() {
@@ -275,12 +275,13 @@ vm.runInContext(
   assert.strictEqual(activityAriaHidden, "false");
   assert.strictEqual(activityContent.hidden, false);
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, "expand");
-  assert.strictEqual(activityContent.style.height, "60px");
-  threadScroll.scrollHeight = 1060;
+  assert.strictEqual(activityContent.style.height, "");
+  assert.strictEqual(activityContent.style.willChange, "opacity, transform");
+  activityToggle.documentTop = 790;
   resizeObserver.trigger();
-  assert.strictEqual(threadScroll.scrollTop, 760, "activity expansion near the bottom should absorb inserted height");
+  assert.strictEqual(threadScroll.scrollTop, 740, "activity expansion should preserve the official toggle-top anchor");
   flushAnimationFrame();
-  assert.strictEqual(threadScroll.scrollTop, 760, "bottom anchor must settle after one animation frame");
+  assert.strictEqual(threadScroll.scrollTop, 740, "toggle-top anchor must settle after one animation frame");
   activityContent.dispatchTransitionEnd();
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, undefined);
   assert.strictEqual(activityContent.style.height, "");
@@ -297,12 +298,8 @@ vm.runInContext(
   assert.strictEqual(activityAriaHidden, "true");
   assert.strictEqual(activityContent.hidden, false, "collapse should keep content mounted until the height transition finishes");
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, "collapse");
-  assert.strictEqual(activityContent.style.height, "0px");
-  threadScroll.scrollHeight = 1000;
-  resizeObserver.trigger();
-  assert.strictEqual(threadScroll.scrollTop, 700, "activity collapse near the bottom should restore the previous bottom");
-  flushAnimationFrame();
-  assert.strictEqual(threadScroll.scrollTop, 700, "bottom anchor should settle after collapse");
+  assert.strictEqual(activityContent.style.height, "");
+  assert.ok(!activityContent.style.transition.includes("height"), "top-level activity must not animate layout height");
   activityContent.dispatchTransitionEnd();
   assert.strictEqual(activityContent.hidden, true);
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, undefined);
