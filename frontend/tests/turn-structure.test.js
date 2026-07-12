@@ -116,21 +116,22 @@ vm.runInContext(
   { filename: "renderer.js" },
 );
 
-const renderer = context.CodexPanelRenderer.create({
-  state: {
-    view: "thread",
-    popover: "",
-    modelMenuExpanded: false,
-    threads: [thread],
-    turnErrors: [],
-    activeThreadId: thread.id,
-    threadHistory: {
-      turns: thread.turns,
-      beforeTurnId: null,
-      loading: false,
-      loadingOlder: false,
-    },
+const state = {
+  view: "thread",
+  popover: "",
+  modelMenuExpanded: false,
+  threads: [thread],
+  turnErrors: [],
+  activeThreadId: thread.id,
+  threadHistory: {
+    turns: thread.turns,
+    beforeTurnId: null,
+    loading: false,
+    loadingOlder: false,
   },
+};
+const renderer = context.CodexPanelRenderer.create({
+  state,
   mount: { root: mountRoot },
   icons: {
     svg(name, className) {
@@ -151,4 +152,18 @@ assert.ok(html.includes("Answer"));
 assert.strictEqual((html.match(/data-turn-id="turn-2"/g) || []).length, 1);
 assert.strictEqual((html.match(/codex-context-compaction-line/g) || []).length, 2);
 assert.ok(html.includes("codex-context-compaction-icon"));
+
+state.threadHistory = {
+  turns: [],
+  beforeTurnId: null,
+  loading: true,
+  loadingOlder: false,
+};
+renderer.render();
+const loadingHTML = mountRoot.innerHTML;
+assert.ok(loadingHTML.includes('class="codex-thread-loading-overlay"'));
+assert.ok(loadingHTML.includes("codex-thread-loading-spinner"));
+assert.ok(loadingHTML.includes("正在加载..."));
+assert.ok(loadingHTML.includes("data-codex-turn-list"), "loading must preserve the conversation list structure");
+assert.ok(!loadingHTML.includes("loading-shimmer-pure-text"), "page loading must not render as a streaming message");
 assert.ok(html.includes("上下文已自动压缩"));

@@ -55,6 +55,7 @@ function reconcileThreadView(html) {
   const scroll = currentRoot.querySelector("[data-thread-scroll]");
   const stickToBottom = isThreadScrollAtBottom(scroll);
   syncNodeFromNext(currentRoot, nextRoot, "[data-codex-thread-header]");
+  syncNodeFromNext(currentRoot, nextRoot, "[data-codex-thread-loading]");
   reconcileThreadTurns(currentRoot, nextRoot);
   syncComposerSurface(currentRoot, nextRoot);
   if (stickToBottom) {
@@ -191,7 +192,8 @@ function renderThreadView() {
   return `
     <div class="codex-panel-view codex-panel-view-thread relative flex h-full flex-col min-h-0" data-codex-panel-root data-codex-view="thread">
       <div class="sticky top-0 z-10" data-codex-thread-header>${renderHeader(threadTitle(thread))}</div>
-      <div class="codex-thread-body flex min-h-0 flex-1 flex-col [&_[data-thread-find-target=conversation]]:scroll-mt-24">
+      <div class="codex-thread-body relative flex min-h-0 flex-1 flex-col [&_[data-thread-find-target=conversation]]:scroll-mt-24">
+        ${renderThreadLoadingOverlay()}
         <div class="codex-thread-scroll-region relative mx-auto flex min-h-0 w-full flex-1 flex-col">
           <div class="min-h-0 flex-1">
             <div class="relative h-full flex-1">
@@ -214,6 +216,15 @@ function renderThreadView() {
 
 function renderActiveConversation() {
   return renderConversationState(activeThread());
+}
+
+function renderThreadLoadingOverlay() {
+  const hidden = state.threadHistory.loading ? "" : " hidden";
+  return `
+    <div class="codex-thread-loading-overlay"${hidden} data-codex-thread-loading role="status" aria-label="正在加载">
+      <span class="codex-thread-loading-spinner" aria-hidden="true"></span>
+      <span class="codex-thread-loading-label">正在加载...</span>
+    </div>`;
 }
 
 function renderHeader(title) {
@@ -240,9 +251,6 @@ function renderHeader(title) {
 
 function renderConversationState(thread) {
   const turnErrors = state.turnErrors.filter((notification) => notification.threadId === thread.id);
-  if (state.threadHistory.loading) {
-    return `<div class="relative shrink-0">${renderThinkingPlaceholder("正在加载")}</div>`;
-  }
   return `
     <div class="relative shrink-0">
       ${renderTurnList(state.threadHistory.turns, turnErrors)}
