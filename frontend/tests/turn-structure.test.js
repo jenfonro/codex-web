@@ -183,8 +183,10 @@ const renderer = context.CodexPanelRenderer.create({
 renderer.render();
 
 const html = mountRoot.innerHTML;
+assert.ok(html.includes('class="flex flex-col gap-8" data-codex-turn-list'));
 assert.strictEqual((html.match(/data-turn-id="turn-1"/g) || []).length, 1);
 assert.strictEqual((html.match(/data-codex-turn-key="turn-1"/g) || []).length, 1);
+assert.ok(html.includes('class="flex flex-col gap-8" data-turn-id="turn-1"'));
 assert.ok(html.includes("data-codex-turn-user"));
 assert.ok(html.includes("data-codex-turn-response"));
 assert.ok(html.indexOf("data-codex-turn-user") < html.indexOf("data-codex-turn-response"));
@@ -194,6 +196,7 @@ assert.strictEqual((html.match(/data-turn-id="turn-2"/g) || []).length, 1);
 assert.strictEqual((html.match(/codex-context-compaction-line/g) || []).length, 4);
 assert.ok(html.includes("codex-context-compaction-icon"));
 assert.strictEqual((html.match(/data-turn-id="turn-3"/g) || []).length, 1);
+assert.strictEqual((html.match(/data-codex-turn-segment/g) || []).length, 5);
 assert.ok(html.includes("First followup"));
 assert.ok(html.includes("First answer"));
 assert.ok(html.includes("Second followup"));

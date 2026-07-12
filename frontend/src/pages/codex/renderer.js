@@ -259,7 +259,7 @@ function renderConversationState(thread) {
 
 function renderTurnList(turns, turnErrors) {
   return `
-      <div class="flex flex-col" style="gap: 12px;" data-codex-turn-list>
+      <div class="flex flex-col gap-8" data-codex-turn-list>
         ${turns.map((turn, turnIndex) => renderConversationTurn(
           turn,
           turnIndex,
@@ -270,10 +270,11 @@ function renderTurnList(turns, turnErrors) {
 
 function renderConversationTurn(turn, turnIndex, turnErrors) {
   const refs = turn.items.map((item, itemIndex) => ({ turn, item, itemIndex }));
-  const signature = `${turn.status}:${JSON.stringify(turn.error)}:${JSON.stringify(turnErrors)}:${refs.map(itemRefSignature).join("|")}`;
+  const processExpanded = state.expandedProcessTurns.has(turn.id);
+  const signature = `${processExpanded}:${turn.status}:${JSON.stringify(turn.error)}:${JSON.stringify(turnErrors)}:${refs.map(itemRefSignature).join("|")}`;
   const segments = splitTurnSegments(refs);
   return `
-    <div class="flex flex-col" style="gap: var(--conversation-tool-assistant-gap, 8px);" data-turn-id="${escapeAttr(turn.id)}" data-codex-turn-key="${escapeAttr(turn.id)}" data-codex-turn-signature="${escapeAttr(signature)}">
+    <div class="flex flex-col gap-8" data-turn-id="${escapeAttr(turn.id)}" data-codex-turn-key="${escapeAttr(turn.id)}" data-codex-turn-signature="${escapeAttr(signature)}">
       ${segments.map((segment, segmentIndex) => renderConversationSegment(
         turn,
         segment,
@@ -301,8 +302,10 @@ function splitTurnSegments(refs) {
 
 function renderConversationSegment(turn, segment, index, turnErrors, includeTurnStatus) {
   return `
-      <div class="flex flex-col empty:hidden" data-codex-turn-user>${segment.user ? renderTurnUser(segment.user) : ""}</div>
-      <div class="flex flex-col empty:hidden" style="gap: var(--conversation-tool-assistant-gap, 8px);" data-codex-turn-response>${renderTurnResponse(turn, segment.responseRefs, index, turnErrors, includeTurnStatus)}</div>`;
+      <div class="flex flex-col" style="gap: var(--conversation-tool-assistant-gap, 8px);" data-codex-turn-segment>
+        <div class="flex flex-col empty:hidden" data-codex-turn-user>${segment.user ? renderTurnUser(segment.user) : ""}</div>
+        <div class="flex flex-col empty:hidden" style="gap: var(--conversation-tool-assistant-gap, 8px);" data-codex-turn-response>${renderTurnResponse(turn, segment.responseRefs, index, turnErrors, includeTurnStatus)}</div>
+      </div>`;
 }
 
 function itemRefSignature(ref) {
