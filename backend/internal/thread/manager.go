@@ -46,12 +46,12 @@ type StateUpdate struct {
 	Data     json.RawMessage `json:"data"`
 }
 
-func StateSnapshotUpdate(threadID string, thread appserver.Thread, sequence int64) StateUpdate {
+func StateSnapshotUpdate(threadID string, snapshot Snapshot, sequence int64) StateUpdate {
 	return StateUpdate{
 		ThreadID: threadID,
 		Sequence: sequence,
 		Type:     "state",
-		Data:     encodeJSON(thread),
+		Data:     encodeJSON(snapshot),
 	}
 }
 
@@ -87,11 +87,11 @@ func (m *Manager) Initialize(ctx context.Context) error {
 	return nil
 }
 
-func (m *Manager) List() []appserver.Thread {
+func (m *Manager) List() []Summary {
 	m.mu.Lock()
-	threads := make([]appserver.Thread, len(m.threadOrder))
+	threads := make([]Summary, len(m.threadOrder))
 	for index, threadID := range m.threadOrder {
-		threads[index] = cloneThread(m.threads[threadID].thread)
+		threads[index] = summarize(m.threads[threadID].thread)
 	}
 	m.mu.Unlock()
 	return threads
@@ -141,16 +141,29 @@ func (m *Manager) Cancel(threadID string) error {
 	return nil
 }
 
-func (m *Manager) State(threadID string) (appserver.Thread, int64, error) {
+func (m *Manager) State(threadID string) (Snapshot, int64, error) {
 	if err := m.loadThreadHistory(threadID); err != nil {
-		return appserver.Thread{}, 0, err
+		return Snapshot{}, 0, err
 	}
 	m.mu.Lock()
 	managed := m.threads[threadID]
-	thread := cloneThread(managed.thread)
+	snapshot := Snapshot{
+		Thread: summarize(managed.thread),
+		Page:   latestTurnPage(managed.thread.Turns),
+	}
 	sequence := managed.sequence
 	m.mu.Unlock()
-	return thread, sequence, nil
+	return snapshot, sequence, nil
+}
+
+func (m *Manager) Turns(threadID, beforeTurnID string) (TurnPage, error) {
+	if err := m.loadThreadHistory(threadID); err != nil {
+		return TurnPage{}, err
+	}
+	m.mu.Lock()
+	page, err := turnPageBefore(m.threads[threadID].thread.Turns, beforeTurnID)
+	m.mu.Unlock()
+	return page, err
 }
 
 func (m *Manager) Subscribe() (<-chan StateUpdate, func()) {
@@ -498,7 +511,7 @@ func (m *Manager) threadUpdateLocked(managed *managedThread) StateUpdate {
 		ThreadID: managed.thread.ID,
 		Sequence: managed.sequence,
 		Type:     "threadUpdated",
-		Data:     encodeJSON(cloneThread(managed.thread)),
+		Data:     encodeJSON(summarize(managed.thread)),
 	}
 }
 
@@ -508,7 +521,7 @@ func (m *Manager) threadStartedUpdateLocked(managed *managedThread) StateUpdate 
 		ThreadID: managed.thread.ID,
 		Sequence: managed.sequence,
 		Type:     "threadStarted",
-		Data:     encodeJSON(cloneThread(managed.thread)),
+		Data:     encodeJSON(summarize(managed.thread)),
 	}
 }
 

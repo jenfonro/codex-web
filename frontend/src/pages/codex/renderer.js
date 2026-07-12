@@ -194,7 +194,7 @@ function renderThreadView() {
       <div class="codex-thread-body flex min-h-0 flex-1 flex-col [&_[data-thread-find-target=conversation]]:scroll-mt-24">
         <div class="codex-thread-scroll-region relative mx-auto flex min-h-0 w-full flex-1 flex-col">
           <div class="min-h-0 flex-1">
-            <div class="relative h-full flex-1 [content-visibility:auto]">
+            <div class="relative h-full flex-1">
               <div data-app-action-timeline-scroll="" tabindex="0" class="codex-thread-scroll thread-scroll-container relative h-full overflow-x-hidden overflow-y-auto [overflow-anchor:none] [scroll-padding-bottom:var(--thread-scroll-padding-bottom,0px)] pt-(--thread-content-top-inset) [container-name:thread-content] [container-type:inline-size] focus:outline-none [&:has([data-thread-scroll-footer='true']:focus-within)]:[scroll-padding-bottom:0px] flex flex-col" style="--thread-scroll-padding-bottom: 160px;" data-thread-scroll>
                   <div class="codex-thread-content-frame flex min-h-full shrink-0 flex-col justify-start" data-thread-content-frame>
                     <div data-codex-thread-content="true" class="codex-thread-content mx-auto w-full max-w-(--thread-content-max-width) px-toolbar relative flex flex-1 shrink-0 flex-col pb-8">
@@ -240,9 +240,12 @@ function renderHeader(title) {
 
 function renderConversationState(thread) {
   const turnErrors = state.turnErrors.filter((notification) => notification.threadId === thread.id);
+  if (state.threadHistory.loading) {
+    return `<div class="relative shrink-0">${renderThinkingPlaceholder("正在加载")}</div>`;
+  }
   return `
     <div class="relative shrink-0">
-      ${renderTurnList(thread.turns, turnErrors)}
+      ${renderTurnList(state.threadHistory.turns, turnErrors)}
     </div>`;
 }
 
@@ -265,7 +268,7 @@ function renderConversationTurn(turn, turnIndex, turnErrors) {
   return `
     <div class="flex flex-col" style="gap: var(--conversation-tool-assistant-gap, 8px);" data-turn-id="${escapeAttr(turn.id)}" data-codex-turn-key="${escapeAttr(turn.id)}" data-codex-turn-signature="${escapeAttr(signature)}">
       <div class="flex flex-col empty:hidden" data-codex-turn-user>${user ? renderTurnUser(user) : ""}</div>
-      <div class="flex flex-col empty:hidden" style="gap: var(--conversation-tool-assistant-gap, 8px);" data-codex-turn-response>${renderTurnResponse(turn, responseRefs, turnIndex, turnErrors)}</div>
+      <div class="flex flex-col empty:hidden" style="gap: var(--conversation-tool-assistant-gap, 8px);" data-codex-turn-response>${renderTurnResponse(turn, responseRefs, turn.id, turnErrors)}</div>
     </div>`;
 }
 

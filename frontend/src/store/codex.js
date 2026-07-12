@@ -9,6 +9,12 @@
       threads: [],
       turnErrors: [],
       activeThreadId: "",
+      threadHistory: {
+        turns: [],
+        beforeTurnId: null,
+        loading: false,
+        loadingOlder: false,
+      },
       threadEventSource: null,
       threadListEventSource: null,
     };

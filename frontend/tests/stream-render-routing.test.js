@@ -11,6 +11,8 @@ const eventSources = [];
 const renderCalls = [];
 const animationFrames = [];
 let rendererRuntime = null;
+let anchorTop = 80;
+let paginationRendering = false;
 
 class FakeEventSource {
   constructor(url) {
@@ -45,31 +47,13 @@ function officialTurn(status, items) {
   };
 }
 
-function officialThread(status, turns) {
+function officialThread(status) {
   return {
     id: "s1",
-    extra: null,
-    sessionId: "s1",
-    forkedFromId: null,
-    parentThreadId: null,
     preview: "",
-    ephemeral: false,
-    historyMode: "legacy",
-    modelProvider: "openai",
-    createdAt: 1783555200,
     updatedAt: 1783555200,
-    recencyAt: null,
     status: { type: status, activeFlags: status === "active" ? [] : undefined },
-    path: null,
-    cwd: "/workspace",
-    cliVersion: "0.144.1",
-    source: "appServer",
-    threadSource: "codexWeb",
-    agentNickname: null,
-    agentRole: null,
-    gitInfo: null,
     name: "Thread",
-    turns,
   };
 }
 
@@ -109,7 +93,16 @@ const context = {
   CodexPanelAPI: {
     async fetchJSON(url) {
       if (url === "/api/threads") {
-        return [officialThread("active", [])];
+        return [officialThread("active")];
+      }
+      if (url === "/api/threads/s1/turns?beforeTurnId=turn-1") {
+        paginationRendering = true;
+        const turn = officialTurn("completed", []);
+        turn.id = "turn-older";
+        return {
+          turns: [turn],
+          beforeTurnId: null,
+        };
       }
       throw new Error(`unexpected URL ${url}`);
     },
@@ -127,6 +120,12 @@ const context = {
         threads: [],
         turnErrors: [],
         activeThreadId: "",
+        threadHistory: {
+          turns: [],
+          beforeTurnId: null,
+          loading: false,
+          loadingOlder: false,
+        },
         threadEventSource: null,
         threadListEventSource: null,
       };
@@ -136,7 +135,10 @@ const context = {
     create(runtime) {
       rendererRuntime = runtime;
       return {
-        render() { renderCalls.push("render"); },
+        render() {
+          renderCalls.push("render");
+          if (paginationRendering) anchorTop = 480;
+        },
         syncComposerState() {},
         composerText() { return ""; },
         clearComposer() {},
@@ -174,10 +176,16 @@ vm.runInContext(
   threadSource.onmessage({ data: JSON.stringify({
     type: "state",
     threadId: "s1",
-    data: officialThread("active", [officialTurn("inProgress", [
-      { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
-      { id: "agent-1", type: "agentMessage", text: "Hel", phase: "final_answer", memoryCitation: null },
-    ])]),
+    data: {
+      thread: officialThread("active"),
+      page: {
+        turns: [officialTurn("inProgress", [
+          { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
+          { id: "agent-1", type: "agentMessage", text: "Hel", phase: "final_answer", memoryCitation: null },
+        ])],
+        beforeTurnId: null,
+      },
+    },
   }) });
   flushAnimationFrame();
   await flush();
@@ -208,12 +216,12 @@ vm.runInContext(
   assert.strictEqual(renderCalls.length, rendersBeforeStream + 1, "streaming update should schedule one unified render");
 
   const activeThread = rendererRuntime.state.threads.find((thread) => thread.id === "s1");
-  assert.strictEqual(activeThread.turns[0].items[1].text, "Hell", "the first queued delta should render before the next delta");
+  assert.strictEqual(rendererRuntime.state.threadHistory.turns[0].items[1].text, "Hell", "the first queued delta should render before the next delta");
 
   flushAnimationFrame();
   await flush();
   assert.strictEqual(renderCalls.length, rendersBeforeStream + 2, "the second delta should render on the next frame");
-  assert.strictEqual(activeThread.turns[0].items[1].text, "Hello", "the second queued delta should remain visible");
+  assert.strictEqual(rendererRuntime.state.threadHistory.turns[0].items[1].text, "Hello", "the second queued delta should remain visible");
 
   const completedUpdate = {
     type: "turnUpdated",
@@ -229,7 +237,7 @@ vm.runInContext(
   await flush();
 
   assert.strictEqual(renderCalls.length, rendersBeforeStream + 3, "completion update should schedule one unified render");
-  assert.strictEqual(activeThread.turns[0].items[1].text, "Hello", "completed turn should contain the final text");
+  assert.strictEqual(rendererRuntime.state.threadHistory.turns[0].items[1].text, "Hello", "completed turn should contain the final text");
 
   const retryError = {
     error: {
@@ -291,7 +299,13 @@ vm.runInContext(
   threadSource.onmessage({ data: JSON.stringify({
     type: "state",
     threadId: "s1",
-    data: officialThread("idle", [failedTurn]),
+    data: {
+      thread: officialThread("idle"),
+      page: {
+        turns: [failedTurn],
+        beforeTurnId: null,
+      },
+    },
   }) });
   flushAnimationFrame();
   await flush();
@@ -314,6 +328,33 @@ vm.runInContext(
   flushAnimationFrame();
   await flush();
   assert.strictEqual(rendererRuntime.state.turnErrors.length, 0, "new turn should clear prior transient errors");
+
+  rendererRuntime.state.threadHistory.beforeTurnId = "turn-1";
+  const anchor = {
+    dataset: { turnId: "turn-1" },
+    getBoundingClientRect() {
+      return { top: anchorTop, bottom: anchorTop + 40 };
+    },
+  };
+  const scroll = {
+    scrollTop: 100,
+    matches(selector) {
+      return selector === "[data-thread-scroll]";
+    },
+    getBoundingClientRect() {
+      return { top: 0 };
+    },
+    querySelectorAll(selector) {
+      assert.strictEqual(selector, "[data-turn-id]");
+      return [anchor];
+    },
+  };
+  listeners.get("scroll")({ target: scroll });
+  await flush();
+  await flush();
+  assert.strictEqual(rendererRuntime.state.threadHistory.turns[0].id, "turn-older");
+  assert.strictEqual(rendererRuntime.state.threadHistory.beforeTurnId, null);
+  assert.strictEqual(scroll.scrollTop, 500, "prepending history should preserve the visible turn using its measured offset");
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

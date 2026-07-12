@@ -1011,7 +1011,6 @@ svg {
 [class~="[container-type:inline-size]"] { container-type: inline-size; }
 [class~="[container-name:home-main-content]"] { container-name: home-main-content; }
 [class~="[container-name:thread-content]"] { container-name: thread-content; }
-[class~="[content-visibility:auto]"] { content-visibility: auto; }
 [class~="[overflow-anchor:none]"] { overflow-anchor: none; }
 [class~="[scroll-padding-bottom:var(--thread-scroll-padding-bottom,0px)]"] { scroll-padding-bottom: var(--thread-scroll-padding-bottom, 0); }
 [class~="[--task-row-trailing-inset:calc(var(--spacing)*1.5)]"] { --task-row-trailing-inset: calc(var(--spacing) * 1.5); }

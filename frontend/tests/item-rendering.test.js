@@ -144,6 +144,12 @@ const state = {
   threads: [thread],
   turnErrors: [],
   activeThreadId: thread.id,
+  threadHistory: {
+    turns: thread.turns,
+    beforeTurnId: null,
+    loading: false,
+    loadingOlder: false,
+  },
 };
 const renderer = context.CodexPanelRenderer.create({
   state,

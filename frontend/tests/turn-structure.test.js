@@ -124,6 +124,12 @@ const renderer = context.CodexPanelRenderer.create({
     threads: [thread],
     turnErrors: [],
     activeThreadId: thread.id,
+    threadHistory: {
+      turns: thread.turns,
+      beforeTurnId: null,
+      loading: false,
+      loadingOlder: false,
+    },
   },
   mount: { root: mountRoot },
   icons: {
