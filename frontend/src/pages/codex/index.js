@@ -34,7 +34,6 @@
     mount.root.addEventListener("beforeinput", handleBeforeInput);
     mount.root.addEventListener("input", handleInput);
     mount.root.addEventListener("keydown", handleKeyDown);
-    mount.root.addEventListener("scroll", handleScroll, true);
     await loadThreads();
     subscribeThreadList();
     renderer.render();
@@ -48,9 +47,7 @@
     state.activeThreadId = threadID;
     state.threadHistory = {
       turns: [],
-      nextCursor: null,
       loading: true,
-      loadingOlder: false,
     };
     state.expandedProcessTurns = new Set();
     state.view = "thread";
@@ -89,8 +86,7 @@ function applyStateUpdate(update) {
   switch (update.type) {
     case "state":
       replaceThread(update.data.thread);
-      state.threadHistory.turns = update.data.page.turns;
-      state.threadHistory.nextCursor = update.data.page.nextCursor;
+      state.threadHistory.turns = update.data.history.turns;
       state.threadHistory.loading = false;
       state.turnErrors = [];
       break;
@@ -179,9 +175,7 @@ function handleClick(event) {
     state.activeThreadId = "";
     state.threadHistory = {
       turns: [],
-      nextCursor: null,
       loading: false,
-      loadingOlder: false,
     };
     state.expandedProcessTurns = new Set();
     state.popover = "";
@@ -264,53 +258,6 @@ async function submitComposer() {
   });
   await waitForThreadStarted(result.threadId);
   openThread(result.threadId);
-}
-
-function handleScroll(event) {
-  const scroll = event.target;
-  if (!scroll.matches?.("[data-thread-scroll]")) return;
-  if (scroll.scrollTop > 160) return;
-  void loadOlderTurns(scroll);
-}
-
-async function loadOlderTurns(scroll) {
-  const history = state.threadHistory;
-  const threadID = state.activeThreadId;
-  if (!threadID || history.loading || history.loadingOlder || history.nextCursor === null) return;
-
-  history.loadingOlder = true;
-  const cursor = history.nextCursor;
-  const qs = new URLSearchParams({ cursor });
-  try {
-    const page = await api.fetchJSON(`/api/threads/${encodeURIComponent(threadID)}/turns?${qs.toString()}`);
-    if (state.activeThreadId !== threadID || state.threadHistory.nextCursor !== cursor) return;
-    const anchor = firstVisibleTurn(scroll);
-    const anchorTop = anchor?.getBoundingClientRect().top;
-    history.turns = page.turns.concat(history.turns);
-    history.nextCursor = page.nextCursor;
-    renderer.render();
-    if (anchor) {
-      const currentAnchor = turnElement(scroll, anchor.dataset.turnId);
-      scroll.scrollTop += currentAnchor.getBoundingClientRect().top - anchorTop;
-    }
-  } finally {
-    history.loadingOlder = false;
-  }
-}
-
-function firstVisibleTurn(scroll) {
-  const viewportTop = scroll.getBoundingClientRect().top;
-  for (const turn of scroll.querySelectorAll("[data-turn-id]")) {
-    if (turn.getBoundingClientRect().bottom > viewportTop) return turn;
-  }
-  return null;
-}
-
-function turnElement(scroll, turnID) {
-  for (const turn of scroll.querySelectorAll("[data-turn-id]")) {
-    if (turn.dataset.turnId === turnID) return turn;
-  }
-  throw new Error(`Turn element not found: ${turnID}`);
 }
 
 function waitForThreadStarted(threadID) {

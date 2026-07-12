@@ -147,9 +147,7 @@ const state = {
   activeThreadId: thread.id,
   threadHistory: {
     turns: thread.turns,
-    nextCursor: null,
     loading: false,
-    loadingOlder: false,
   },
 };
 const renderer = context.CodexPanelRenderer.create({

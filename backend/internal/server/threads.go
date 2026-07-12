@@ -40,13 +40,6 @@ func (a *App) handleThreadAction(w http.ResponseWriter, r *http.Request, tail st
 	threadID := parts[0]
 	action := parts[1]
 	switch {
-	case r.Method == http.MethodGet && action == "turns":
-		page, err := a.threads.Turns(threadID, r.URL.Query().Get("cursor"))
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeJSON(w, page)
 	case r.Method == http.MethodPost && action == "send":
 		var req promptRequest
 		readJSON(r, &req)

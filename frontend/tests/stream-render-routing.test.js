@@ -11,8 +11,6 @@ const eventSources = [];
 const renderCalls = [];
 const animationFrames = [];
 let rendererRuntime = null;
-let anchorTop = 80;
-let paginationRendering = false;
 
 class FakeEventSource {
   constructor(url) {
@@ -95,15 +93,6 @@ const context = {
       if (url === "/api/threads") {
         return [officialThread("active")];
       }
-      if (url === "/api/threads/s1/turns?cursor=cursor-1") {
-        paginationRendering = true;
-        const turn = officialTurn("completed", []);
-        turn.id = "turn-older";
-        return {
-          turns: [turn],
-          nextCursor: null,
-        };
-      }
       throw new Error(`unexpected URL ${url}`);
     },
   },
@@ -123,9 +112,7 @@ const context = {
         activeThreadId: "",
         threadHistory: {
           turns: [],
-          nextCursor: null,
           loading: false,
-          loadingOlder: false,
         },
         threadEventSource: null,
         threadListEventSource: null,
@@ -138,7 +125,6 @@ const context = {
       return {
         render() {
           renderCalls.push("render");
-          if (paginationRendering) anchorTop = 480;
         },
         syncComposerState() {},
         composerText() { return ""; },
@@ -179,12 +165,11 @@ vm.runInContext(
     threadId: "s1",
     data: {
       thread: officialThread("active"),
-      page: {
+      history: {
         turns: [officialTurn("inProgress", [
           { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
           { id: "agent-1", type: "agentMessage", text: "Hel", phase: "final_answer", memoryCitation: null },
         ])],
-        nextCursor: null,
       },
     },
   }) });
@@ -302,9 +287,8 @@ vm.runInContext(
     threadId: "s1",
     data: {
       thread: officialThread("idle"),
-      page: {
+      history: {
         turns: [failedTurn],
-        nextCursor: null,
       },
     },
   }) });
@@ -330,32 +314,6 @@ vm.runInContext(
   await flush();
   assert.strictEqual(rendererRuntime.state.turnErrors.length, 0, "new turn should clear prior transient errors");
 
-  rendererRuntime.state.threadHistory.nextCursor = "cursor-1";
-  const anchor = {
-    dataset: { turnId: "turn-1" },
-    getBoundingClientRect() {
-      return { top: anchorTop, bottom: anchorTop + 40 };
-    },
-  };
-  const scroll = {
-    scrollTop: 100,
-    matches(selector) {
-      return selector === "[data-thread-scroll]";
-    },
-    getBoundingClientRect() {
-      return { top: 0 };
-    },
-    querySelectorAll(selector) {
-      assert.strictEqual(selector, "[data-turn-id]");
-      return [anchor];
-    },
-  };
-  listeners.get("scroll")({ target: scroll });
-  await flush();
-  await flush();
-  assert.strictEqual(rendererRuntime.state.threadHistory.turns[0].id, "turn-older");
-  assert.strictEqual(rendererRuntime.state.threadHistory.nextCursor, null);
-  assert.strictEqual(scroll.scrollTop, 500, "prepending history should preserve the visible turn using its measured offset");
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

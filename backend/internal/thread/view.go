@@ -10,14 +10,13 @@ type Summary struct {
 	Name      *string                `json:"name"`
 }
 
-type TurnPage struct {
-	Turns      []appserver.Turn `json:"turns"`
-	NextCursor *string          `json:"nextCursor"`
+type History struct {
+	Turns []appserver.Turn `json:"turns"`
 }
 
 type Snapshot struct {
-	Thread Summary  `json:"thread"`
-	Page   TurnPage `json:"page"`
+	Thread  Summary `json:"thread"`
+	History History `json:"history"`
 }
 
 func summarize(value appserver.Thread) Summary {
@@ -30,24 +29,20 @@ func summarize(value appserver.Thread) Summary {
 	}
 }
 
-func turnPage(response appserver.ThreadTurnsListResponse) TurnPage {
-	page := TurnPage{
-		Turns:      make([]appserver.Turn, len(response.Data)),
-		NextCursor: response.NextCursor,
-	}
+func turnsFromResponse(response appserver.ThreadTurnsListResponse) []appserver.Turn {
+	turns := make([]appserver.Turn, len(response.Data))
 	for index := range response.Data {
-		page.Turns[len(response.Data)-1-index] = cloneTurn(response.Data[index])
+		turns[len(response.Data)-1-index] = cloneTurn(response.Data[index])
 	}
-	return page
+	return turns
 }
 
-func cloneTurnPage(turns []appserver.Turn, nextCursor *string) TurnPage {
-	page := TurnPage{
-		Turns:      make([]appserver.Turn, len(turns)),
-		NextCursor: nextCursor,
+func cloneHistory(turns []appserver.Turn) History {
+	history := History{
+		Turns: make([]appserver.Turn, len(turns)),
 	}
 	for index := range turns {
-		page.Turns[index] = cloneTurn(turns[index])
+		history.Turns[index] = cloneTurn(turns[index])
 	}
-	return page
+	return history
 }

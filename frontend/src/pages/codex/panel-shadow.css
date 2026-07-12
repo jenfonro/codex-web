@@ -530,18 +530,6 @@
   border-right-color: currentColor;
 }
 
-.codex-history-page-loader {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 8px 0 12px;
-  color: var(--color-token-description-foreground);
-  font-size: var(--codex-font-size, 13px);
-  line-height: 18px;
-}
-
 .codex-turn-activity-summary {
   list-style: none;
 }

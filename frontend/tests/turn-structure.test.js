@@ -168,9 +168,7 @@ const state = {
   activeThreadId: thread.id,
   threadHistory: {
     turns: thread.turns,
-    nextCursor: null,
     loading: false,
-    loadingOlder: false,
   },
 };
 const renderer = context.CodexPanelRenderer.create({
@@ -203,9 +201,7 @@ assert.ok(html.includes("Second answer"));
 
 state.threadHistory = {
   turns: [],
-  nextCursor: null,
   loading: true,
-  loadingOlder: false,
 };
 renderer.render();
 const loadingHTML = mountRoot.innerHTML;
@@ -213,5 +209,5 @@ assert.ok(loadingHTML.includes('class="codex-thread-loading-overlay"'));
 assert.ok(loadingHTML.includes("codex-thread-loading-spinner"));
 assert.ok(loadingHTML.includes("正在加载..."));
 assert.ok(loadingHTML.includes("data-codex-turn-list"), "loading must preserve the conversation list structure");
-assert.ok(!loadingHTML.includes("loading-shimmer-pure-text"), "page loading must not render as a streaming message");
+assert.ok(!loadingHTML.includes("loading-shimmer-pure-text"), "thread loading must not render as a streaming message");
 assert.ok(html.includes("上下文已自动压缩"));

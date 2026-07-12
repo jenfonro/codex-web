@@ -82,7 +82,7 @@ func TestManagerListPreservesAppServerTimestamps(t *testing.T) {
 func TestManagerListNeverContainsLoadedHistory(t *testing.T) {
 	backend := newFakeBackend()
 	backend.threads = []appserver.Thread{officialThread("thread-1", "idle", 100, nil)}
-	backend.initialTurns = officialTurnsPage([]appserver.Turn{
+	backend.initialTurns = officialTurnsResponse([]appserver.Turn{
 		officialTurn("turn-1", "completed", rawItems(userMessageItem("user-1", "history"))),
 	}, nil)
 	manager := NewWithBackend(Config{}, backend)
@@ -100,7 +100,7 @@ func TestManagerListNeverContainsLoadedHistory(t *testing.T) {
 	}
 }
 
-func TestManagerPagesHistoryWithAppServerCursor(t *testing.T) {
+func TestManagerLoadsCompleteHistoryWithAppServerCursor(t *testing.T) {
 	backend := newFakeBackend()
 	turns := make([]appserver.Turn, 20)
 	for index := range turns {
@@ -109,10 +109,10 @@ func TestManagerPagesHistoryWithAppServerCursor(t *testing.T) {
 	backend.threads = []appserver.Thread{officialThread("thread-1", "idle", 100, nil)}
 	cursor1 := "cursor-1"
 	cursor2 := "cursor-2"
-	backend.initialTurns = officialTurnsPage(turns[12:20], &cursor1)
+	backend.initialTurns = officialTurnsResponse(turns[12:20], &cursor1)
 	backend.turnPages = map[string]appserver.ThreadTurnsListResponse{
-		cursor1: officialTurnsPage(turns[4:12], &cursor2),
-		cursor2: officialTurnsPage(turns[0:4], nil),
+		cursor1: officialTurnsResponse(turns[4:12], &cursor2),
+		cursor2: officialTurnsResponse(turns[0:4], nil),
 	}
 	manager := NewWithBackend(Config{}, backend)
 	initializeManager(t, manager)
@@ -121,19 +121,14 @@ func TestManagerPagesHistoryWithAppServerCursor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("State() error = %v", err)
 	}
-	assertTurnPage(t, snapshot.Page, 12, 20, cursor1)
-
-	middle, err := manager.Turns("thread-1", *snapshot.Page.NextCursor)
+	assertTurns(t, snapshot.History.Turns, 0, 20)
+	payload, err := json.Marshal(snapshot)
 	if err != nil {
-		t.Fatalf("Turns() middle error = %v", err)
+		t.Fatalf("Marshal() error = %v", err)
 	}
-	assertTurnPage(t, middle, 4, 12, cursor2)
-
-	oldest, err := manager.Turns("thread-1", *middle.NextCursor)
-	if err != nil {
-		t.Fatalf("Turns() oldest error = %v", err)
+	if strings.Contains(string(payload), `"page"`) || strings.Contains(string(payload), `"nextCursor"`) {
+		t.Fatalf("snapshot contains pagination fields: %s", payload)
 	}
-	assertTurnPage(t, oldest, 0, 4, "")
 }
 
 func TestManagerCreateStartsThreadAndTurn(t *testing.T) {
@@ -155,16 +150,16 @@ func TestManagerCreateStartsThreadAndTurn(t *testing.T) {
 	}
 	waitForCondition(t, func() bool {
 		thread, _, err := manager.State("thread-new")
-		return err == nil && len(thread.Page.Turns) == 1 && len(thread.Page.Turns[0].Items) == 0
+		return err == nil && len(thread.History.Turns) == 1 && len(thread.History.Turns[0].Items) == 0
 	})
 
 	backend.emitUserMessage("thread-new", "user-1", "new prompt")
 	waitForCondition(t, func() bool {
 		thread, _, err := manager.State("thread-new")
-		if err != nil || len(thread.Page.Turns) != 1 || len(thread.Page.Turns[0].Items) != 1 {
+		if err != nil || len(thread.History.Turns) != 1 || len(thread.History.Turns[0].Items) != 1 {
 			return false
 		}
-		item := decodeTestJSON[userMessageTestItem](thread.Page.Turns[0].Items[0])
+		item := decodeTestJSON[userMessageTestItem](thread.History.Turns[0].Items[0])
 		return err == nil &&
 			item.Type == "userMessage" &&
 			item.Content[0].Text == "new prompt"
@@ -211,7 +206,7 @@ func TestManagerSendDoesNotReplaceStateWithResumeResponse(t *testing.T) {
 	}
 }
 
-func TestManagerStateLoadsOfficialTurnPageItems(t *testing.T) {
+func TestManagerStateLoadsOfficialHistoryItems(t *testing.T) {
 	backend := newFakeBackend()
 	turn := officialTurn("turn-1", "completed", rawItems(
 		userMessageItem("user-1", "inspect"),
@@ -221,7 +216,7 @@ func TestManagerStateLoadsOfficialTurnPageItems(t *testing.T) {
 	))
 	turn.StartedAt = int64Ptr(100)
 	backend.threads = []appserver.Thread{officialThread("thread-1", "idle", 100, []appserver.Turn{})}
-	backend.initialTurns = officialTurnsPage([]appserver.Turn{turn}, nil)
+	backend.initialTurns = officialTurnsResponse([]appserver.Turn{turn}, nil)
 	manager := NewWithBackend(Config{RootDir: "/workspace"}, backend)
 	initializeManager(t, manager)
 
@@ -229,10 +224,10 @@ func TestManagerStateLoadsOfficialTurnPageItems(t *testing.T) {
 	if err != nil {
 		t.Fatalf("State() error = %v", err)
 	}
-	if len(thread.Page.Turns) != 1 {
-		t.Fatalf("state items = %#v", thread.Page.Turns[0].Items)
+	if len(thread.History.Turns) != 1 {
+		t.Fatalf("state items = %#v", thread.History.Turns[0].Items)
 	}
-	items := thread.Page.Turns[0].Items
+	items := thread.History.Turns[0].Items
 	if len(items) != 4 {
 		t.Fatalf("state item count = %d, want 4", len(items))
 	}
@@ -249,7 +244,7 @@ func TestManagerStateLoadsOfficialTurnPageItems(t *testing.T) {
 func TestManagerStateReadsHistoryAfterLiveTurnStarts(t *testing.T) {
 	backend := newFakeBackend()
 	backend.threads = []appserver.Thread{officialThread("thread-1", "idle", 100, []appserver.Turn{})}
-	backend.initialTurns = officialTurnsPage([]appserver.Turn{
+	backend.initialTurns = officialTurnsResponse([]appserver.Turn{
 		officialTurn("turn-old", "completed", rawItems(userMessageItem("user-old", "earlier"))),
 		officialTurn("turn-live", "inProgress", rawItems(userMessageItem("user-live", "current"))),
 	}, nil)
@@ -270,8 +265,8 @@ func TestManagerStateReadsHistoryAfterLiveTurnStarts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("State() error = %v", err)
 	}
-	if len(thread.Page.Turns) != 2 || thread.Page.Turns[0].ID != "turn-old" || thread.Page.Turns[1].ID != "turn-live" {
-		t.Fatalf("turns = %#v", thread.Page.Turns)
+	if len(thread.History.Turns) != 2 || thread.History.Turns[0].ID != "turn-old" || thread.History.Turns[1].ID != "turn-live" {
+		t.Fatalf("turns = %#v", thread.History.Turns)
 	}
 }
 
@@ -370,10 +365,10 @@ func TestManagerCompletedToolNotificationPreservesTerminalStatus(t *testing.T) {
 
 			waitForCondition(t, func() bool {
 				thread, _, err := manager.State("thread-1")
-				if err != nil || len(thread.Page.Turns) != 1 || len(thread.Page.Turns[0].Items) != 1 {
+				if err != nil || len(thread.History.Turns) != 1 || len(thread.History.Turns[0].Items) != 1 {
 					return false
 				}
-				return decodeTestJSON[statusTestItem](thread.Page.Turns[0].Items[0]).Status == test.status
+				return decodeTestJSON[statusTestItem](thread.History.Turns[0].Items[0]).Status == test.status
 			})
 		})
 	}
@@ -398,10 +393,10 @@ func TestManagerAssistantDeltaUpdatesSameSequence(t *testing.T) {
 	}))
 	waitForCondition(t, func() bool {
 		thread, _, err := manager.State("thread-1")
-		if err != nil || len(thread.Page.Turns) != 1 || len(thread.Page.Turns[0].Items) != 1 {
+		if err != nil || len(thread.History.Turns) != 1 || len(thread.History.Turns[0].Items) != 1 {
 			return false
 		}
-		return decodeTestJSON[agentMessageTestItem](thread.Page.Turns[0].Items[0]).Text == "Hello"
+		return decodeTestJSON[agentMessageTestItem](thread.History.Turns[0].Items[0]).Text == "Hello"
 	})
 }
 
@@ -424,10 +419,10 @@ func TestManagerAssistantDeltaPreservesWhitespace(t *testing.T) {
 	}))
 	waitForCondition(t, func() bool {
 		thread, _, err := manager.State("thread-1")
-		if err != nil || len(thread.Page.Turns) != 1 || len(thread.Page.Turns[0].Items) != 1 {
+		if err != nil || len(thread.History.Turns) != 1 || len(thread.History.Turns[0].Items) != 1 {
 			return false
 		}
-		return decodeTestJSON[agentMessageTestItem](thread.Page.Turns[0].Items[0]).Text == "Streaming output"
+		return decodeTestJSON[agentMessageTestItem](thread.History.Turns[0].Items[0]).Text == "Streaming output"
 	})
 }
 
@@ -450,10 +445,10 @@ func TestManagerToolOutputDeltaPreservesWhitespace(t *testing.T) {
 	}))
 	waitForCondition(t, func() bool {
 		thread, _, err := manager.State("thread-1")
-		if err != nil || len(thread.Page.Turns) != 1 || len(thread.Page.Turns[0].Items) != 1 {
+		if err != nil || len(thread.History.Turns) != 1 || len(thread.History.Turns[0].Items) != 1 {
 			return false
 		}
-		output := decodeTestJSON[commandExecutionTestItem](thread.Page.Turns[0].Items[0]).AggregatedOutput
+		output := decodeTestJSON[commandExecutionTestItem](thread.History.Turns[0].Items[0]).AggregatedOutput
 		return *output == "line one\n  line two"
 	})
 }
@@ -491,10 +486,10 @@ func TestManagerReasoningAndPlanDeltasUpdateOfficialItems(t *testing.T) {
 
 	waitForCondition(t, func() bool {
 		thread, _, err := manager.State("thread-1")
-		if err != nil || len(thread.Page.Turns) != 1 || len(thread.Page.Turns[0].Items) != 1 {
+		if err != nil || len(thread.History.Turns) != 1 || len(thread.History.Turns[0].Items) != 1 {
 			return false
 		}
-		item := decodeTestJSON[reasoningTestItem](thread.Page.Turns[0].Items[0])
+		item := decodeTestJSON[reasoningTestItem](thread.History.Turns[0].Items[0])
 		if len(item.Summary) != 1 || len(item.Content) != 1 {
 			return false
 		}
@@ -520,10 +515,10 @@ func TestManagerReasoningAndPlanDeltasUpdateOfficialItems(t *testing.T) {
 
 	waitForCondition(t, func() bool {
 		thread, _, err := manager.State("thread-1")
-		if err != nil || len(thread.Page.Turns) != 1 || len(thread.Page.Turns[0].Items) != 2 {
+		if err != nil || len(thread.History.Turns) != 1 || len(thread.History.Turns[0].Items) != 2 {
 			return false
 		}
-		return decodeTestJSON[planTestItem](thread.Page.Turns[0].Items[1]).Text == "Plan text"
+		return decodeTestJSON[planTestItem](thread.History.Turns[0].Items[1]).Text == "Plan text"
 	})
 }
 
@@ -546,10 +541,10 @@ func TestManagerAgentMessageCompletedReplacesStartedItem(t *testing.T) {
 	}))
 	waitForCondition(t, func() bool {
 		thread, _, err := manager.State("thread-1")
-		if err != nil || len(thread.Page.Turns) != 1 || len(thread.Page.Turns[0].Items) != 1 {
+		if err != nil || len(thread.History.Turns) != 1 || len(thread.History.Turns[0].Items) != 1 {
 			return false
 		}
-		item := decodeTestJSON[agentMessageTestItem](thread.Page.Turns[0].Items[0])
+		item := decodeTestJSON[agentMessageTestItem](thread.History.Turns[0].Items[0])
 		return item.Text == "partial answer" &&
 			*item.Phase == "final_answer"
 	})
@@ -575,10 +570,10 @@ func TestManagerTurnCompletedUsesCompletedTurn(t *testing.T) {
 
 	waitForCondition(t, func() bool {
 		thread, _, err := manager.State("thread-1")
-		if err != nil || len(thread.Page.Turns) != 1 || thread.Page.Turns[0].Status != "completed" || len(thread.Page.Turns[0].Items) != 1 {
+		if err != nil || len(thread.History.Turns) != 1 || thread.History.Turns[0].Status != "completed" || len(thread.History.Turns[0].Items) != 1 {
 			return false
 		}
-		return decodeTestJSON[agentMessageTestItem](thread.Page.Turns[0].Items[0]).Text == "final answer"
+		return decodeTestJSON[agentMessageTestItem](thread.History.Turns[0].Items[0]).Text == "final answer"
 	})
 }
 
@@ -588,7 +583,7 @@ func TestManagerPublishesOfficialTurnErrors(t *testing.T) {
 	seedThread(t, manager, backend)
 	waitForCondition(t, func() bool {
 		thread, _, err := manager.State("thread-1")
-		return err == nil && len(thread.Page.Turns) == 1
+		return err == nil && len(thread.History.Turns) == 1
 	})
 	updates, unsubscribe := manager.Subscribe()
 	defer unsubscribe()
@@ -638,10 +633,10 @@ func TestManagerTurnCompletedPreservesOfficialError(t *testing.T) {
 	waitForCondition(t, func() bool {
 		thread, _, err := manager.State("thread-1")
 		return err == nil &&
-			len(thread.Page.Turns) == 1 &&
-			thread.Page.Turns[0].Status == "failed" &&
-			thread.Page.Turns[0].Error != nil &&
-			thread.Page.Turns[0].Error.Message == completed.Error.Message
+			len(thread.History.Turns) == 1 &&
+			thread.History.Turns[0].Status == "failed" &&
+			thread.History.Turns[0].Error != nil &&
+			thread.History.Turns[0].Error.Message == completed.Error.Message
 	})
 }
 
@@ -658,10 +653,10 @@ func TestManagerAgentMessageStartedStoresOfficialItem(t *testing.T) {
 
 	waitForCondition(t, func() bool {
 		thread, _, err := manager.State("thread-1")
-		if err != nil || len(thread.Page.Turns) != 1 || len(thread.Page.Turns[0].Items) != 1 {
+		if err != nil || len(thread.History.Turns) != 1 || len(thread.History.Turns[0].Items) != 1 {
 			return false
 		}
-		return decodeTestJSON[agentMessageTestItem](thread.Page.Turns[0].Items[0]).Type == "agentMessage"
+		return decodeTestJSON[agentMessageTestItem](thread.History.Turns[0].Items[0]).Type == "agentMessage"
 	})
 
 	backend.emit(notification("item/agentMessage/delta", map[string]any{
@@ -672,10 +667,10 @@ func TestManagerAgentMessageStartedStoresOfficialItem(t *testing.T) {
 	}))
 	waitForCondition(t, func() bool {
 		thread, _, err := manager.State("thread-1")
-		if err != nil || len(thread.Page.Turns) != 1 || len(thread.Page.Turns[0].Items) != 1 {
+		if err != nil || len(thread.History.Turns) != 1 || len(thread.History.Turns[0].Items) != 1 {
 			return false
 		}
-		return decodeTestJSON[agentMessageTestItem](thread.Page.Turns[0].Items[0]).Text == "partial"
+		return decodeTestJSON[agentMessageTestItem](thread.History.Turns[0].Items[0]).Text == "partial"
 	})
 }
 
@@ -704,7 +699,7 @@ func newFakeBackend() *fakeBackend {
 func seedThread(t *testing.T, manager *Manager, backend *fakeBackend) {
 	t.Helper()
 	backend.threads = []appserver.Thread{officialThread("thread-1", "idle", 100, []appserver.Turn{})}
-	backend.initialTurns = officialTurnsPage(nil, nil)
+	backend.initialTurns = officialTurnsResponse(nil, nil)
 	initializeManager(t, manager)
 	if _, _, err := manager.State("thread-1"); err != nil {
 		t.Fatalf("State() error = %v", err)
@@ -989,29 +984,20 @@ func assertTurnErrorUpdate(t *testing.T, updates <-chan StateUpdate, want appser
 	}
 }
 
-func assertTurnPage(t *testing.T, page TurnPage, start, end int, nextCursor string) {
+func assertTurns(t *testing.T, turns []appserver.Turn, start, end int) {
 	t.Helper()
-	if len(page.Turns) != end-start {
-		t.Fatalf("page len = %d, want %d", len(page.Turns), end-start)
+	if len(turns) != end-start {
+		t.Fatalf("turns len = %d, want %d", len(turns), end-start)
 	}
-	for index, turn := range page.Turns {
+	for index, turn := range turns {
 		want := fmt.Sprintf("turn-%02d", start+index)
 		if turn.ID != want {
-			t.Fatalf("page turn %d = %q, want %q", index, turn.ID, want)
+			t.Fatalf("turn %d = %q, want %q", index, turn.ID, want)
 		}
-	}
-	if nextCursor == "" {
-		if page.NextCursor != nil {
-			t.Fatalf("nextCursor = %q, want nil", *page.NextCursor)
-		}
-		return
-	}
-	if page.NextCursor == nil || *page.NextCursor != nextCursor {
-		t.Fatalf("nextCursor = %#v, want %q", page.NextCursor, nextCursor)
 	}
 }
 
-func officialTurnsPage(turns []appserver.Turn, nextCursor *string) appserver.ThreadTurnsListResponse {
+func officialTurnsResponse(turns []appserver.Turn, nextCursor *string) appserver.ThreadTurnsListResponse {
 	data := make([]appserver.Turn, len(turns))
 	for index := range turns {
 		data[len(turns)-1-index] = turns[index]
