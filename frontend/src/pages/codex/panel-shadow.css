@@ -543,16 +543,10 @@
 .codex-turn-activity-collapsible {
   block-size: 0;
   overflow: clip;
-  opacity: 0;
-  interpolate-size: allow-keywords;
-  transition:
-    block-size 220ms cubic-bezier(.2, .8, .2, 1),
-    opacity 180ms ease;
 }
 
 .codex-turn-activity-details[data-state="open"] .codex-turn-activity-collapsible {
   block-size: auto;
-  opacity: 1;
 }
 
 .codex-turn-activity-clip {
@@ -565,12 +559,24 @@
 
 .codex-turn-activity-expanded {
   padding-top: var(--conversation-tool-assistant-gap, 8px);
-  transform: translateY(6px);
-  transition: transform 220ms cubic-bezier(.2, .8, .2, 1);
 }
 
 .codex-turn-activity-details[data-state="open"] .codex-turn-activity-expanded {
-  transform: translateY(0);
+  animation: codex-turn-activity-expand 220ms cubic-bezier(.2, .8, .2, 1);
+}
+
+@keyframes codex-turn-activity-expand {
+  from {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    clip-path: inset(0);
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .codex-tool-disclosure,

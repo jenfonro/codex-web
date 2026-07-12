@@ -22,7 +22,6 @@
   const threadStartedWaiters = new Map();
   const stateUpdateQueue = [];
   let stateUpdateFrame = 0;
-  let activityScrollAnimation = null;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });
@@ -170,7 +169,12 @@ function handleClick(event) {
     activityToggle.setAttribute("aria-expanded", String(expanded));
     const content = activity.querySelector("[data-codex-turn-activity-content]");
     content.setAttribute("aria-hidden", String(!expanded));
-    followActivityExpansion(scroll, content, followBottom);
+    if (followBottom) {
+      scroll.scrollTo({
+        top: scroll.scrollHeight,
+        behavior: "smooth",
+      });
+    }
     return;
   }
 
@@ -273,36 +277,6 @@ async function submitComposer() {
 
 function isScrollNearBottom(scroll) {
   return scroll && scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 80;
-}
-
-function followActivityExpansion(scroll, content, enabled) {
-  if (activityScrollAnimation) activityScrollAnimation();
-  activityScrollAnimation = null;
-  if (!enabled) return;
-
-  let frame = 0;
-  const stop = () => {
-    if (activityScrollAnimation === stop) activityScrollAnimation = null;
-    global.cancelAnimationFrame(frame);
-    content.removeEventListener("transitionend", finish);
-    content.removeEventListener("transitioncancel", finish);
-    scroll.removeEventListener("wheel", stop);
-    scroll.removeEventListener("touchmove", stop);
-  };
-  const finish = (event) => {
-    if (event.target === content && event.propertyName === "height") stop();
-  };
-  const keepAtBottom = () => {
-    scroll.scrollTop = scroll.scrollHeight;
-    frame = global.requestAnimationFrame(keepAtBottom);
-  };
-
-  activityScrollAnimation = stop;
-  content.addEventListener("transitionend", finish);
-  content.addEventListener("transitioncancel", finish);
-  scroll.addEventListener("wheel", stop, { once: true, passive: true });
-  scroll.addEventListener("touchmove", stop, { once: true, passive: true });
-  frame = global.requestAnimationFrame(keepAtBottom);
 }
 
 function waitForThreadStarted(threadID) {
