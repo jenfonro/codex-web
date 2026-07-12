@@ -437,7 +437,7 @@ func (c *Client) deliverResponse(id string, result json.RawMessage, rpcErr *RPCE
 	delete(c.pending, id)
 	c.mu.Unlock()
 	if ch == nil {
-		panic("unexpected app-server response id: " + id)
+		return
 	}
 	if rpcErr != nil {
 		ch <- rpcResult{err: rpcErr}
