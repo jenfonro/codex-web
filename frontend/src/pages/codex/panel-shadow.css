@@ -568,8 +568,17 @@
   min-width: 0;
 }
 
+.codex-turn-activity-collapsible {
+  transform-origin: top;
+}
+
 .codex-turn-activity-collapsible[hidden] {
   display: none;
+}
+
+.codex-turn-activity-collapsible[data-codex-activity-animating] {
+  overflow: hidden;
+  will-change: height, opacity, transform;
 }
 
 .codex-turn-activity-details[data-state="open"] .codex-turn-activity-chevron {
@@ -579,22 +588,6 @@
 .codex-turn-activity-gap {
   width: 100%;
   height: var(--conversation-item-gap, var(--conversation-tool-assistant-gap, 16px));
-}
-
-.codex-turn-activity-collapsible[data-codex-activity-entering="true"] {
-  animation: codex-turn-activity-enter 220ms cubic-bezier(.33, 1, .68, 1) both;
-}
-
-@keyframes codex-turn-activity-enter {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .codex-tool-disclosure,

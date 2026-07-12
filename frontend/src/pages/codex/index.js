@@ -21,8 +21,12 @@
   const renderer = rendererFactory.create(runtime);
   const threadStartedWaiters = new Map();
   const stateUpdateQueue = [];
+  const activityAnimationCleanups = new WeakMap();
+  const ACTIVITY_ANIMATION_MS = 220;
+  const ACTIVITY_ANIMATION_EASING = "cubic-bezier(.33, 1, .68, 1)";
+  const ACTIVITY_ANCHOR_MS = 340;
   let stateUpdateFrame = 0;
-  let activityEnterAnimationSerial = 0;
+  let activityAnimationSerial = 0;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });
@@ -166,19 +170,10 @@ function handleClick(event) {
     const expanded = activity.dataset.state !== "open";
     const scroll = activity.closest("[data-thread-scroll]");
     const content = activity.querySelector("[data-codex-turn-activity-content]");
-    preserveActivityTogglePosition(activityToggle, activity, scroll);
+    preserveActivityTogglePosition(activityToggle, activity, scroll, ACTIVITY_ANCHOR_MS);
     activityToggle.setAttribute("aria-expanded", String(expanded));
-    if (expanded) {
-      content.hidden = false;
-      content.setAttribute("aria-hidden", "false");
-      activity.dataset.state = "open";
-      startActivityEnterAnimation(content);
-    } else {
-      clearActivityEnterAnimation(content);
-      activity.dataset.state = "closed";
-      content.setAttribute("aria-hidden", "true");
-      content.hidden = true;
-    }
+    activity.dataset.state = expanded ? "open" : "closed";
+    animateActivityContent(content, expanded);
     return;
   }
 
@@ -279,18 +274,16 @@ async function submitComposer() {
   openThread(result.threadId);
 }
 
-function preserveActivityTogglePosition(toggle, activity, scroll) {
+function preserveActivityTogglePosition(toggle, activity, scroll, durationMs = 250) {
   if (!scroll) return;
 
   const keepBottom = isScrollNearBottom(scroll);
-  let scrollHeight = scroll.scrollHeight;
+  const bottomOffset = Math.max(0, scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight);
   const top = toggle.getBoundingClientRect().top;
   let frame = 0;
   const adjust = () => {
     if (keepBottom) {
-      const nextScrollHeight = scroll.scrollHeight;
-      scroll.scrollTop += nextScrollHeight - scrollHeight;
-      scrollHeight = nextScrollHeight;
+      scroll.scrollTop = Math.max(0, scroll.scrollHeight - scroll.clientHeight - bottomOffset);
       return;
     }
     if (toggle.isConnected) {
@@ -322,30 +315,100 @@ function preserveActivityTogglePosition(toggle, activity, scroll) {
   global.setTimeout(() => {
     if (frame) global.cancelAnimationFrame(frame);
     observer?.disconnect();
-  }, 250);
+  }, durationMs);
 }
 
 function isScrollNearBottom(scroll) {
   return scroll && scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 80;
 }
 
-function startActivityEnterAnimation(content) {
-  activityEnterAnimationSerial += 1;
-  const token = String(activityEnterAnimationSerial);
-  content.dataset.codexActivityEntering = "true";
-  content.dataset.codexActivityEnterToken = token;
-  const clear = () => {
-    if (content.dataset.codexActivityEnterToken === token) {
-      clearActivityEnterAnimation(content);
-    }
+function animateActivityContent(content, expanded) {
+  if (!content) return;
+
+  cancelActivityContentAnimation(content);
+  activityAnimationSerial += 1;
+  const token = String(activityAnimationSerial);
+  const reducedMotion = global.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
+
+  if (!content.style || reducedMotion) {
+    content.hidden = !expanded;
+    content.setAttribute("aria-hidden", String(!expanded));
+    resetActivityContentStyle(content);
+    return;
+  }
+
+  const wasHidden = content.hidden;
+  content.hidden = false;
+  content.setAttribute("aria-hidden", String(!expanded));
+  content.dataset.codexActivityAnimating = expanded ? "expand" : "collapse";
+  content.dataset.codexActivityAnimationToken = token;
+
+  const startHeight = expanded
+    ? (wasHidden ? 0 : activityContentCurrentHeight(content))
+    : activityContentCurrentHeight(content);
+  const endHeight = expanded ? content.scrollHeight : 0;
+
+  content.style.transition = "none";
+  content.style.overflow = "hidden";
+  content.style.pointerEvents = expanded ? "auto" : "none";
+  content.style.willChange = "height, opacity, transform";
+  content.style.height = `${Math.max(0, startHeight)}px`;
+  content.style.opacity = expanded && wasHidden ? "0" : "1";
+  content.style.transform = expanded && wasHidden ? "translateY(-8px)" : "translateY(0)";
+
+  void content.offsetHeight;
+
+  const finish = () => {
+    if (content.dataset.codexActivityAnimationToken !== token) return;
+    cancelActivityContentAnimation(content);
+    content.hidden = !expanded;
+    resetActivityContentStyle(content);
   };
-  content.addEventListener?.("animationend", clear, { once: true });
-  global.setTimeout(clear, 260);
+  const finishOnTransitionEnd = (event) => {
+    if (event.target !== content || event.propertyName !== "height") return;
+    finish();
+  };
+  const timeout = global.setTimeout(finish, ACTIVITY_ANIMATION_MS + 80);
+  activityAnimationCleanups.set(content, () => {
+    global.clearTimeout(timeout);
+    content.removeEventListener?.("transitionend", finishOnTransitionEnd);
+  });
+
+  content.addEventListener?.("transitionend", finishOnTransitionEnd);
+  content.style.transition = [
+    `height ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
+    `opacity ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
+    `transform ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
+  ].join(", ");
+  content.style.height = `${Math.max(0, endHeight)}px`;
+  content.style.opacity = expanded ? "1" : "0";
+  content.style.transform = expanded ? "translateY(0)" : "translateY(-8px)";
 }
 
-function clearActivityEnterAnimation(content) {
-  delete content.dataset.codexActivityEntering;
-  delete content.dataset.codexActivityEnterToken;
+function activityContentCurrentHeight(content) {
+  const rectHeight = content.getBoundingClientRect?.().height;
+  if (Number.isFinite(rectHeight) && rectHeight > 0) return rectHeight;
+  if (Number.isFinite(content.offsetHeight) && content.offsetHeight > 0) return content.offsetHeight;
+  return content.scrollHeight || 0;
+}
+
+function cancelActivityContentAnimation(content) {
+  const cleanup = activityAnimationCleanups.get(content);
+  if (!cleanup) return;
+  cleanup();
+  activityAnimationCleanups.delete(content);
+}
+
+function resetActivityContentStyle(content) {
+  content.style?.removeProperty("height");
+  content.style?.removeProperty("opacity");
+  content.style?.removeProperty("overflow");
+  content.style?.removeProperty("pointer-events");
+  content.style?.removeProperty("transform");
+  content.style?.removeProperty("transition");
+  content.style?.removeProperty("will-change");
+  delete content.dataset.codexActivityAnimating;
+  delete content.dataset.codexActivityAnimationToken;
 }
 
 function waitForThreadStarted(threadID) {

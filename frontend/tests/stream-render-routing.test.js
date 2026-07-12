@@ -17,9 +17,39 @@ let activityState = "closed";
 let activityAriaExpanded = "false";
 let activityAriaHidden = "true";
 const turnNode = {};
+const activityContentListeners = new Map();
+function createStyle() {
+  return {
+    height: "",
+    opacity: "",
+    overflow: "",
+    pointerEvents: "",
+    transform: "",
+    transition: "",
+    willChange: "",
+    removeProperty(name) {
+      this[name.replace(/-([a-z])/g, (_, value) => value.toUpperCase())] = "";
+    },
+  };
+}
 const activityContent = {
   dataset: {},
   hidden: true,
+  offsetHeight: 0,
+  scrollHeight: 60,
+  style: createStyle(),
+  addEventListener(type, callback) {
+    activityContentListeners.set(type, callback);
+  },
+  removeEventListener(type, callback) {
+    if (activityContentListeners.get(type) === callback) activityContentListeners.delete(type);
+  },
+  dispatchTransitionEnd(propertyName = "height") {
+    activityContentListeners.get("transitionend")?.({ target: this, propertyName });
+  },
+  getBoundingClientRect() {
+    return { height: Number.parseFloat(this.style.height) || this.scrollHeight };
+  },
   setAttribute(name, value) {
     if (name === "aria-hidden") activityAriaHidden = value;
   },
@@ -244,12 +274,38 @@ vm.runInContext(
   assert.strictEqual(activityAriaExpanded, "true");
   assert.strictEqual(activityAriaHidden, "false");
   assert.strictEqual(activityContent.hidden, false);
-  assert.strictEqual(activityContent.dataset.codexActivityEntering, "true");
+  assert.strictEqual(activityContent.dataset.codexActivityAnimating, "expand");
+  assert.strictEqual(activityContent.style.height, "60px");
   threadScroll.scrollHeight = 1060;
   resizeObserver.trigger();
   assert.strictEqual(threadScroll.scrollTop, 760, "activity expansion near the bottom should absorb inserted height");
   flushAnimationFrame();
   assert.strictEqual(threadScroll.scrollTop, 760, "bottom anchor must settle after one animation frame");
+  activityContent.dispatchTransitionEnd();
+  assert.strictEqual(activityContent.dataset.codexActivityAnimating, undefined);
+  assert.strictEqual(activityContent.style.height, "");
+  click({
+    target: {
+      closest(selector) {
+        if (selector === "[data-codex-turn-activity-toggle]") return activityToggle;
+        return null;
+      },
+    },
+  });
+  assert.strictEqual(activityState, "closed");
+  assert.strictEqual(activityAriaExpanded, "false");
+  assert.strictEqual(activityAriaHidden, "true");
+  assert.strictEqual(activityContent.hidden, false, "collapse should keep content mounted until the height transition finishes");
+  assert.strictEqual(activityContent.dataset.codexActivityAnimating, "collapse");
+  assert.strictEqual(activityContent.style.height, "0px");
+  threadScroll.scrollHeight = 1000;
+  resizeObserver.trigger();
+  assert.strictEqual(threadScroll.scrollTop, 700, "activity collapse near the bottom should restore the previous bottom");
+  flushAnimationFrame();
+  assert.strictEqual(threadScroll.scrollTop, 700, "bottom anchor should settle after collapse");
+  activityContent.dispatchTransitionEnd();
+  assert.strictEqual(activityContent.hidden, true);
+  assert.strictEqual(activityContent.dataset.codexActivityAnimating, undefined);
 
   threadScroll.scrollTop = 100;
   activityToggle.documentTop = 150;
@@ -261,19 +317,10 @@ vm.runInContext(
       },
     },
   });
-  assert.strictEqual(activityContent.hidden, true);
-  assert.strictEqual(activityContent.dataset.codexActivityEntering, undefined);
-  click({
-    target: {
-      closest(selector) {
-        if (selector === "[data-codex-turn-activity-toggle]") return activityToggle;
-        return null;
-      },
-    },
-  });
   assert.strictEqual(activityState, "open");
   assert.strictEqual(activityContent.hidden, false);
   assert.strictEqual(threadScroll.scrollTop, 100, "activity expansion must preserve a reading position away from the bottom");
+  activityContent.dispatchTransitionEnd();
   while (animationFrames.size > 0) flushAnimationFrame();
 
   const row = {
