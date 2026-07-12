@@ -541,22 +541,22 @@
 }
 
 .codex-turn-activity-collapsible {
-  display: grid;
-  grid-template-rows: 0fr;
+  block-size: 0;
+  overflow: clip;
   opacity: 0;
+  interpolate-size: allow-keywords;
   transition:
-    grid-template-rows 220ms cubic-bezier(.2, .8, .2, 1),
+    block-size 220ms cubic-bezier(.2, .8, .2, 1),
     opacity 180ms ease;
 }
 
 .codex-turn-activity-details[data-state="open"] .codex-turn-activity-collapsible {
-  grid-template-rows: 1fr;
+  block-size: auto;
   opacity: 1;
 }
 
 .codex-turn-activity-clip {
-  min-height: 0;
-  overflow: hidden;
+  min-block-size: 0;
 }
 
 .codex-turn-activity-details[data-state="open"] .codex-turn-activity-chevron {

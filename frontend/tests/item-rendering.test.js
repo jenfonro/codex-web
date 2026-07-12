@@ -192,6 +192,7 @@ assert.ok(collapsedProcessHTML.includes("codex-turn-activity-summary"), "collaps
 assert.ok(collapsedProcessHTML.includes('class="codex-turn-activity-details" data-state="closed"'));
 assert.ok(collapsedProcessHTML.includes('aria-expanded="false" data-codex-turn-activity-toggle'));
 assert.ok(collapsedProcessHTML.includes('aria-hidden="true" data-codex-turn-activity-content'));
+assert.ok(collapsedProcessHTML.includes("codex-turn-activity-collapsible"));
 assert.ok(collapsedProcessHTML.includes("codex-reasoning-disclosure"), "collapsed activity must retain reasoning body for animation");
 assert.ok(collapsedProcessHTML.includes("codex-command-disclosure"), "collapsed activity must retain command body for animation");
 assert.ok(collapsedProcessHTML.includes("codex-patch-file-list"), "collapsed activity must retain file changes for animation");

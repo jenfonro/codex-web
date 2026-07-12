@@ -10,7 +10,51 @@ const listeners = new Map();
 const eventSources = [];
 const renderCalls = [];
 const animationFrames = [];
+let nextAnimationFrame = 0;
 let rendererRuntime = null;
+let activityState = "closed";
+let activityAriaExpanded = "false";
+let activityAriaHidden = "true";
+let activityTransitionEnd = null;
+const activityContent = {
+  setAttribute(name, value) {
+    if (name === "aria-hidden") activityAriaHidden = value;
+  },
+  addEventListener(type, handler) {
+    if (type === "transitionend") activityTransitionEnd = handler;
+  },
+  removeEventListener() {},
+};
+const threadScroll = {
+  scrollTop: 700,
+  scrollHeight: 1000,
+  clientHeight: 300,
+  addEventListener() {},
+  removeEventListener() {},
+};
+const activity = {
+  dataset: {
+    get state() { return activityState; },
+    set state(value) { activityState = value; },
+  },
+  closest(selector) {
+    if (selector === "[data-thread-scroll]") return threadScroll;
+    return null;
+  },
+  querySelector(selector) {
+    if (selector === "[data-codex-turn-activity-content]") return activityContent;
+    return null;
+  },
+};
+const activityToggle = {
+  closest(selector) {
+    if (selector === "[data-codex-turn-activity]") return activity;
+    return null;
+  },
+  setAttribute(name, value) {
+    if (name === "aria-expanded") activityAriaExpanded = value;
+  },
+};
 
 class FakeEventSource {
   constructor(url) {
@@ -29,7 +73,7 @@ function flush() {
 }
 
 function flushAnimationFrame() {
-  animationFrames.shift()();
+  animationFrames.shift().callback();
 }
 
 function officialTurn(status, items) {
@@ -78,8 +122,13 @@ const context = {
   setTimeout,
   clearTimeout,
   requestAnimationFrame(callback) {
-    animationFrames.push(callback);
-    return animationFrames.length;
+    nextAnimationFrame += 1;
+    animationFrames.push({ id: nextAnimationFrame, callback });
+    return nextAnimationFrame;
+  },
+  cancelAnimationFrame(id) {
+    const index = animationFrames.findIndex((frame) => frame.id === id);
+    if (index >= 0) animationFrames.splice(index, 1);
   },
   location: { search: "" },
   CodexIcons: { svg() { return ""; } },
@@ -157,6 +206,43 @@ vm.runInContext(
 
   const click = listeners.get("click");
   assert.ok(click, "click listener should be registered");
+
+  click({
+    target: {
+      closest(selector) {
+        if (selector === "[data-codex-turn-activity-toggle]") return activityToggle;
+        return null;
+      },
+    },
+  });
+  assert.strictEqual(activityState, "open");
+  assert.strictEqual(activityAriaExpanded, "true");
+  assert.strictEqual(activityAriaHidden, "false");
+  threadScroll.scrollHeight = 1400;
+  flushAnimationFrame();
+  assert.strictEqual(threadScroll.scrollTop, 1400, "activity expansion should follow the bottom edge");
+  activityTransitionEnd({ target: activityContent, propertyName: "height" });
+
+  threadScroll.scrollTop = 100;
+  click({
+    target: {
+      closest(selector) {
+        if (selector === "[data-codex-turn-activity-toggle]") return activityToggle;
+        return null;
+      },
+    },
+  });
+  click({
+    target: {
+      closest(selector) {
+        if (selector === "[data-codex-turn-activity-toggle]") return activityToggle;
+        return null;
+      },
+    },
+  });
+  assert.strictEqual(activityState, "open");
+  assert.strictEqual(threadScroll.scrollTop, 100, "activity expansion must preserve a reading position away from the bottom");
+  assert.strictEqual(animationFrames.length, 0, "activity expansion away from the bottom must not start scroll following");
 
   const row = {
     dataset: { codexThreadId: "s1" },
