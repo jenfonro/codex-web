@@ -81,6 +81,7 @@ const activityTemplate = {
   },
 };
 const threadScroll = {
+  isConnected: true,
   scrollTop: 700,
   scrollHeight: 1000,
   clientHeight: 300,
@@ -307,10 +308,14 @@ vm.runInContext(
   assert.strictEqual(activityContentConnected, true);
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, "expand");
   assert.strictEqual(activityContent.style.height, "");
-  assert.ok(activityContent.style.transition.includes("clip-path"), "activity expansion should visually reveal content instead of only fading it in");
-  assert.strictEqual(activityContent.style.willChange, "opacity, transform, clip-path");
+  assert.ok(activityContent.style.transition.includes("opacity 220ms cubic-bezier(.33, 1, .68, 1)"));
+  assert.ok(activityContent.style.transition.includes("transform 220ms cubic-bezier(.33, 1, .68, 1)"));
+  assert.ok(!activityContent.style.transition.includes("height"), "official activity expansion does not animate layout height");
+  assert.ok(!activityContent.style.transition.includes("clip-path"), "activity expansion must not rely on a custom clipping patch");
+  assert.strictEqual(activityContent.style.willChange, "opacity, transform");
+  assert.strictEqual(threadScroll.scrollTop, 700, "bottom expansion preserves distance from bottom on the next layout frame");
   flushAnimationFrame();
-  assert.strictEqual(threadScroll.scrollTop, 760, "bottom expansion should move with the inserted activity content");
+  assert.strictEqual(threadScroll.scrollTop, 760, "bottom expansion should restore the previous bottom distance");
   activityContent.dispatchTransitionEnd();
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, undefined);
   assert.strictEqual(activityContent.style.height, "");
@@ -328,11 +333,13 @@ vm.runInContext(
   assert.strictEqual(activityContentConnected, false, "collapse should release layout immediately");
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, undefined);
   assert.strictEqual(activityContent.style.height, "");
-  assert.strictEqual(threadScroll.scrollTop, 700, "bottom collapse should return as soon as activity content is removed");
+  flushAnimationFrame();
+  assert.strictEqual(threadScroll.scrollTop, 700, "bottom collapse should restore as soon as layout settles");
   threadScroll.scrollHeight = 1000;
 
   threadScroll.scrollTop = 100;
   threadScroll.scrollHeight = 1000;
+  resizeObserver = null;
   activityToggle.documentTop = 150;
   click({
     target: {
@@ -345,6 +352,10 @@ vm.runInContext(
   assert.strictEqual(activityState, "open");
   assert.strictEqual(activityContentConnected, true);
   assert.strictEqual(threadScroll.scrollTop, 100, "activity expansion must preserve a reading position away from the bottom");
+  assert.strictEqual(resizeObserver?.observed, turnNode, "reading-position expansion should observe the turn like the official anchor");
+  activityToggle.documentTop = 170;
+  resizeObserver.trigger();
+  assert.strictEqual(threadScroll.scrollTop, 120, "reading-position expansion should pin the toggle top during relayout");
   activityContent.dispatchTransitionEnd();
   while (animationFrames.size > 0) flushAnimationFrame();
 

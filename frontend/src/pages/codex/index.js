@@ -25,6 +25,7 @@
   const ACTIVITY_ANIMATION_MS = 220;
   const ACTIVITY_ANIMATION_EASING = "cubic-bezier(.33, 1, .68, 1)";
   const ACTIVITY_ANCHOR_MS = 250;
+  const THREAD_BOTTOM_THRESHOLD_PX = 24;
   let stateUpdateFrame = 0;
   let activityAnimationSerial = 0;
 
@@ -170,12 +171,15 @@ function handleClick(event) {
     const expanded = activity.dataset.state !== "open";
     const scroll = activity.closest("[data-thread-scroll]");
     const scrollAnchor = createActivityScrollAnchor(activityToggle, activity, scroll);
+    const layoutAnchor = createThreadScrollLayoutAnchor(scroll);
+    if (!scrollAnchor?.keepBottom) preserveActivityTogglePosition(scrollAnchor, ACTIVITY_ANCHOR_MS);
     const content = expanded
       ? ensureActivityContent(activity)
       : activity.querySelector("[data-codex-turn-activity-content]");
     activityToggle.setAttribute("aria-expanded", String(expanded));
     activity.dataset.state = expanded ? "open" : "closed";
-    animateActivityContent(content, expanded, scrollAnchor);
+    animateActivityContent(content, expanded);
+    preserveThreadScrollPositionForNextLayout(layoutAnchor);
     return;
   }
 
@@ -282,12 +286,27 @@ function createActivityScrollAnchor(toggle, activity, scroll) {
     activity,
     scroll,
     toggle,
-    scrollHeight: scroll.scrollHeight,
-    scrollTop: scroll.scrollTop,
-    bottomOffset: Math.max(0, scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight),
     top: toggle.getBoundingClientRect().top,
     keepBottom: isScrollNearBottom(scroll),
   };
+}
+
+function createThreadScrollLayoutAnchor(scroll) {
+  if (!scroll) return null;
+  return {
+    scroll,
+    distanceFromBottom: Math.max(0, scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight),
+    scrollHeight: scroll.scrollHeight,
+  };
+}
+
+function preserveThreadScrollPositionForNextLayout(anchor) {
+  if (!anchor || anchor.distanceFromBottom > THREAD_BOTTOM_THRESHOLD_PX) return;
+  const { scroll, distanceFromBottom, scrollHeight } = anchor;
+  global.requestAnimationFrame(() => {
+    if (scroll.isConnected === false || scroll.scrollHeight === scrollHeight) return;
+    scroll.scrollTop = Math.max(0, scroll.scrollHeight - scroll.clientHeight - distanceFromBottom);
+  });
 }
 
 function preserveActivityTogglePosition(anchor, durationMs = 250) {
@@ -330,10 +349,10 @@ function preserveActivityTogglePosition(anchor, durationMs = 250) {
 }
 
 function isScrollNearBottom(scroll) {
-  return scroll && scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 80;
+  return scroll && scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight <= THREAD_BOTTOM_THRESHOLD_PX;
 }
 
-function animateActivityContent(content, expanded, scrollAnchor) {
+function animateActivityContent(content, expanded) {
   if (!content) return;
 
   cancelActivityContentAnimation(content);
@@ -345,16 +364,13 @@ function animateActivityContent(content, expanded, scrollAnchor) {
     content.setAttribute("aria-hidden", "true");
     resetActivityContentStyle(content);
     content.remove();
-    preserveActivityScrollAfterCollapse(scrollAnchor);
     return;
   }
 
   const wasHidden = isActivityContentHidden(content);
-  const scrollAnimation = startActivityScrollAnimation(scrollAnchor, content, true, reducedMotion);
 
   if (!content.style || reducedMotion) {
     content.setAttribute("aria-hidden", "false");
-    scrollAnimation?.finish();
     resetActivityContentStyle(content);
     return;
   }
@@ -365,9 +381,7 @@ function animateActivityContent(content, expanded, scrollAnchor) {
 
   content.style.transition = "none";
   content.style.pointerEvents = "auto";
-  content.style.overflow = "hidden";
-  content.style.clipPath = wasHidden ? "inset(0 0 100% 0)" : "inset(0 0 0 0)";
-  content.style.willChange = "opacity, transform, clip-path";
+  content.style.willChange = "opacity, transform";
   content.style.opacity = wasHidden ? "0" : "1";
   content.style.transform = wasHidden ? "translateY(-8px)" : "translateY(0)";
 
@@ -376,7 +390,6 @@ function animateActivityContent(content, expanded, scrollAnchor) {
   const finish = () => {
     if (content.dataset.codexActivityAnimationToken !== token) return;
     cancelActivityContentAnimation(content);
-    scrollAnimation?.finish();
     resetActivityContentStyle(content);
   };
   const finishOnTransitionEnd = (event) => {
@@ -393,83 +406,9 @@ function animateActivityContent(content, expanded, scrollAnchor) {
   content.style.transition = [
     `opacity ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
     `transform ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
-    `clip-path ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
   ].join(", ");
-  content.style.clipPath = "inset(0 0 0 0)";
   content.style.opacity = "1";
   content.style.transform = "translateY(0)";
-}
-
-function preserveActivityScrollAfterCollapse(anchor) {
-  if (!anchor) return;
-  const { scroll, bottomOffset } = anchor;
-  if (!scroll) return;
-  if (anchor.keepBottom) {
-    scroll.scrollTop = Math.max(0, scroll.scrollHeight - scroll.clientHeight - bottomOffset);
-    return;
-  }
-  preserveActivityTogglePosition(anchor, ACTIVITY_ANCHOR_MS);
-}
-
-function startActivityScrollAnimation(anchor, content, expanded, reducedMotion) {
-  if (!anchor) return null;
-  if (!anchor.keepBottom) {
-    preserveActivityTogglePosition(anchor, ACTIVITY_ANCHOR_MS);
-    return null;
-  }
-
-  const { scroll } = anchor;
-  const from = scroll.scrollTop;
-  const contentHeight = activityContentCurrentHeight(content);
-  const scrollHeightDelta = expanded
-    ? Math.max(0, scroll.scrollHeight - anchor.scrollHeight)
-    : -contentHeight;
-  const to = Math.max(0, from + scrollHeightDelta);
-  if (Math.abs(to - from) < 1) return null;
-
-  if (reducedMotion) {
-    scroll.scrollTop = to;
-    return null;
-  }
-
-  let frame = 0;
-  let finished = false;
-  const startTime = performanceNow();
-  const tick = () => {
-    if (finished) return;
-    const elapsed = Math.min(1, (performanceNow() - startTime) / ACTIVITY_ANIMATION_MS);
-    const eased = easeOutCubic(elapsed);
-    scroll.scrollTop = from + (to - from) * eased;
-    if (elapsed < 1) {
-      frame = global.requestAnimationFrame(tick);
-    } else {
-      finished = true;
-      frame = 0;
-    }
-  };
-  frame = global.requestAnimationFrame(tick);
-  return {
-    finish() {
-      finished = true;
-      if (frame) global.cancelAnimationFrame(frame);
-      scroll.scrollTop = to;
-    },
-  };
-}
-
-function activityContentCurrentHeight(content) {
-  const rectHeight = content.getBoundingClientRect?.().height;
-  if (Number.isFinite(rectHeight) && rectHeight > 0) return rectHeight;
-  if (Number.isFinite(content.offsetHeight) && content.offsetHeight > 0) return content.offsetHeight;
-  return content.scrollHeight || 0;
-}
-
-function performanceNow() {
-  return global.performance?.now?.() ?? Date.now();
-}
-
-function easeOutCubic(value) {
-  return 1 - Math.pow(1 - value, 3);
 }
 
 function ensureActivityContent(activity) {
@@ -494,9 +433,7 @@ function cancelActivityContentAnimation(content) {
 }
 
 function resetActivityContentStyle(content) {
-  content.style?.removeProperty("clip-path");
   content.style?.removeProperty("opacity");
-  content.style?.removeProperty("overflow");
   content.style?.removeProperty("pointer-events");
   content.style?.removeProperty("transform");
   content.style?.removeProperty("transition");
