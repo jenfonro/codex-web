@@ -9,13 +9,16 @@ const root = path.resolve(__dirname, "..");
 const listeners = new Map();
 const eventSources = [];
 const renderCalls = [];
-const animationFrames = [];
+const animationFrames = new Map();
+let nextAnimationFrame = 0;
 let rendererRuntime = null;
-const activityScrollCalls = [];
+let resizeObserver = null;
 let activityState = "closed";
 let activityAriaExpanded = "false";
 let activityAriaHidden = "true";
+const turnNode = {};
 const activityContent = {
+  dataset: {},
   hidden: true,
   setAttribute(name, value) {
     if (name === "aria-hidden") activityAriaHidden = value;
@@ -25,10 +28,6 @@ const threadScroll = {
   scrollTop: 700,
   scrollHeight: 1000,
   clientHeight: 300,
-  scrollTo(options) {
-    activityScrollCalls.push(options);
-    this.scrollTop = options.top;
-  },
 };
 const activity = {
   dataset: {
@@ -37,6 +36,7 @@ const activity = {
   },
   closest(selector) {
     if (selector === "[data-thread-scroll]") return threadScroll;
+    if (selector === "[data-turn-key], [data-codex-turn-key], [data-turn-id]") return turnNode;
     return null;
   },
   querySelector(selector) {
@@ -45,14 +45,39 @@ const activity = {
   },
 };
 const activityToggle = {
+  isConnected: true,
+  documentTop: 750,
   closest(selector) {
     if (selector === "[data-codex-turn-activity]") return activity;
     return null;
+  },
+  getBoundingClientRect() {
+    return { top: this.documentTop - threadScroll.scrollTop };
   },
   setAttribute(name, value) {
     if (name === "aria-expanded") activityAriaExpanded = value;
   },
 };
+
+class FakeResizeObserver {
+  constructor(callback) {
+    this.callback = callback;
+    this.observed = null;
+    resizeObserver = this;
+  }
+
+  observe(node) {
+    this.observed = node;
+  }
+
+  disconnect() {
+    this.observed = null;
+  }
+
+  trigger() {
+    this.callback();
+  }
+}
 
 class FakeEventSource {
   constructor(url) {
@@ -71,7 +96,9 @@ function flush() {
 }
 
 function flushAnimationFrame() {
-  animationFrames.shift()();
+  const [id, callback] = animationFrames.entries().next().value;
+  animationFrames.delete(id);
+  callback();
 }
 
 function officialTurn(status, items) {
@@ -120,9 +147,14 @@ const context = {
   setTimeout,
   clearTimeout,
   requestAnimationFrame(callback) {
-    animationFrames.push(callback);
-    return animationFrames.length;
+    nextAnimationFrame += 1;
+    animationFrames.set(nextAnimationFrame, callback);
+    return nextAnimationFrame;
   },
+  cancelAnimationFrame(id) {
+    animationFrames.delete(id);
+  },
+  ResizeObserver: FakeResizeObserver,
   location: { search: "" },
   CodexIcons: { svg() { return ""; } },
   CodexPanelConfig: {
@@ -212,11 +244,15 @@ vm.runInContext(
   assert.strictEqual(activityAriaExpanded, "true");
   assert.strictEqual(activityAriaHidden, "false");
   assert.strictEqual(activityContent.hidden, false);
-  assert.strictEqual(activityScrollCalls.length, 1, "activity expansion should request one native smooth scroll");
-  assert.strictEqual(activityScrollCalls[0].top, 1000);
-  assert.strictEqual(activityScrollCalls[0].behavior, "smooth");
+  assert.strictEqual(activityContent.dataset.codexActivityEntering, "true");
+  activityToggle.documentTop = 735;
+  resizeObserver.trigger();
+  assert.strictEqual(threadScroll.scrollTop, 685, "activity expansion should preserve the clicked summary position");
+  flushAnimationFrame();
+  assert.strictEqual(threadScroll.scrollTop, 685, "activity anchor must settle after one animation frame");
 
   threadScroll.scrollTop = 100;
+  activityToggle.documentTop = 150;
   click({
     target: {
       closest(selector) {
@@ -226,6 +262,7 @@ vm.runInContext(
     },
   });
   assert.strictEqual(activityContent.hidden, true);
+  assert.strictEqual(activityContent.dataset.codexActivityEntering, undefined);
   click({
     target: {
       closest(selector) {
@@ -237,7 +274,7 @@ vm.runInContext(
   assert.strictEqual(activityState, "open");
   assert.strictEqual(activityContent.hidden, false);
   assert.strictEqual(threadScroll.scrollTop, 100, "activity expansion must preserve a reading position away from the bottom");
-  assert.strictEqual(activityScrollCalls.length, 1, "activity expansion away from the bottom must not request scrolling");
+  while (animationFrames.size > 0) flushAnimationFrame();
 
   const row = {
     dataset: { codexThreadId: "s1" },

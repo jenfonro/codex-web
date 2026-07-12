@@ -22,6 +22,7 @@
   const threadStartedWaiters = new Map();
   const stateUpdateQueue = [];
   let stateUpdateFrame = 0;
+  let activityEnterAnimationSerial = 0;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });
@@ -164,17 +165,19 @@ function handleClick(event) {
     const activity = activityToggle.closest("[data-codex-turn-activity]");
     const expanded = activity.dataset.state !== "open";
     const scroll = activity.closest("[data-thread-scroll]");
-    const followBottom = expanded && isScrollNearBottom(scroll);
     const content = activity.querySelector("[data-codex-turn-activity-content]");
-    activity.dataset.state = expanded ? "open" : "closed";
+    preserveActivityTogglePosition(activityToggle, activity, scroll);
     activityToggle.setAttribute("aria-expanded", String(expanded));
-    content.setAttribute("aria-hidden", String(!expanded));
-    content.hidden = !expanded;
-    if (followBottom) {
-      scroll.scrollTo({
-        top: scroll.scrollHeight,
-        behavior: "smooth",
-      });
+    if (expanded) {
+      content.hidden = false;
+      content.setAttribute("aria-hidden", "false");
+      activity.dataset.state = "open";
+      startActivityEnterAnimation(content);
+    } else {
+      clearActivityEnterAnimation(content);
+      activity.dataset.state = "closed";
+      content.setAttribute("aria-hidden", "true");
+      content.hidden = true;
     }
     return;
   }
@@ -276,8 +279,61 @@ async function submitComposer() {
   openThread(result.threadId);
 }
 
-function isScrollNearBottom(scroll) {
-  return scroll && scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 80;
+function preserveActivityTogglePosition(toggle, activity, scroll) {
+  if (!scroll) return;
+
+  const top = toggle.getBoundingClientRect().top;
+  let frame = 0;
+  const adjust = () => {
+    if (toggle.isConnected) {
+      scroll.scrollTop += toggle.getBoundingClientRect().top - top;
+    }
+  };
+  const schedule = () => {
+    if (frame) return;
+    frame = global.requestAnimationFrame(() => {
+      frame = 0;
+      adjust();
+    });
+  };
+  const handleResize = () => {
+    if (frame) {
+      global.cancelAnimationFrame(frame);
+      frame = 0;
+    }
+    adjust();
+    schedule();
+  };
+  const turn = activity.closest("[data-turn-key], [data-codex-turn-key], [data-turn-id]");
+  const observer = turn && typeof global.ResizeObserver !== "undefined"
+    ? new global.ResizeObserver(handleResize)
+    : null;
+
+  if (observer) observer.observe(turn);
+  schedule();
+  global.setTimeout(() => {
+    if (frame) global.cancelAnimationFrame(frame);
+    observer?.disconnect();
+  }, 250);
+}
+
+function startActivityEnterAnimation(content) {
+  activityEnterAnimationSerial += 1;
+  const token = String(activityEnterAnimationSerial);
+  content.dataset.codexActivityEntering = "true";
+  content.dataset.codexActivityEnterToken = token;
+  const clear = () => {
+    if (content.dataset.codexActivityEnterToken === token) {
+      clearActivityEnterAnimation(content);
+    }
+  };
+  content.addEventListener?.("animationend", clear, { once: true });
+  global.setTimeout(clear, 260);
+}
+
+function clearActivityEnterAnimation(content) {
+  delete content.dataset.codexActivityEntering;
+  delete content.dataset.codexActivityEnterToken;
 }
 
 function waitForThreadStarted(threadID) {

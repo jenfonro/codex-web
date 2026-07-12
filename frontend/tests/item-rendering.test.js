@@ -193,9 +193,13 @@ assert.ok(collapsedProcessHTML.includes('class="codex-turn-activity-details" dat
 assert.ok(collapsedProcessHTML.includes('aria-expanded="false" data-codex-turn-activity-toggle'));
 assert.ok(collapsedProcessHTML.includes('aria-hidden="true" hidden data-codex-turn-activity-content'));
 assert.ok(collapsedProcessHTML.includes("codex-turn-activity-collapsible"));
-assert.ok(collapsedProcessHTML.includes("codex-reasoning-disclosure"), "collapsed activity must retain reasoning body for animation");
-assert.ok(collapsedProcessHTML.includes("codex-command-disclosure"), "collapsed activity must retain command body for animation");
-assert.ok(collapsedProcessHTML.includes("codex-patch-file-list"), "collapsed activity must retain file changes for animation");
+assert.ok(collapsedProcessHTML.includes("codex-turn-activity-divider"), "collapsed activity must render the official summary divider outside the toggle");
+assert.ok(collapsedProcessHTML.includes("codex-turn-activity-gap"), "expanded activity content must own the standard item gap");
+assert.ok(!collapsedProcessHTML.includes("codex-turn-activity-clip"), "activity expansion must not rely on an extra clipping wrapper");
+assert.ok(!collapsedProcessHTML.includes("data-codex-activity-entering"), "server-rendered activity must not replay the enter animation");
+assert.ok(collapsedProcessHTML.includes("codex-reasoning-disclosure"), "collapsed activity keeps the process body available for click expansion");
+assert.ok(collapsedProcessHTML.includes("codex-command-disclosure"), "collapsed activity keeps command details available for click expansion");
+assert.ok(collapsedProcessHTML.includes("codex-patch-file-list"), "collapsed activity keeps file changes available for click expansion");
 assert.ok(collapsedProcessHTML.includes("Answer"), "collapsed activity must keep the final answer visible");
 
 turn.status = "inProgress";

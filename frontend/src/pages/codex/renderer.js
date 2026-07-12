@@ -273,7 +273,7 @@ function renderConversationTurn(turn, turnIndex, turnErrors) {
   const signature = `${turn.status}:${JSON.stringify(turn.error)}:${JSON.stringify(turnErrors)}:${refs.map(itemRefSignature).join("|")}`;
   const segments = splitTurnSegments(refs);
   return `
-    <div class="flex flex-col gap-8" data-turn-id="${escapeAttr(turn.id)}" data-codex-turn-key="${escapeAttr(turn.id)}" data-codex-turn-signature="${escapeAttr(signature)}">
+    <div class="flex flex-col gap-8" data-turn-id="${escapeAttr(turn.id)}" data-turn-key="${escapeAttr(turn.id)}" data-codex-turn-key="${escapeAttr(turn.id)}" data-codex-turn-signature="${escapeAttr(signature)}">
       ${segments.map((segment, segmentIndex) => renderConversationSegment(
         turn,
         segment,
@@ -549,20 +549,17 @@ function renderTurnProcessBlock(turn, processFollowups, turnIndex) {
   return `
           <div class="text-size-chat text-token-text-secondary codex-turn-activity">
             <div class="codex-turn-activity-details" data-state="${stateName}" data-codex-turn-activity>
-              <button type="button" class="codex-turn-activity-summary" aria-expanded="${expanded}" data-codex-turn-activity-toggle>
-                <span class="text-size-chat hover:bg-token-bg-subtle inline-flex cursor-interaction items-center gap-1 rounded-md border border-transparent focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:outline-none">
-                  <span><span class="codex-status-label">${escapeHTML(label)}</span></span>
-                  ${icons.svg("chevronRight", "codex-turn-activity-chevron icon-2xs text-token-foreground/40 transition-transform duration-200 rotate-0")}
-                </span>
-                <span class="text-size-chat block pt-1 text-token-text-secondary">
-                  <span class="block w-full border-t border-token-border-light"></span>
-                </span>
+              <button type="button" class="codex-turn-activity-summary text-size-chat hover:bg-token-bg-subtle cursor-interaction rounded-md border border-transparent focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:outline-none" aria-expanded="${expanded}" data-codex-turn-activity-toggle>
+                <span class="codex-turn-activity-label"><span class="codex-status-label">${escapeHTML(label)}</span></span>
+                ${icons.svg("chevronRight", "codex-turn-activity-chevron icon-2xs text-token-conversation-summary-trailing transition-transform duration-200 rotate-0")}
               </button>
+              <div class="codex-turn-activity-divider text-size-chat text-token-text-secondary">
+                <span class="codex-turn-activity-divider-line"></span>
+              </div>
               <div class="codex-turn-activity-collapsible" aria-hidden="${!expanded}"${expanded ? "" : " hidden"} data-codex-turn-activity-content>
-                <div class="codex-turn-activity-clip">
-                  <div class="codex-turn-activity-expanded">
-                    ${renderTurnProcessContent(processFollowups, turnIndex)}
-                  </div>
+                <div aria-hidden="true" class="codex-turn-activity-gap"></div>
+                <div class="codex-turn-activity-expanded">
+                  ${renderTurnProcessContent(processFollowups, turnIndex)}
                 </div>
               </div>
             </div>
