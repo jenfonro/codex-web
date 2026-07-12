@@ -11,6 +11,7 @@ const eventSources = [];
 const renderCalls = [];
 const animationFrames = new Map();
 let nextAnimationFrame = 0;
+let animationNow = 0;
 let rendererRuntime = null;
 let resizeObserver = null;
 let activityState = "closed";
@@ -71,7 +72,10 @@ const activityTemplate = {
     },
   },
   after(node) {
-    if (node === activityContent) activityContentConnected = true;
+    if (node === activityContent) {
+      activityContentConnected = true;
+      threadScroll.scrollHeight = 1060;
+    }
   },
 };
 const threadScroll = {
@@ -149,6 +153,7 @@ function flush() {
 function flushAnimationFrame() {
   const [id, callback] = animationFrames.entries().next().value;
   animationFrames.delete(id);
+  animationNow += 250;
   callback();
 }
 
@@ -204,6 +209,9 @@ const context = {
   },
   cancelAnimationFrame(id) {
     animationFrames.delete(id);
+  },
+  performance: {
+    now() { return animationNow; },
   },
   ResizeObserver: FakeResizeObserver,
   location: { search: "" },
@@ -298,11 +306,8 @@ vm.runInContext(
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, "expand");
   assert.strictEqual(activityContent.style.height, "");
   assert.strictEqual(activityContent.style.willChange, "opacity, transform");
-  activityToggle.documentTop = 790;
-  resizeObserver.trigger();
-  assert.strictEqual(threadScroll.scrollTop, 740, "activity expansion should preserve the official toggle-top anchor");
   flushAnimationFrame();
-  assert.strictEqual(threadScroll.scrollTop, 740, "toggle-top anchor must settle after one animation frame");
+  assert.strictEqual(threadScroll.scrollTop, 760, "bottom expansion should move with the inserted activity content");
   activityContent.dispatchTransitionEnd();
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, undefined);
   assert.strictEqual(activityContent.style.height, "");
@@ -321,11 +326,15 @@ vm.runInContext(
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, "collapse");
   assert.strictEqual(activityContent.style.height, "");
   assert.ok(!activityContent.style.transition.includes("height"), "top-level activity must not animate layout height");
+  flushAnimationFrame();
+  assert.strictEqual(threadScroll.scrollTop, 700, "bottom collapse should move back before removing activity content");
   activityContent.dispatchTransitionEnd();
   assert.strictEqual(activityContentConnected, false);
   assert.strictEqual(activityContent.dataset.codexActivityAnimating, undefined);
+  threadScroll.scrollHeight = 1000;
 
   threadScroll.scrollTop = 100;
+  threadScroll.scrollHeight = 1000;
   activityToggle.documentTop = 150;
   click({
     target: {

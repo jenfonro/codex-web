@@ -169,13 +169,13 @@ function handleClick(event) {
     const activity = activityToggle.closest("[data-codex-turn-activity]");
     const expanded = activity.dataset.state !== "open";
     const scroll = activity.closest("[data-thread-scroll]");
+    const scrollAnchor = createActivityScrollAnchor(activityToggle, activity, scroll);
     const content = expanded
       ? ensureActivityContent(activity)
       : activity.querySelector("[data-codex-turn-activity-content]");
-    preserveActivityTogglePosition(activityToggle, activity, scroll, ACTIVITY_ANCHOR_MS);
     activityToggle.setAttribute("aria-expanded", String(expanded));
     activity.dataset.state = expanded ? "open" : "closed";
-    animateActivityContent(content, expanded);
+    animateActivityContent(content, expanded, scrollAnchor);
     return;
   }
 
@@ -276,10 +276,25 @@ async function submitComposer() {
   openThread(result.threadId);
 }
 
-function preserveActivityTogglePosition(toggle, activity, scroll, durationMs = 250) {
+function createActivityScrollAnchor(toggle, activity, scroll) {
+  if (!scroll) return null;
+  return {
+    activity,
+    scroll,
+    toggle,
+    scrollHeight: scroll.scrollHeight,
+    scrollTop: scroll.scrollTop,
+    bottomOffset: Math.max(0, scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight),
+    top: toggle.getBoundingClientRect().top,
+    keepBottom: isScrollNearBottom(scroll),
+  };
+}
+
+function preserveActivityTogglePosition(anchor, durationMs = 250) {
+  if (!anchor) return;
+  const { activity, scroll, toggle, top } = anchor;
   if (!scroll) return;
 
-  const top = toggle.getBoundingClientRect().top;
   let frame = 0;
   const adjust = () => {
     if (toggle.isConnected) {
@@ -314,7 +329,11 @@ function preserveActivityTogglePosition(toggle, activity, scroll, durationMs = 2
   }, durationMs);
 }
 
-function animateActivityContent(content, expanded) {
+function isScrollNearBottom(scroll) {
+  return scroll && scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 80;
+}
+
+function animateActivityContent(content, expanded, scrollAnchor) {
   if (!content) return;
 
   cancelActivityContentAnimation(content);
@@ -322,10 +341,12 @@ function animateActivityContent(content, expanded) {
   const token = String(activityAnimationSerial);
   const reducedMotion = global.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
   const wasHidden = isActivityContentHidden(content);
+  const scrollAnimation = startActivityScrollAnimation(scrollAnchor, content, expanded, reducedMotion);
 
   if (!content.style || reducedMotion) {
     content.setAttribute("aria-hidden", String(!expanded));
     if (!expanded) content.remove();
+    scrollAnimation?.finish();
     resetActivityContentStyle(content);
     return;
   }
@@ -346,6 +367,7 @@ function animateActivityContent(content, expanded) {
     if (content.dataset.codexActivityAnimationToken !== token) return;
     cancelActivityContentAnimation(content);
     if (!expanded) content.remove();
+    scrollAnimation?.finish();
     resetActivityContentStyle(content);
   };
   const finishOnTransitionEnd = (event) => {
@@ -365,6 +387,67 @@ function animateActivityContent(content, expanded) {
   ].join(", ");
   content.style.opacity = expanded ? "1" : "0";
   content.style.transform = expanded ? "translateY(0)" : "translateY(-8px)";
+}
+
+function startActivityScrollAnimation(anchor, content, expanded, reducedMotion) {
+  if (!anchor) return null;
+  if (!anchor.keepBottom) {
+    preserveActivityTogglePosition(anchor, ACTIVITY_ANCHOR_MS);
+    return null;
+  }
+
+  const { scroll } = anchor;
+  const from = scroll.scrollTop;
+  const contentHeight = activityContentCurrentHeight(content);
+  const scrollHeightDelta = expanded
+    ? Math.max(0, scroll.scrollHeight - anchor.scrollHeight)
+    : -contentHeight;
+  const to = Math.max(0, from + scrollHeightDelta);
+  if (Math.abs(to - from) < 1) return null;
+
+  if (reducedMotion) {
+    scroll.scrollTop = to;
+    return null;
+  }
+
+  let frame = 0;
+  let finished = false;
+  const startTime = performanceNow();
+  const tick = () => {
+    if (finished) return;
+    const elapsed = Math.min(1, (performanceNow() - startTime) / ACTIVITY_ANIMATION_MS);
+    const eased = easeOutCubic(elapsed);
+    scroll.scrollTop = from + (to - from) * eased;
+    if (elapsed < 1) {
+      frame = global.requestAnimationFrame(tick);
+    } else {
+      finished = true;
+      frame = 0;
+    }
+  };
+  frame = global.requestAnimationFrame(tick);
+  return {
+    finish() {
+      finished = true;
+      if (frame) global.cancelAnimationFrame(frame);
+      scroll.scrollTop = to;
+    },
+  };
+}
+
+function activityContentCurrentHeight(content) {
+  const rectHeight = content.getBoundingClientRect?.().height;
+  if (Number.isFinite(rectHeight) && rectHeight > 0) return rectHeight;
+  if (Number.isFinite(content.offsetHeight) && content.offsetHeight > 0) return content.offsetHeight;
+  return content.scrollHeight || 0;
+}
+
+function performanceNow() {
+  return global.performance?.now?.() ?? Date.now();
+}
+
+function easeOutCubic(value) {
+  return 1 - Math.pow(1 - value, 3);
 }
 
 function ensureActivityContent(activity) {
