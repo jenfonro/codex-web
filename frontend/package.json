@@ -1,14 +1,20 @@
 {
+  "name": "codex-web-frontend",
+  "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build:response-stack": "esbuild src/pages/codex/response-stack.jsx --bundle --minify --format=iife --global-name=CodexResponseStackBundle --outfile=dist/app/codex-response-stack.js"
+    "build": "vite build",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "framer-motion": "12.42.2",
+    "@assistant-ui/react": "0.14.26",
+    "@assistant-ui/react-markdown": "0.14.5",
+    "@assistant-ui/react-ui": "0.2.1",
+    "@vitejs/plugin-react": "5.1.2",
+    "vite": "5.4.21",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },
-  "devDependencies": {
-    "esbuild": "0.28.1"
-  }
+  "devDependencies": {}
 }

@@ -212,6 +212,11 @@ func (m *Manager) loadAllTurns(ctx context.Context, threadID string) ([]appserve
 		responseTurns := turnsFromResponse(response)
 		turns = append(responseTurns, turns...)
 		if response.NextCursor == nil {
+			if needsSessionJSONLFallback(turns) {
+				if fallbackTurns, err := loadTurnsFromSessionJSONL(m.cfg.CodexHome, threadID); err == nil && len(fallbackTurns) > 0 {
+					return fallbackTurns, nil
+				}
+			}
 			return turns, nil
 		}
 		cursor = response.NextCursor

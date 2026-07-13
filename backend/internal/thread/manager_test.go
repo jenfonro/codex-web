@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -238,6 +240,46 @@ func TestManagerStateLoadsOfficialHistoryItems(t *testing.T) {
 	agent := decodeTestJSON[agentMessageTestItem](items[3])
 	if agent.Type != "agentMessage" || *agent.Phase != "final_answer" || agent.Text != "Done." {
 		t.Fatalf("assistant item = %#v", agent)
+	}
+}
+
+func TestLoadTurnsFromSessionJSONLFallback(t *testing.T) {
+	codexHome := t.TempDir()
+	threadID := "thread-jsonl"
+	sessionDir := filepath.Join(codexHome, "sessions", "2026", "07", "14")
+	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	sessionPath := filepath.Join(sessionDir, "rollout-2026-07-14T00-00-00-"+threadID+".jsonl")
+	lines := strings.Join([]string{
+		`{"type":"turn_context","payload":{"turn_id":"turn-1"}}`,
+		`{"type":"event_msg","payload":{"type":"task_started","turn_id":"turn-1","started_at":1783958811}}`,
+		`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"environment"}],"internal_chat_message_metadata_passthrough":{"turn_id":"turn-1"}}}`,
+		`{"type":"event_msg","payload":{"type":"user_message","message":"hello from user","images":[],"local_images":[],"text_elements":[]}}`,
+		`{"type":"response_item","payload":{"type":"message","id":"msg-1","role":"assistant","content":[{"type":"output_text","text":"OK"}],"phase":"final_answer","internal_chat_message_metadata_passthrough":{"turn_id":"turn-1"}}}`,
+		`{"type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-1","completed_at":1783958819,"duration_ms":7567}}`,
+	}, "\n")
+	if err := os.WriteFile(sessionPath, []byte(lines), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	turns, err := loadTurnsFromSessionJSONL(codexHome, threadID)
+	if err != nil {
+		t.Fatalf("loadTurnsFromSessionJSONL() error = %v", err)
+	}
+	if len(turns) != 1 {
+		t.Fatalf("turns len = %d, want 1", len(turns))
+	}
+	if turns[0].ItemsView != "full" || turns[0].Status != "completed" || len(turns[0].Items) != 2 {
+		t.Fatalf("turn = %#v", turns[0])
+	}
+	user := decodeTestJSON[userMessageTestItem](turns[0].Items[0])
+	if user.Type != "userMessage" || user.Content[0].Text != "hello from user" {
+		t.Fatalf("user item = %#v", user)
+	}
+	agent := decodeTestJSON[agentMessageTestItem](turns[0].Items[1])
+	if agent.Type != "agentMessage" || agent.Text != "OK" || *agent.Phase != "final_answer" {
+		t.Fatalf("agent item = %#v", agent)
 	}
 }
 
