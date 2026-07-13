@@ -569,7 +569,37 @@
 }
 
 .codex-turn-activity-collapsible {
+  position: relative;
+}
+
+[data-codex-response-stack],
+.codex-response-stack-content,
+.codex-response-stack-section {
+  min-width: 0;
+}
+
+.codex-response-stack-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--conversation-tool-assistant-gap, 8px);
+}
+
+.codex-response-stack-fallback {
+  display: contents;
+}
+
+.codex-response-activity-content {
+  overflow: hidden;
   transform-origin: top;
+  will-change: clip-path, transform;
+  contain: paint;
+}
+
+.codex-turn-activity-row {
+  min-width: 0;
+  overflow: hidden;
+  transform-origin: top;
+  contain: paint;
 }
 
 .codex-turn-activity-collapsible[hidden] {
@@ -1173,6 +1203,8 @@ svg {
 .text-token-text-link-foreground { color: var(--color-token-text-link-foreground); }
 .text-token-button-tertiary-foreground { color: var(--color-token-foreground); }
 .text-token-input-placeholder-foreground { color: var(--color-token-input-placeholder-foreground); }
+.text-token-conversation-body { color: var(--color-token-conversation-body); }
+.text-token-conversation-summary-leading { color: var(--color-token-conversation-summary-leading); }
 .text-token-conversation-summary-trailing { color: var(--color-token-conversation-summary-trailing); }
 .text-token-git-decoration-added-resource-foreground { color: var(--color-token-git-decoration-added-resource-foreground); }
 .text-token-git-decoration-deleted-resource-foreground { color: var(--color-token-git-decoration-deleted-resource-foreground); }
@@ -1207,7 +1239,9 @@ svg {
 .underline-offset-2 { text-underline-offset: 2px; }
 .transition-opacity { transition-property: opacity; transition-duration: .15s; }
 .transition-colors { transition-property: color, background-color, border-color; transition-duration: .15s; }
+.transition-transform { transition-property: transform; }
 .duration-150 { transition-duration: .15s; }
+.duration-basic { transition-duration: .15s; }
 .ease-in-out { transition-timing-function: ease-in-out; }
 .translate-x-1\/2 { transform: translateX(50%); }
 
@@ -1267,6 +1301,8 @@ svg {
 .icon-xs { width: 14px; height: 14px; }
 .icon-sm { width: 16px; height: 16px; }
 .icon { width: 20px; height: 20px; }
+.rotate-0 { transform: rotate(0deg); }
+.rotate-90 { transform: rotate(90deg); }
 .rotate-180 { transform: rotate(180deg); }
 
 .codex-model-submenu-chevron-open {

@@ -182,6 +182,7 @@ const renderer = context.CodexPanelRenderer.create({
 renderer.render();
 
 const html = mountRoot.innerHTML;
+const visibleHTML = html.replace(/<template\b[\s\S]*?<\/template>/g, "");
 assert.ok(html.includes('class="flex flex-col gap-8" data-codex-turn-list'));
 assert.strictEqual((html.match(/data-turn-id="turn-1"/g) || []).length, 1);
 assert.strictEqual((html.match(/data-turn-key="turn-1"/g) || []).length, 1);
@@ -193,7 +194,7 @@ assert.ok(html.indexOf("data-codex-turn-user") < html.indexOf("data-codex-turn-r
 assert.ok(html.includes("Question"));
 assert.ok(html.includes("Answer"));
 assert.strictEqual((html.match(/data-turn-id="turn-2"/g) || []).length, 1);
-assert.strictEqual((html.match(/codex-context-compaction-line/g) || []).length, 4);
+assert.strictEqual((visibleHTML.match(/codex-context-compaction-line/g) || []).length, 4);
 assert.ok(html.includes("codex-context-compaction-icon"));
 assert.strictEqual((html.match(/data-turn-id="turn-3"/g) || []).length, 1);
 assert.strictEqual((html.match(/data-codex-turn-segment/g) || []).length, 5);

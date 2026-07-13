@@ -29,6 +29,7 @@ function renderPanelHTML() {
 }
 
 function replacePanelHTML(html) {
+  unmountResponseStacks(mount.root);
   mount.root.innerHTML = html;
   syncThreadScrollPosition();
 }
@@ -75,8 +76,13 @@ function syncNodeFromNext(currentRoot, nextRoot, selector) {
   const currentNode = currentRoot.querySelector(selector);
   const nextNode = nextRoot.querySelector(selector);
   if (currentNode.outerHTML !== nextNode.outerHTML) {
+    unmountResponseStacks(currentNode);
     currentNode.replaceWith(nextNode);
   }
+}
+
+function unmountResponseStacks(root) {
+  global.CodexResponseStack?.unmountAll?.(root);
 }
 
 function reconcileThreadTurns(currentRoot, nextRoot) {
@@ -127,6 +133,7 @@ function reconcileTurn(currentChild, nextChild) {
     syncMarkdownNodes(currentChild, nextChild);
     return currentChild;
   }
+  unmountResponseStacks(currentChild);
   currentChild.replaceWith(nextChild);
   return nextChild;
 }
@@ -406,21 +413,81 @@ function renderTurnResponse(turn, refs, index, turnErrors, includeTurnStatus) {
       </div>`);
   }
   if (processFollowups.length) {
-    sections.push(`<div class="flex flex-col" data-codex-turn-process>${renderTurnProcessBlock(turn, processFollowups, index)}</div>`);
+    sections.push({
+      type: "activity",
+      key: "process",
+      label: activitySummary.summaryLabel(turn),
+      initialState: processFollowups.some(lifecycle.isItemPending) ? "open" : "closed",
+      html: renderTurnProcessContent(processFollowups, index),
+    });
   }
   if (finalFollowup) {
-    sections.push(`
+    sections.push({
+      type: "final",
+      key: "final",
+      html: `
       <div class="flex flex-col" data-codex-turn-final>
         <div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, finalFollowup.itemIndex, "assistant"))}">
           ${renderAssistantContent(finalFollowup, `${index}-final`)}
         </div>
-      </div>`);
+      </div>`,
+    });
   }
-  return sections.join("");
+  return renderResponseStack(sections.map((section, sectionIndex) => (
+    typeof section === "string"
+      ? { type: "stream", key: `stream-${sectionIndex}`, html: section }
+      : section
+  )));
 }
 
-function renderInlineTurnFollowup(ref, turnIndex, offset) {
-  return renderInlineTurnSegment(renderInlineTurnFollowupBody(ref, turnIndex, offset), offset);
+function renderResponseStack(sections) {
+  if (sections.length === 0) return "";
+  const fallback = sections.map(renderResponseStackFallbackSection).join("");
+  const templates = sections.map(renderResponseStackTemplate).join("");
+  return `
+    <div class="codex-response-stack" data-codex-response-stack>
+      <div class="codex-response-stack-fallback">${fallback}</div>
+      ${templates}
+    </div>`;
+}
+
+function renderResponseStackTemplate(section) {
+  const attrs = [
+    `data-codex-response-section-template`,
+    `data-codex-response-section-type="${escapeAttr(section.type)}"`,
+    `data-codex-response-section-key="${escapeAttr(section.key)}"`,
+  ];
+  if (section.type === "activity") {
+    attrs.push(`data-codex-activity-label="${escapeAttr(section.label)}"`);
+    attrs.push(`data-codex-activity-initial-state="${escapeAttr(section.initialState)}"`);
+  }
+  return `<template ${attrs.join(" ")}>${section.html}</template>`;
+}
+
+function renderResponseStackFallbackSection(section) {
+  if (section.type === "activity") {
+    return renderTurnProcessFallback(section.label, section.initialState, section.html);
+  }
+  return section.html;
+}
+
+function renderTurnProcessFallback(label, stateName, content) {
+  const expanded = stateName === "open";
+  const fallbackContent = expanded ? renderTurnActivityContent(content, true) : "";
+  return `
+      <div class="flex flex-col" data-codex-turn-process>
+        <div class="text-size-chat text-token-text-secondary codex-turn-activity">
+          <div class="codex-turn-activity-details" data-state="${stateName}" data-codex-activity-label="${escapeAttr(label)}" data-codex-activity-initial-state="${stateName}" data-codex-turn-activity>
+            ${renderTurnActivityToggle(label, expanded)}
+            ${renderTurnActivityDivider()}
+            ${fallbackContent}
+          </div>
+        </div>
+      </div>`;
+}
+
+function renderInlineTurnFollowup(ref, turnIndex, offset, options = {}) {
+  return renderInlineTurnSegment(renderInlineTurnFollowupBody(ref, turnIndex, offset), offset, options);
 }
 
 function renderInlineTurnFollowupBody(ref, turnIndex, offset) {
@@ -431,10 +498,12 @@ function renderInlineTurnFollowupBody(ref, turnIndex, offset) {
   return `<div data-content-search-unit-key="${escapeAttr(contentSearchKey(turnId, unit, "assistant"))}">${content}</div>`;
 }
 
-function renderInlineTurnSegment(content, offset) {
-  if (offset === 0) return `<div style="overflow: hidden;">${content}</div>`;
+function renderInlineTurnSegment(content, offset, options = {}) {
+  const rowClass = options.activity ? ` class="codex-turn-activity-row"` : "";
+  const rowAttr = options.activity ? ` data-codex-turn-activity-row` : "";
+  if (offset === 0) return `<div${rowClass}${rowAttr} style="overflow: hidden;">${content}</div>`;
   return `
-    <div style="overflow: hidden;">
+    <div${rowClass}${rowAttr} style="overflow: hidden;">
       <div aria-hidden="true" class="w-full" style="height: var(--conversation-tool-assistant-gap, 8px);"></div>
       ${content}
     </div>`;
@@ -542,48 +611,45 @@ function renderContextCompaction() {
     </div>`;
 }
 
-function renderTurnProcessBlock(turn, processFollowups, turnIndex) {
-  const label = activitySummary.summaryLabel(turn);
-  const expanded = processFollowups.some(lifecycle.isItemPending);
-  const stateName = expanded ? "open" : "closed";
-  const content = renderTurnProcessContent(processFollowups, turnIndex);
-  const activityContent = expanded ? renderTurnActivityContent(content, true) : "";
+function renderTurnActivityToggle(label, expanded) {
+  const rotateClass = expanded ? "rotate-90" : "rotate-0";
   return `
-          <div class="text-size-chat text-token-text-secondary codex-turn-activity">
-            <div class="codex-turn-activity-details" data-state="${stateName}" data-codex-turn-activity>
-              <button type="button" class="codex-turn-activity-summary text-size-chat hover:bg-token-bg-subtle cursor-interaction rounded-md border border-transparent focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:outline-none" aria-expanded="${expanded}" data-codex-turn-activity-toggle>
-                <span class="codex-turn-activity-label"><span class="codex-status-label">${escapeHTML(label)}</span></span>
-                ${icons.svg("chevronRight", "codex-turn-activity-chevron icon-2xs text-token-conversation-summary-trailing transition-transform duration-200 rotate-0")}
-              </button>
-              <div class="codex-turn-activity-divider text-size-chat text-token-text-secondary">
-                <span class="codex-turn-activity-divider-line"></span>
-              </div>
-              <template data-codex-turn-activity-template>${renderTurnActivityContent(content, false)}</template>
-              ${activityContent}
-            </div>
-          </div>`;
+              <div class="text-size-chat text-token-text-secondary">
+                <button type="button" class="text-size-chat hover:bg-token-bg-subtle inline-flex items-center gap-1 rounded-md border border-transparent focus-visible:ring-2 focus-visible:ring-token-focus-border focus-visible:outline-none" aria-expanded="${expanded}" data-codex-turn-activity-toggle>
+                  <span><span class="text-token-conversation-body">${escapeHTML(label)}</span></span>
+                  ${icons.svg("chevronRight", `codex-turn-activity-chevron icon-2xs text-token-conversation-summary-trailing transition-transform duration-basic ${rotateClass}`)}
+                </button>
+              </div>`;
+}
+
+function renderTurnActivityDivider() {
+  return `
+              <div class="text-size-chat pt-1 text-token-text-secondary">
+                <div class="w-full border-t border-token-border"></div>
+              </div>`;
 }
 
 function renderTurnActivityContent(content, expanded) {
   if (!expanded) return `
                 <div class="codex-turn-activity-collapsible" aria-hidden="true" data-codex-turn-activity-content>
-                  <div aria-hidden="true" class="codex-turn-activity-gap"></div>
-                  <div class="codex-turn-activity-expanded">
-                    ${content}
-                  </div>
+                  ${renderTurnActivityGap()}
+                  ${content}
                 </div>`;
   return `
               <div class="codex-turn-activity-collapsible" aria-hidden="false" data-codex-turn-activity-content>
-                <div aria-hidden="true" class="codex-turn-activity-gap"></div>
-                <div class="codex-turn-activity-expanded">
-                  ${content}
-                </div>
+                ${renderTurnActivityGap()}
+                ${content}
               </div>`;
 }
 
+function renderTurnActivityGap() {
+  return `<div aria-hidden="true" class="codex-turn-activity-gap w-full"></div>`;
+}
+
 function renderTurnProcessContent(refs, turnIndex) {
-  return refs.map((ref, offset) => renderInlineTurnFollowup(ref, turnIndex, offset))
+  const content = refs.map((ref, offset) => renderInlineTurnFollowup(ref, turnIndex, offset, { activity: true }))
     .join("");
+  return `<div class="codex-turn-activity-expanded">${content}</div>`;
 }
 
 function renderReasoningContent(ref) {

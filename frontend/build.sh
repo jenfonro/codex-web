@@ -11,6 +11,14 @@ cp -a "${SCRIPT_DIR}/src/." "${DIST_DIR}/"
 sed -i.bak "s/__CODEX_WEB_ASSET_VERSION__/${ASSET_VERSION}/g" "${DIST_DIR}/index.html"
 rm -f "${DIST_DIR}/index.html.bak"
 
+if [[ -f "${SCRIPT_DIR}/package.json" ]]; then
+  if [[ ! -d "${SCRIPT_DIR}/node_modules" ]]; then
+    (cd "${SCRIPT_DIR}" && npm ci)
+  fi
+  (cd "${SCRIPT_DIR}" && npm run build:response-stack)
+  rm -f "${DIST_DIR}/pages/codex/response-stack.jsx"
+fi
+
 style_bundle="${DIST_DIR}/app/codex-web.css"
 style_sources=(
   "app/layout.css"

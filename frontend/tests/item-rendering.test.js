@@ -41,6 +41,7 @@ const context = {
 context.window = context;
 vm.createContext(context);
 const rendererSource = fs.readFileSync(path.join(root, "src", "pages", "codex", "renderer.js"), "utf8");
+const responseStackSource = fs.readFileSync(path.join(root, "src", "pages", "codex", "response-stack.jsx"), "utf8");
 for (const file of ["lifecycle.js", "activity-summary.js", "renderer.js"]) {
   vm.runInContext(
     file === "renderer.js"
@@ -188,14 +189,19 @@ assert.ok(!rendererSource.includes("renderSemanticDisclosure"), "unrelated items
 
 renderer.render();
 const collapsedProcessHTML = mountRoot.innerHTML;
-assert.ok(collapsedProcessHTML.includes("codex-turn-activity-summary"), "collapsed activity must keep its summary row");
+assert.ok(collapsedProcessHTML.includes("data-codex-turn-activity-toggle"), "collapsed activity must keep its summary toggle");
+assert.ok(collapsedProcessHTML.includes("inline-flex items-center gap-1"), "collapsed activity summary must use the official inline toggle structure");
 assert.ok(collapsedProcessHTML.includes('class="codex-turn-activity-details" data-state="closed"'));
+assert.ok(collapsedProcessHTML.includes("data-codex-response-stack"), "response must render a React response stack mount point");
+assert.ok(collapsedProcessHTML.includes("data-codex-response-section-template"), "response stack must keep inert templates for React ownership");
+assert.ok(collapsedProcessHTML.includes('data-codex-response-section-type="activity"'), "activity must be a response stack section");
+assert.ok(collapsedProcessHTML.includes('data-codex-activity-initial-state="closed"'), "activity must expose its initial state to the response stack");
+assert.ok(!collapsedProcessHTML.includes("data-codex-turn-activity-island"), "activity-only island must not be rendered");
 assert.ok(collapsedProcessHTML.includes('aria-expanded="false" data-codex-turn-activity-toggle'));
-assert.ok(collapsedProcessHTML.includes("data-codex-turn-activity-template"), "collapsed activity must keep inert template content for click expansion");
-assert.strictEqual((collapsedProcessHTML.match(/data-codex-turn-activity-content/g) || []).length, 1, "collapsed activity content must only exist inside the template");
-assert.ok(collapsedProcessHTML.includes("codex-turn-activity-collapsible"));
-assert.ok(collapsedProcessHTML.includes("codex-turn-activity-divider"), "collapsed activity must render the official summary divider outside the toggle");
-assert.ok(collapsedProcessHTML.includes("codex-turn-activity-gap"), "expanded activity content must own the standard item gap");
+assert.ok(!collapsedProcessHTML.includes("data-codex-turn-activity-template"), "old activity-only template must not be rendered");
+assert.ok(collapsedProcessHTML.includes("data-codex-turn-activity-row"), "activity process items must render as row units for progressive reveal");
+assert.ok(collapsedProcessHTML.includes("border-t border-token-border"), "collapsed activity must render the official summary divider outside the toggle");
+assert.ok(responseStackSource.includes("codex-turn-activity-gap"), "expanded activity content must own the standard item gap");
 assert.ok(!collapsedProcessHTML.includes("codex-turn-activity-clip"), "activity expansion must not rely on an extra clipping wrapper");
 assert.ok(!collapsedProcessHTML.includes("data-codex-activity-entering"), "server-rendered activity must not replay the enter animation");
 assert.ok(collapsedProcessHTML.includes("codex-reasoning-disclosure"), "collapsed activity keeps the process body available for click expansion");

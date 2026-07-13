@@ -9,133 +9,10 @@ const root = path.resolve(__dirname, "..");
 const listeners = new Map();
 const eventSources = [];
 const renderCalls = [];
+const activityMountCalls = [];
 const animationFrames = new Map();
 let nextAnimationFrame = 0;
-let animationNow = 0;
 let rendererRuntime = null;
-let resizeObserver = null;
-let activityState = "closed";
-let activityAriaExpanded = "false";
-let activityAriaHidden = "true";
-let activityContentConnected = false;
-const turnNode = {};
-const activityContentListeners = new Map();
-function createStyle() {
-  return {
-    clipPath: "",
-    height: "",
-    opacity: "",
-    overflow: "",
-    pointerEvents: "",
-    transform: "",
-    transition: "",
-    willChange: "",
-    removeProperty(name) {
-      this[name.replace(/-([a-z])/g, (_, value) => value.toUpperCase())] = "";
-    },
-  };
-}
-const activityContent = {
-  dataset: {},
-  hidden: false,
-  offsetHeight: 0,
-  scrollHeight: 60,
-  style: createStyle(),
-  addEventListener(type, callback) {
-    activityContentListeners.set(type, callback);
-  },
-  removeEventListener(type, callback) {
-    if (activityContentListeners.get(type) === callback) activityContentListeners.delete(type);
-  },
-  dispatchTransitionEnd(propertyName = "transform") {
-    activityContentListeners.get("transitionend")?.({ target: this, propertyName });
-  },
-  getBoundingClientRect() {
-    return { height: Number.parseFloat(this.style.height) || this.scrollHeight };
-  },
-  getAttribute(name) {
-    if (name === "aria-hidden") return activityAriaHidden;
-    return null;
-  },
-  remove() {
-    activityContentConnected = false;
-    threadScroll.scrollHeight = 1000;
-  },
-  setAttribute(name, value) {
-    if (name === "aria-hidden") activityAriaHidden = value;
-  },
-};
-const activityTemplate = {
-  content: {
-    firstElementChild: {
-      cloneNode() {
-        return activityContent;
-      },
-    },
-  },
-  after(node) {
-    if (node === activityContent) {
-      activityContentConnected = true;
-      threadScroll.scrollHeight = 1060;
-    }
-  },
-};
-const threadScroll = {
-  isConnected: true,
-  scrollTop: 700,
-  scrollHeight: 1000,
-  clientHeight: 300,
-};
-const activity = {
-  dataset: {
-    get state() { return activityState; },
-    set state(value) { activityState = value; },
-  },
-  closest(selector) {
-    if (selector === "[data-thread-scroll]") return threadScroll;
-    if (selector === "[data-turn-key], [data-codex-turn-key], [data-turn-id]") return turnNode;
-    return null;
-  },
-  querySelector(selector) {
-    if (selector === "[data-codex-turn-activity-content]") return activityContentConnected ? activityContent : null;
-    if (selector === "[data-codex-turn-activity-template]") return activityTemplate;
-    return null;
-  },
-};
-const activityToggle = {
-  isConnected: true,
-  documentTop: 750,
-  closest(selector) {
-    if (selector === "[data-codex-turn-activity]") return activity;
-    return null;
-  },
-  getBoundingClientRect() {
-    return { top: this.documentTop - threadScroll.scrollTop };
-  },
-  setAttribute(name, value) {
-    if (name === "aria-expanded") activityAriaExpanded = value;
-  },
-};
-
-class FakeResizeObserver {
-  constructor(callback) {
-    this.callback = callback;
-    this.observed = null;
-    resizeObserver = this;
-  }
-
-  observe(node) {
-    this.observed = node;
-  }
-
-  disconnect() {
-    this.observed = null;
-  }
-
-  trigger() {
-    this.callback();
-  }
-}
 
 class FakeEventSource {
   constructor(url) {
@@ -156,7 +33,6 @@ function flush() {
 function flushAnimationFrame() {
   const [id, callback] = animationFrames.entries().next().value;
   animationFrames.delete(id);
-  animationNow += 250;
   callback();
 }
 
@@ -213,11 +89,13 @@ const context = {
   cancelAnimationFrame(id) {
     animationFrames.delete(id);
   },
-  performance: {
-    now() { return animationNow; },
-  },
-  ResizeObserver: FakeResizeObserver,
   location: { search: "" },
+  CodexResponseStack: {
+    mountAll(rootElement) {
+      activityMountCalls.push(rootElement);
+    },
+    unmountAll() {},
+  },
   CodexIcons: { svg() { return ""; } },
   CodexPanelConfig: {
     createPanelMount() {
@@ -293,71 +171,19 @@ vm.runInContext(
 
   const click = listeners.get("click");
   assert.ok(click, "click listener should be registered");
+  assert.strictEqual(activityMountCalls.length, renderCalls.length, "initial render should mount React response stacks");
 
+  const rendersBeforeActivityClick = renderCalls.length;
   click({
     target: {
       closest(selector) {
-        if (selector === "[data-codex-turn-activity-toggle]") return activityToggle;
+        if (selector === "[data-codex-turn-activity-toggle]") return {};
         return null;
       },
     },
   });
-  assert.strictEqual(activityState, "open");
-  assert.strictEqual(activityAriaExpanded, "true");
-  assert.strictEqual(activityAriaHidden, "false");
-  assert.strictEqual(activityContentConnected, true);
-  assert.strictEqual(activityContent.dataset.codexActivityAnimating, "expand");
-  assert.strictEqual(activityContent.style.height, "");
-  assert.ok(activityContent.style.transition.includes("opacity 220ms cubic-bezier(.33, 1, .68, 1)"));
-  assert.ok(activityContent.style.transition.includes("transform 220ms cubic-bezier(.33, 1, .68, 1)"));
-  assert.ok(!activityContent.style.transition.includes("height"), "official activity expansion does not animate layout height");
-  assert.ok(!activityContent.style.transition.includes("clip-path"), "activity expansion must not rely on a custom clipping patch");
-  assert.strictEqual(activityContent.style.willChange, "opacity, transform");
-  assert.strictEqual(threadScroll.scrollTop, 700, "bottom expansion preserves distance from bottom on the next layout frame");
-  flushAnimationFrame();
-  assert.strictEqual(threadScroll.scrollTop, 760, "bottom expansion should restore the previous bottom distance");
-  activityContent.dispatchTransitionEnd();
-  assert.strictEqual(activityContent.dataset.codexActivityAnimating, undefined);
-  assert.strictEqual(activityContent.style.height, "");
-  click({
-    target: {
-      closest(selector) {
-        if (selector === "[data-codex-turn-activity-toggle]") return activityToggle;
-        return null;
-      },
-    },
-  });
-  assert.strictEqual(activityState, "closed");
-  assert.strictEqual(activityAriaExpanded, "false");
-  assert.strictEqual(activityAriaHidden, "true");
-  assert.strictEqual(activityContentConnected, false, "collapse should release layout immediately");
-  assert.strictEqual(activityContent.dataset.codexActivityAnimating, undefined);
-  assert.strictEqual(activityContent.style.height, "");
-  flushAnimationFrame();
-  assert.strictEqual(threadScroll.scrollTop, 700, "bottom collapse should restore as soon as layout settles");
-  threadScroll.scrollHeight = 1000;
-
-  threadScroll.scrollTop = 100;
-  threadScroll.scrollHeight = 1000;
-  resizeObserver = null;
-  activityToggle.documentTop = 150;
-  click({
-    target: {
-      closest(selector) {
-        if (selector === "[data-codex-turn-activity-toggle]") return activityToggle;
-        return null;
-      },
-    },
-  });
-  assert.strictEqual(activityState, "open");
-  assert.strictEqual(activityContentConnected, true);
-  assert.strictEqual(threadScroll.scrollTop, 100, "activity expansion must preserve a reading position away from the bottom");
-  assert.strictEqual(resizeObserver?.observed, turnNode, "reading-position expansion should observe the turn like the official anchor");
-  activityToggle.documentTop = 170;
-  resizeObserver.trigger();
-  assert.strictEqual(threadScroll.scrollTop, 120, "reading-position expansion should pin the toggle top during relayout");
-  activityContent.dispatchTransitionEnd();
-  while (animationFrames.size > 0) flushAnimationFrame();
+  assert.strictEqual(renderCalls.length, rendersBeforeActivityClick, "activity toggles are owned by the React response stack, not the vanilla click router");
+  assert.strictEqual(activityMountCalls.length, renderCalls.length, "response stack mounting should only happen after panel renders");
 
   const row = {
     dataset: { codexThreadId: "s1" },
@@ -373,22 +199,24 @@ vm.runInContext(
 
   const threadSource = eventSources.find((source) => source.url.includes("threadId=s1"));
   assert.ok(threadSource, "thread SSE should start after state fetch");
+  assert.strictEqual(activityMountCalls.length, renderCalls.length, "thread render should mount React activity islands");
+  assert.ok(activityMountCalls.every((rootElement) => rootElement === rootNode), "activity islands should mount under the panel root");
 
   const rendersBeforeStream = renderCalls.length;
   const firstUpdate = {
     type: "turnUpdated",
     threadId: "s1",
     data: officialTurn("inProgress", [
-        { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
-        { id: "agent-1", type: "agentMessage", text: "Hell", phase: "final_answer", memoryCitation: null },
+      { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
+      { id: "agent-1", type: "agentMessage", text: "Hell", phase: "final_answer", memoryCitation: null },
     ]),
   };
   const secondUpdate = {
     type: "turnUpdated",
     threadId: "s1",
     data: officialTurn("inProgress", [
-        { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
-        { id: "agent-1", type: "agentMessage", text: "Hello", phase: "final_answer", memoryCitation: null },
+      { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
+      { id: "agent-1", type: "agentMessage", text: "Hello", phase: "final_answer", memoryCitation: null },
     ]),
   };
 
@@ -398,8 +226,10 @@ vm.runInContext(
   await flush();
 
   assert.strictEqual(renderCalls.length, rendersBeforeStream + 1, "streaming update should schedule one unified render");
+  assert.strictEqual(activityMountCalls.length, renderCalls.length, "stream render should mount React activity islands");
 
   const activeThread = rendererRuntime.state.threads.find((thread) => thread.id === "s1");
+  assert.strictEqual(activeThread.status.type, "active");
   assert.strictEqual(rendererRuntime.state.threadHistory.turns[0].items[1].text, "Hell", "the first queued delta should render before the next delta");
 
   flushAnimationFrame();
@@ -411,8 +241,8 @@ vm.runInContext(
     type: "turnUpdated",
     threadId: "s1",
     data: officialTurn("completed", [
-        { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
-        { id: "agent-1", type: "agentMessage", text: "Hello", phase: "final_answer", memoryCitation: null },
+      { id: "user-1", type: "userMessage", clientId: null, content: [{ type: "text", text: "hello", text_elements: [] }] },
+      { id: "agent-1", type: "agentMessage", text: "Hello", phase: "final_answer", memoryCitation: null },
     ]),
   };
 
@@ -490,7 +320,7 @@ vm.runInContext(
   flushAnimationFrame();
   await flush();
   assert.strictEqual(rendererRuntime.state.turnErrors.length, 0, "new turn should clear prior transient errors");
-
+  assert.strictEqual(activityMountCalls.length, renderCalls.length, "every routed render should remount React activity islands");
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

@@ -21,13 +21,7 @@
   const renderer = rendererFactory.create(runtime);
   const threadStartedWaiters = new Map();
   const stateUpdateQueue = [];
-  const activityAnimationCleanups = new WeakMap();
-  const ACTIVITY_ANIMATION_MS = 220;
-  const ACTIVITY_ANIMATION_EASING = "cubic-bezier(.33, 1, .68, 1)";
-  const ACTIVITY_ANCHOR_MS = 250;
-  const THREAD_BOTTOM_THRESHOLD_PX = 24;
   let stateUpdateFrame = 0;
-  let activityAnimationSerial = 0;
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });
@@ -42,7 +36,7 @@
     mount.root.addEventListener("keydown", handleKeyDown);
     await loadThreads();
     subscribeThreadList();
-    renderer.render();
+    renderPanel();
   }
 
   async function loadThreads() {
@@ -57,7 +51,7 @@
     };
     state.view = "thread";
     state.popover = "";
-    renderer.render();
+    renderPanel();
     void loadThreadState(threadID);
   }
 
@@ -157,37 +151,24 @@ function replaceTurn(threadID, turn) {
 
 function renderStateUpdate(update) {
   if (state.view !== "list" && state.activeThreadId !== update.threadId) return;
+  renderPanel();
+}
+
+function renderPanel() {
   renderer.render();
+  global.CodexResponseStack?.mountAll?.(mount.root);
 }
 
 function handleClick(event) {
-  const activityToggle = event.target.closest("[data-codex-turn-activity-toggle]");
   const popoverButton = event.target.closest("[data-popover]");
   const action = event.target.closest("[data-action]")?.dataset.action;
   const threadRow = event.target.closest("[data-codex-thread-id]");
-
-  if (activityToggle) {
-    const activity = activityToggle.closest("[data-codex-turn-activity]");
-    const expanded = activity.dataset.state !== "open";
-    const scroll = activity.closest("[data-thread-scroll]");
-    const scrollAnchor = createActivityScrollAnchor(activityToggle, activity, scroll);
-    const layoutAnchor = createThreadScrollLayoutAnchor(scroll);
-    if (!scrollAnchor?.keepBottom) preserveActivityTogglePosition(scrollAnchor, ACTIVITY_ANCHOR_MS);
-    const content = expanded
-      ? ensureActivityContent(activity)
-      : activity.querySelector("[data-codex-turn-activity-content]");
-    activityToggle.setAttribute("aria-expanded", String(expanded));
-    activity.dataset.state = expanded ? "open" : "closed";
-    animateActivityContent(content, expanded);
-    preserveThreadScrollPositionForNextLayout(layoutAnchor);
-    return;
-  }
 
   if (popoverButton) {
     const name = popoverButton.dataset.popover;
     state.popover = state.popover === name ? "" : name;
     state.modelMenuExpanded = false;
-    renderer.render();
+    renderPanel();
     return;
   }
 
@@ -202,7 +183,7 @@ function handleClick(event) {
     state.modelMenuExpanded = false;
     if (state.threadEventSource) state.threadEventSource.close();
     state.threadEventSource = null;
-    renderer.render();
+    renderPanel();
     return;
   }
 
@@ -218,7 +199,7 @@ function handleClick(event) {
 
   if (action === "toggle-model-submenu") {
     state.modelMenuExpanded = !state.modelMenuExpanded;
-    renderer.render();
+    renderPanel();
     return;
   }
 
@@ -230,7 +211,7 @@ function handleClick(event) {
   if (state.popover && !event.target.closest("[data-codex-menu-wrapper], [data-composer-overlay]")) {
     state.popover = "";
     state.modelMenuExpanded = false;
-    renderer.render();
+    renderPanel();
   }
 }
 
@@ -278,168 +259,6 @@ async function submitComposer() {
   });
   await waitForThreadStarted(result.threadId);
   openThread(result.threadId);
-}
-
-function createActivityScrollAnchor(toggle, activity, scroll) {
-  if (!scroll) return null;
-  return {
-    activity,
-    scroll,
-    toggle,
-    top: toggle.getBoundingClientRect().top,
-    keepBottom: isScrollNearBottom(scroll),
-  };
-}
-
-function createThreadScrollLayoutAnchor(scroll) {
-  if (!scroll) return null;
-  return {
-    scroll,
-    distanceFromBottom: Math.max(0, scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight),
-    scrollHeight: scroll.scrollHeight,
-  };
-}
-
-function preserveThreadScrollPositionForNextLayout(anchor) {
-  if (!anchor || anchor.distanceFromBottom > THREAD_BOTTOM_THRESHOLD_PX) return;
-  const { scroll, distanceFromBottom, scrollHeight } = anchor;
-  global.requestAnimationFrame(() => {
-    if (scroll.isConnected === false || scroll.scrollHeight === scrollHeight) return;
-    scroll.scrollTop = Math.max(0, scroll.scrollHeight - scroll.clientHeight - distanceFromBottom);
-  });
-}
-
-function preserveActivityTogglePosition(anchor, durationMs = 250) {
-  if (!anchor) return;
-  const { activity, scroll, toggle, top } = anchor;
-  if (!scroll) return;
-
-  let frame = 0;
-  const adjust = () => {
-    if (toggle.isConnected) {
-      scroll.scrollTop += toggle.getBoundingClientRect().top - top;
-    }
-  };
-  const schedule = () => {
-    if (frame) return;
-    frame = global.requestAnimationFrame(() => {
-      frame = 0;
-      adjust();
-    });
-  };
-  const handleResize = () => {
-    if (frame) {
-      global.cancelAnimationFrame(frame);
-      frame = 0;
-    }
-    adjust();
-    schedule();
-  };
-  const turn = activity.closest("[data-turn-key], [data-codex-turn-key], [data-turn-id]");
-  const observer = turn && typeof global.ResizeObserver !== "undefined"
-    ? new global.ResizeObserver(handleResize)
-    : null;
-
-  if (observer) observer.observe(turn);
-  schedule();
-  global.setTimeout(() => {
-    if (frame) global.cancelAnimationFrame(frame);
-    observer?.disconnect();
-  }, durationMs);
-}
-
-function isScrollNearBottom(scroll) {
-  return scroll && scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight <= THREAD_BOTTOM_THRESHOLD_PX;
-}
-
-function animateActivityContent(content, expanded) {
-  if (!content) return;
-
-  cancelActivityContentAnimation(content);
-  activityAnimationSerial += 1;
-  const token = String(activityAnimationSerial);
-  const reducedMotion = global.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
-
-  if (!expanded) {
-    content.setAttribute("aria-hidden", "true");
-    resetActivityContentStyle(content);
-    content.remove();
-    return;
-  }
-
-  const wasHidden = isActivityContentHidden(content);
-
-  if (!content.style || reducedMotion) {
-    content.setAttribute("aria-hidden", "false");
-    resetActivityContentStyle(content);
-    return;
-  }
-
-  content.setAttribute("aria-hidden", "false");
-  content.dataset.codexActivityAnimating = "expand";
-  content.dataset.codexActivityAnimationToken = token;
-
-  content.style.transition = "none";
-  content.style.pointerEvents = "auto";
-  content.style.willChange = "opacity, transform";
-  content.style.opacity = wasHidden ? "0" : "1";
-  content.style.transform = wasHidden ? "translateY(-8px)" : "translateY(0)";
-
-  void content.offsetHeight;
-
-  const finish = () => {
-    if (content.dataset.codexActivityAnimationToken !== token) return;
-    cancelActivityContentAnimation(content);
-    resetActivityContentStyle(content);
-  };
-  const finishOnTransitionEnd = (event) => {
-    if (event.target !== content || event.propertyName !== "transform") return;
-    finish();
-  };
-  const timeout = global.setTimeout(finish, ACTIVITY_ANIMATION_MS + 80);
-  activityAnimationCleanups.set(content, () => {
-    global.clearTimeout(timeout);
-    content.removeEventListener?.("transitionend", finishOnTransitionEnd);
-  });
-
-  content.addEventListener?.("transitionend", finishOnTransitionEnd);
-  content.style.transition = [
-    `opacity ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
-    `transform ${ACTIVITY_ANIMATION_MS}ms ${ACTIVITY_ANIMATION_EASING}`,
-  ].join(", ");
-  content.style.opacity = "1";
-  content.style.transform = "translateY(0)";
-}
-
-function ensureActivityContent(activity) {
-  const existing = activity.querySelector("[data-codex-turn-activity-content]");
-  if (existing) return existing;
-  const template = activity.querySelector("[data-codex-turn-activity-template]");
-  const content = template?.content?.firstElementChild?.cloneNode(true);
-  if (!content) return null;
-  template.after(content);
-  return content;
-}
-
-function isActivityContentHidden(content) {
-  return content.hidden || content.getAttribute("aria-hidden") === "true";
-}
-
-function cancelActivityContentAnimation(content) {
-  const cleanup = activityAnimationCleanups.get(content);
-  if (!cleanup) return;
-  cleanup();
-  activityAnimationCleanups.delete(content);
-}
-
-function resetActivityContentStyle(content) {
-  content.style?.removeProperty("opacity");
-  content.style?.removeProperty("pointer-events");
-  content.style?.removeProperty("transform");
-  content.style?.removeProperty("transition");
-  content.style?.removeProperty("will-change");
-  delete content.dataset.codexActivityAnimating;
-  delete content.dataset.codexActivityAnimationToken;
 }
 
 function waitForThreadStarted(threadID) {

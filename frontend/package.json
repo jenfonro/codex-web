@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "scripts": {
+    "build:response-stack": "esbuild src/pages/codex/response-stack.jsx --bundle --minify --format=iife --global-name=CodexResponseStackBundle --outfile=dist/app/codex-response-stack.js"
+  },
+  "dependencies": {
+    "framer-motion": "12.42.2",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1"
+  }
+}
