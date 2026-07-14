@@ -265,6 +265,75 @@ input {
     cubic-bezier(0.32, 0.72, 0, 1);
 }
 
+@keyframes aui-tool-group-pullout-open {
+  from {
+    grid-template-rows: 0fr;
+  }
+  to {
+    grid-template-rows: 1fr;
+  }
+}
+
+@keyframes aui-tool-group-pullout-close {
+  from {
+    grid-template-rows: 1fr;
+  }
+  to {
+    grid-template-rows: 0fr;
+  }
+}
+
+.aui-tool-group-content[data-state="open"] {
+  animation: aui-tool-group-pullout-open var(--animation-duration, 200ms)
+    cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.aui-tool-group-content[data-state="closed"] {
+  animation: aui-tool-group-pullout-close var(--animation-duration, 200ms)
+    cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aui-tool-group-content {
+    animation: none;
+  }
+
+  .aui-tool-group-content[data-state="open"] {
+    grid-template-rows: 1fr;
+  }
+
+  .aui-tool-group-content[data-state="closed"] {
+    grid-template-rows: 0fr;
+  }
+
+}
+
 .aui-md {
   line-height: 1.7;
+}
+
+.codex-activity-markdown {
+  color: var(--muted-foreground);
+}
+
+.codex-activity-markdown .aui-md-p,
+.codex-activity-markdown .aui-md-ul,
+.codex-activity-markdown .aui-md-ol,
+.codex-activity-markdown .aui-md-blockquote,
+.codex-activity-markdown .aui-md-table {
+  margin-top: 0.375rem;
+  margin-bottom: 0.375rem;
+}
+
+.codex-activity-markdown > :first-child {
+  margin-top: 0;
+}
+
+.codex-activity-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.codex-activity-markdown .aui-md-inline-code {
+  background: color-mix(in oklab, var(--muted) 70%, transparent);
+  color: var(--foreground);
 }

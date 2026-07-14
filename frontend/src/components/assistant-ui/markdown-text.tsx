@@ -8,11 +8,13 @@ import {
   unstable_memoizeMarkdownComponents as memoizeMarkdownComponents,
   useIsMarkdownCodeBlock,
 } from "@assistant-ui/react-markdown";
+import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { type FC, memo, useState } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
+import { SyntaxHighlighter } from "@/components/assistant-ui/shiki-highlighter";
 import { cn } from "@/lib/utils";
 
 const MarkdownTextImpl = () => {
@@ -27,6 +29,35 @@ const MarkdownTextImpl = () => {
 };
 
 export const MarkdownText = memo(MarkdownTextImpl);
+
+const MarkdownTextContentImpl: FC<{
+  text: unknown;
+  className?: string;
+}> = ({ text, className }) => {
+  const value = stringifyMarkdownText(text);
+  if (!value.trim()) return null;
+  return (
+    <div className={cn("aui-md", className)}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={defaultComponents}
+      >
+        {value}
+      </ReactMarkdown>
+    </div>
+  );
+};
+
+export const MarkdownTextContent = memo(MarkdownTextContentImpl);
+
+function stringifyMarkdownText(value: unknown) {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2) ?? "";
+  } catch {
+    return String(value);
+  }
+}
 
 const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard();
@@ -77,6 +108,7 @@ const useCopyToClipboard = ({
 };
 
 const defaultComponents = memoizeMarkdownComponents({
+  SyntaxHighlighter,
   h1: ({ className, ...props }) => (
     <h1
       className={cn(

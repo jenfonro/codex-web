@@ -3,10 +3,14 @@
   ComposerAttachments,
   UserMessageAttachments,
 } from "@/components/assistant-ui/attachment";
-import { MarkdownText } from "@/components/assistant-ui/markdown-text";
+import {
+  MarkdownText,
+  MarkdownTextContent,
+} from "@/components/assistant-ui/markdown-text";
 import { DotMatrix } from "@/components/assistant-ui/dot-matrix";
 import { MessageTiming } from "@/components/assistant-ui/message-timing";
 import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
+import { StaticTextBlock } from "@/components/assistant-ui/static-text-block";
 import {
   ToolGroupContent,
   ToolGroupRoot,
@@ -19,13 +23,6 @@ import {
   ThreadListRoot,
 } from "@/components/assistant-ui/thread-list";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
-import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningRoot,
-  ReasoningText,
-  ReasoningTrigger,
-} from "@/components/assistant-ui/reasoning";
 import { Button } from "@/components/ui/radix/button";
 import { cn } from "@/lib/utils";
 import icon from "@/assets/assistant-ui-icon.svg";
@@ -44,7 +41,6 @@ import {
   BranchPickerPrimitive,
   ComposerPrimitive,
   ErrorPrimitive,
-  groupPartByType,
   MessagePrimitive,
   ThreadPrimitive,
   unstable_useMentionAdapter,
@@ -85,7 +81,14 @@ import {
   LexicalComposerInput,
   type DirectiveChipProps,
 } from "@assistant-ui/react-lexical";
-import { useState, type FC, type ImgHTMLAttributes, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  type FC,
+  type ImgHTMLAttributes,
+  type ReactNode,
+} from "react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/radix/sheet";
 import {
   Tooltip,
@@ -722,12 +725,30 @@ const AssistantWorkingIndicator: FC = () => {
   );
 };
 
+const ToolGroupRenderContext = createContext(false);
+const CODEX_ACTIVITY_PARENT_PREFIX = "codex-activity:";
+
+const groupCodexParts = (part: any) => {
+  if (
+    part.type === "tool-call" &&
+    typeof part.parentId === "string" &&
+    part.parentId.startsWith(CODEX_ACTIVITY_PARENT_PREFIX)
+  ) {
+    return ["group-chainOfThought", "group-tool"] as const;
+  }
+  return [];
+};
+
 const AssistantMessage: FC = () => {
   // reserves space for action bar and compensates with `-mb` for consistent msg spacing
   // keeps hovered action bar from shifting layout (autohide doesn't support absolute positioning well)
   // for pt-[n] use -mb-[n + 6] & min-h-[n + 6] to preserve compensation
   const ACTION_BAR_PT = "pt-1.5";
   const ACTION_BAR_HEIGHT = `-mb-7.5 min-h-7.5 ${ACTION_BAR_PT}`;
+  const activityLabel = useAuiState((s) => {
+    const label = s.message.metadata.custom.codexActivityLabel;
+    return typeof label === "string" ? label : undefined;
+  });
 
   return (
     <MessagePrimitive.Root
@@ -740,11 +761,7 @@ const AssistantMessage: FC = () => {
         className="text-foreground px-2 leading-relaxed wrap-break-word"
       >
         <MessagePrimitive.GroupedParts
-          groupBy={groupPartByType({
-            reasoning: ["group-chainOfThought", "group-reasoning"],
-            "tool-call": ["group-chainOfThought", "group-tool"],
-            "standalone-tool-call": [],
-          })}
+          groupBy={groupCodexParts}
         >
           {({ part, children }) => {
             switch (part.type) {
@@ -755,28 +772,20 @@ const AssistantMessage: FC = () => {
                   <ToolGroupRoot variant="ghost">
                     <ToolGroupTrigger
                       count={part.indices.length}
+                      label={activityLabel ?? `已处理 ${part.indices.length} 项`}
                       active={part.status.type === "running"}
                     />
-                    <ToolGroupContent>{children}</ToolGroupContent>
+                    <ToolGroupContent>
+                      <ToolGroupRenderContext.Provider value>
+                        {children}
+                      </ToolGroupRenderContext.Provider>
+                    </ToolGroupContent>
                   </ToolGroupRoot>
                 );
-              case "group-reasoning": {
-                const running = part.status.type === "running";
-                return (
-                  <ReasoningRoot defaultOpen={running}>
-                    <ReasoningTrigger active={running} />
-                    <ReasoningContent aria-busy={running}>
-                      <ReasoningText>{children}</ReasoningText>
-                    </ReasoningContent>
-                  </ReasoningRoot>
-                );
-              }
               case "text":
                 return <MarkdownText />;
-              case "reasoning":
-                return <Reasoning {...part} />;
               case "tool-call":
-                return part.toolUI ?? <ToolFallback {...part} />;
+                return <AssistantToolPart part={part} />;
               case "indicator":
                 return <AssistantWorkingIndicator />;
               case "data":
@@ -797,6 +806,160 @@ const AssistantMessage: FC = () => {
         <AssistantActionBar />
       </div>
     </MessagePrimitive.Root>
+  );
+};
+
+const AssistantToolPart: FC<{ part: any }> = ({ part }) => {
+  const insideToolGroup = useContext(ToolGroupRenderContext);
+  if (insideToolGroup && !part.toolUI) {
+    return <CodexActivityPart part={part} />;
+  }
+  return part.toolUI ?? <ToolFallback {...part} />;
+};
+
+const CodexActivityPart: FC<{ part: any }> = ({ part }) => {
+  const kind = part.codexActivityKind;
+  const label = part.codexActivityLabel ?? part.toolName;
+  const text = part.codexActivityText ?? part.result;
+
+  switch (kind) {
+    case "message":
+      return <CodexActivityText text={text} />;
+    case "command":
+      return (
+        <CodexActivityDisclosure label={label}>
+          {part.codexActivityCommand ? (
+            <CodexActivityPre
+              text={part.codexActivityCommand}
+              className="bg-muted/40 text-foreground/90 rounded-md p-2.5 text-xs"
+            />
+          ) : null}
+          {part.codexActivityOutput ? (
+            <CodexActivityPre
+              text={part.codexActivityOutput}
+              className="bg-muted/40 text-foreground/90 mt-2 rounded-md p-2.5 text-xs"
+            />
+          ) : null}
+        </CodexActivityDisclosure>
+      );
+    case "fileChange":
+      return <CodexActivityFileChange changes={part.codexActivityChanges} />;
+    case "webSearch":
+      return (
+        <CodexActivityPlainRow label={label}>
+          {text ? <span className="text-muted-foreground ms-1">{text}</span> : null}
+        </CodexActivityPlainRow>
+      );
+    case "contextCompaction":
+      return <CodexActivityPlainRow label={text ?? label} />;
+    case "tool":
+      return (
+        <CodexActivityDisclosure label={label}>
+          {part.argsText ? (
+            <CodexActivityPre
+              text={part.argsText}
+              className="bg-muted/40 text-foreground/90 rounded-md p-2.5 text-xs"
+            />
+          ) : null}
+          {text !== undefined ? <CodexActivityText text={text} className="mt-2" /> : null}
+        </CodexActivityDisclosure>
+      );
+    default:
+      return <ToolFallback.Inline {...part} />;
+  }
+};
+
+const CodexActivityPre: FC<{
+  text: unknown;
+  className?: string;
+}> = ({ text, className }) => (
+  <StaticTextBlock
+    data-slot="codex-activity-pre"
+    text={text}
+    className={cn(
+      "codex-activity-pre overflow-x-auto font-mono",
+      className,
+    )}
+  />
+);
+
+const CodexActivityDisclosure: FC<{
+  label: ReactNode;
+  children?: ReactNode;
+}> = ({ label, children }) => {
+  return (
+    <details
+      data-slot="codex-activity-disclosure"
+      className="group/codex-activity-disclosure py-1"
+    >
+      <summary className="text-muted-foreground hover:text-foreground flex w-fit cursor-pointer list-none items-center gap-2 text-sm transition-colors [&::-webkit-details-marker]:hidden">
+        <CheckIcon className="size-3.5 shrink-0" aria-hidden />
+        <span>{label}</span>
+        <ChevronRightIcon className="size-3 shrink-0 transition-transform group-open/codex-activity-disclosure:rotate-90" />
+      </summary>
+      <div className="ps-5 pt-1.5 pb-1">{children}</div>
+    </details>
+  );
+};
+
+const CodexActivityPlainRow: FC<{
+  label: ReactNode;
+  children?: ReactNode;
+}> = ({ label, children }) => {
+  return (
+    <div
+      data-slot="codex-activity-row"
+      className="text-muted-foreground flex items-center gap-2 py-1 text-sm"
+    >
+      <CheckIcon className="size-3.5 shrink-0" aria-hidden />
+      <span>{label}</span>
+      {children}
+    </div>
+  );
+};
+
+const CodexActivityText: FC<{ text: unknown; className?: string }> = ({
+  text,
+  className,
+}) => {
+  if (text === undefined || text === null || text === "") return null;
+  return (
+    <MarkdownTextContent
+      text={text}
+      className={cn(
+        "codex-activity-markdown text-muted-foreground font-sans text-sm leading-relaxed",
+        className,
+      )}
+    />
+  );
+};
+
+const CodexActivityFileChange: FC<{ changes: unknown }> = ({ changes }) => {
+  const rows = Array.isArray(changes) ? changes : [];
+  if (!rows.length) return <CodexActivityPlainRow label="文件变更已完成" />;
+  return (
+    <div data-slot="codex-activity-file-change" className="flex flex-col gap-1 py-1">
+      {rows.map((change: any, index) => (
+        <details key={`${change.path ?? index}-${index}`} className="group/codex-file">
+          <summary className="text-muted-foreground hover:text-foreground flex w-fit cursor-pointer list-none items-center gap-2 text-sm transition-colors [&::-webkit-details-marker]:hidden">
+            <CheckIcon className="size-3.5 shrink-0" aria-hidden />
+            <span>{change.action ?? "已编辑"}</span>
+            <span className="text-foreground/80 font-mono text-xs">
+              {change.path ?? "未知文件"}
+            </span>
+            {change.diff ? (
+              <ChevronRightIcon className="size-3 shrink-0 transition-transform group-open/codex-file:rotate-90" />
+            ) : null}
+          </summary>
+          {change.diff ? (
+            <CodexActivityPre
+              text={change.diff}
+              className="bg-muted/40 text-foreground/90 ms-5 mt-1 rounded-md p-2.5 text-xs"
+            />
+          ) : null}
+        </details>
+      ))}
+    </div>
   );
 };
 

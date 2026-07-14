@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { StaticTextBlock } from "@/components/assistant-ui/static-text-block";
 
 const ANIMATION_DURATION = 200;
 
@@ -243,9 +244,10 @@ function ToolFallbackArgs({
       className={cn("aui-tool-fallback-args", className)}
       {...props}
     >
-      <pre className="aui-tool-fallback-args-value bg-muted/50 text-foreground/90 rounded-md p-2.5 text-xs whitespace-pre-wrap">
-        {argsText}
-      </pre>
+      <StaticTextBlock
+        text={argsText}
+        className="aui-tool-fallback-args-value bg-muted/50 text-foreground/90 rounded-md p-2.5 text-xs"
+      />
     </div>
   );
 }
@@ -268,9 +270,10 @@ function ToolFallbackResult({
       <p className="aui-tool-fallback-result-header text-muted-foreground text-xs font-medium">
         Result:
       </p>
-      <pre className="aui-tool-fallback-result-content bg-muted/50 text-foreground/90 mt-1 rounded-md p-2.5 text-xs whitespace-pre-wrap">
-        {typeof result === "string" ? result : JSON.stringify(result, null, 2)}
-      </pre>
+      <StaticTextBlock
+        text={result}
+        className="aui-tool-fallback-result-content bg-muted/50 text-foreground/90 mt-1 rounded-md p-2.5 text-xs"
+      />
     </div>
   );
 }
@@ -573,6 +576,50 @@ const ToolFallbackImpl: ToolCallMessagePartComponent = ({
   );
 };
 
+function ToolFallbackInline({
+  toolName,
+  argsText,
+  result,
+  status,
+  className,
+  ...props
+}: React.ComponentProps<"div"> &
+  Pick<
+    ToolCallMessagePartProps,
+    "toolName" | "argsText" | "result" | "status"
+  >) {
+  const statusType = status?.type ?? "complete";
+  const Icon = statusIconMap[statusType];
+
+  return (
+    <div
+      data-slot="tool-fallback-inline"
+      className={cn(
+        "aui-tool-fallback-inline flex flex-col gap-1 py-1",
+        className,
+      )}
+      {...props}
+    >
+      <div className="text-muted-foreground flex items-center gap-2 text-sm">
+        <Icon
+          className={cn(
+            "size-3.5 shrink-0",
+            statusType === "running" && "animate-spin [animation-duration:0.6s]",
+          )}
+          aria-hidden
+        />
+        <span className="font-medium">{toolName}</span>
+        <ToolFallbackDuration />
+      </div>
+      <div className="flex flex-col gap-2 ps-5">
+        <ToolFallbackError status={status} />
+        <ToolFallbackArgs argsText={argsText} />
+        <ToolFallbackResult result={result} />
+      </div>
+    </div>
+  );
+}
+
 const ToolFallback = memo(
   ToolFallbackImpl,
 ) as unknown as ToolCallMessagePartComponent & {
@@ -583,6 +630,7 @@ const ToolFallback = memo(
   Result: typeof ToolFallbackResult;
   Error: typeof ToolFallbackError;
   Approval: typeof ToolFallbackApproval;
+  Inline: typeof ToolFallbackInline;
 };
 
 ToolFallback.displayName = "ToolFallback";
@@ -593,6 +641,7 @@ ToolFallback.Args = ToolFallbackArgs;
 ToolFallback.Result = ToolFallbackResult;
 ToolFallback.Error = ToolFallbackError;
 ToolFallback.Approval = ToolFallbackApproval;
+ToolFallback.Inline = ToolFallbackInline;
 
 export {
   ToolFallback,
@@ -603,4 +652,5 @@ export {
   ToolFallbackResult,
   ToolFallbackError,
   ToolFallbackApproval,
+  ToolFallbackInline,
 };

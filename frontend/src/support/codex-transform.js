@@ -85,38 +85,72 @@ function userMessageForTurn(turn) {
 }
 
 function assistantMessageForTurn(turn, isRunning) {
-  const sections = [];
+  const content = [];
+  const refs = assistantRefsForTurn(turn);
+  const split = splitTurnFollowups(refs);
+  const processFirst = !split.finalFollowup && split.processFollowups.length > 0;
 
-  for (const item of turn.items ?? []) {
-    if (!item || typeof item !== "object" || item.type === "userMessage") continue;
-    const text = assistantTextForItem(item);
-    if (text) sections.push(text);
+  if (!processFirst) {
+    for (const ref of split.streamFollowups) {
+      const part = assistantPartForItem(ref.item);
+      if (part) appendAssistantPart(content, part);
+    }
   }
 
-  if (turn.error) sections.push(formatError(turn.error));
-  if (!sections.length) return null;
+  const visibleProcessFollowups = mergeAdjacentActivityMessages(
+    split.processFollowups.filter(isVisibleProcessFollowup),
+  );
+
+  for (const ref of visibleProcessFollowups) {
+    const part = activityPartForItem(ref.item, turn);
+    if (part) appendAssistantPart(content, part);
+  }
+
+  if (processFirst) {
+    for (const ref of split.streamFollowups) {
+      const part = assistantPartForItem(ref.item);
+      if (part) appendAssistantPart(content, part);
+    }
+  }
+
+  if (split.finalFollowup) {
+    appendTextPart(content, split.finalFollowup.item.text ?? "");
+  }
+
+  if (turn.error) appendTextPart(content, formatError(turn.error));
+  if (!content.length) return null;
 
   return assistantMessage(
     turn,
     { id: `${turn.id}-assistant`, type: "assistantTurn" },
-    sections.join("\n\n---\n\n"),
+    content,
     isRunning && turn.status === "inProgress",
+    visibleProcessFollowups.length
+      ? {
+          codexActivityLabel: activitySummaryLabel(turn),
+          codexActivityCount: visibleProcessFollowups.length,
+          codexActivityParentId: activityParentId(turn),
+        }
+      : undefined,
   );
 }
 
-function assistantMessage(turn, item, text, running) {
+function assistantMessage(turn, item, content, running, custom = undefined) {
   return {
     id: item.id,
     role: "assistant",
     createdAt: timestampToDate(turn.startedAt),
-    content: [{ type: "text", text }],
+    content: Array.isArray(content) ? content : [{ type: "text", text: content }],
     status: running ? { type: "running" } : { type: "complete", reason: "stop" },
     metadata: {
       unstable_state: null,
       unstable_annotations: [],
       unstable_data: [],
       steps: [],
-      custom: baseCustom(turn, item),
+      custom: {
+        ...baseCustom(turn, item),
+        ...(custom ?? {}),
+      },
     },
   };
 }
@@ -145,59 +179,370 @@ function turnNotificationMessage(notification) {
   return assistantMessage(turn, item, formatError(notification.error), notification.willRetry);
 }
 
-function assistantTextForItem(item) {
+function assistantPartForItem(item) {
   switch (item.type) {
     case "agentMessage":
-      return item.text ?? "";
+      return textPart(item.text ?? "");
     case "reasoning":
-      return formatReasoning(item);
+      return null;
     case "commandExecution":
-      return formatCommand(item);
+      return commandToolPart(item);
     case "fileChange":
-      return formatFileChange(item);
+      return fileChangeToolPart(item);
     case "mcpToolCall":
-      return formatToolCall("MCP 工具", item.server ? `${item.server}.${item.tool}` : item.tool, item);
+      return genericToolPart(item, item.server ? `${item.server}.${item.tool}` : item.tool, "MCP 工具");
     case "dynamicToolCall":
-      return formatToolCall("工具调用", item.namespace ? `${item.namespace}.${item.tool}` : item.tool, item);
+      return genericToolPart(item, item.namespace ? `${item.namespace}.${item.tool}` : item.tool, "工具调用");
     case "webSearch":
-      return `搜索：${item.action?.query ?? item.query ?? ""}`.trim();
+      return processedToolPart(item, "搜索", { query: item.action?.query ?? item.query ?? "" }, "已完成");
     case "plan":
-      return item.text ? `计划\n\n${item.text}` : "";
+      return textPart(item.text ? `计划\n\n${item.text}` : "");
     case "contextCompaction":
-      return "上下文已自动压缩。";
+      return processedToolPart(item, "上下文压缩", {}, "上下文已自动压缩。");
     case "imageView":
-      return item.path ? `查看图片：${item.path}` : "查看图片";
+      return processedToolPart(item, "查看图片", item.path ? { path: item.path } : {}, "已查看");
     case "sleep":
-      return item.durationMs ? `等待 ${Math.round(item.durationMs / 1000)} 秒。` : "等待中。";
+      return processedToolPart(
+        item,
+        "等待",
+        item.durationMs ? { durationSeconds: Math.round(item.durationMs / 1000) } : {},
+        isRunningStatus(item.status) ? undefined : "已完成",
+      );
     default:
-      return "";
+      return null;
   }
 }
 
-function formatReasoning(item) {
-  const summary = Array.isArray(item.summary) ? item.summary.filter(Boolean).join("\n\n") : "";
-  const content = Array.isArray(item.content) ? item.content.filter(Boolean).join("\n\n") : "";
-  const text = summary || content;
-  return text ? `思考\n\n${text}` : "思考中...";
+function activityPartForItem(item, turn) {
+  const parentId = activityParentId(turn);
+  let part = null;
+  let activity = null;
+
+  switch (item.type) {
+    case "agentMessage":
+      part = processedToolPart(item, "进展", {}, item.text ?? "");
+      activity = { kind: "message", text: item.text ?? "" };
+      break;
+    case "commandExecution":
+      part = commandToolPart(item, commandExecutionLabel(item, isRunningStatus(item.status)));
+      activity = {
+        kind: "command",
+        label: commandExecutionLabel(item, isRunningStatus(item.status)),
+        command: item.command ?? "",
+        output: typeof item.aggregatedOutput === "string" ? item.aggregatedOutput.trim() : "",
+      };
+      break;
+    case "fileChange":
+      part = fileChangeToolPart(item);
+      activity = { kind: "fileChange", changes: fileChangeRows(item) };
+      break;
+    case "mcpToolCall":
+      part = genericToolPart(item, item.server ? `${item.server}.${item.tool}` : item.tool, "MCP 工具");
+      activity = { kind: "tool", label: part?.toolName, text: part?.result };
+      break;
+    case "dynamicToolCall":
+      part = genericToolPart(item, item.namespace ? `${item.namespace}.${item.tool}` : item.tool, "工具调用");
+      activity = { kind: "tool", label: part?.toolName, text: part?.result };
+      break;
+    case "webSearch":
+      part = processedToolPart(item, "搜索", { query: item.action?.query ?? item.query ?? "" }, "已完成");
+      activity = { kind: "webSearch", label: "已搜索网页", text: item.action?.query ?? item.query ?? "" };
+      break;
+    case "contextCompaction":
+      part = processedToolPart(item, "上下文压缩", {}, "上下文已自动压缩。");
+      activity = { kind: "contextCompaction", text: "上下文已自动压缩" };
+      break;
+    case "imageView":
+      part = processedToolPart(item, "查看图片", item.path ? { path: item.path } : {}, "已查看");
+      activity = { kind: "tool", label: "已查看图片", text: item.path ?? "" };
+      break;
+    case "sleep":
+      part = processedToolPart(
+        item,
+        "等待",
+        item.durationMs ? { durationSeconds: Math.round(item.durationMs / 1000) } : {},
+        isRunningStatus(item.status) ? undefined : "已完成",
+      );
+      activity = {
+        kind: "tool",
+        label: isRunningStatus(item.status) ? "正在等待" : "已等待",
+        text: item.durationMs ? `${Math.round(item.durationMs / 1000)} 秒` : "",
+      };
+      break;
+    default:
+      part = assistantPartForItem(item);
+  }
+
+  if (!part) return null;
+  if (part.type !== "tool-call") {
+    return processedToolPart(item, item.type ?? "处理", {}, part.text ?? "");
+  }
+  return withActivityMetadata(part, parentId, activity);
 }
 
-function formatCommand(item) {
-  const output = item.aggregatedOutput ? `\n\n输出\n\n\`\`\`\n${item.aggregatedOutput.trim()}\n\`\`\`` : "";
-  const status = item.status ? `\n状态：${item.status}` : "";
-  const cwd = item.cwd ? `\n目录：${item.cwd}` : "";
-  return `命令\n\n\`\`\`bash\n${item.command ?? ""}\n\`\`\`${status}${cwd}${output}`;
+function textPart(text) {
+  return typeof text === "string" && text.trim() ? { type: "text", text } : null;
 }
 
-function formatFileChange(item) {
+function appendAssistantPart(content, part) {
+  if (part.type === "text") {
+    appendTextPart(content, part.text);
+    return;
+  }
+  content.push(part);
+}
+
+function appendTextPart(content, text) {
+  if (typeof text !== "string" || !text.trim()) return;
+  const previous = content[content.length - 1];
+  if (previous?.type === "text") {
+    previous.text = `${previous.text}\n\n${text}`;
+    return;
+  }
+  content.push({ type: "text", text });
+}
+
+function commandToolPart(item, toolName = "命令") {
+  const args = {
+    command: item.command ?? "",
+    ...(item.cwd ? { cwd: item.cwd } : {}),
+  };
+  const result = commandResult(item);
+  return processedToolPart(item, toolName, args, result);
+}
+
+function commandResult(item) {
+  if (isRunningStatus(item.status) && !item.aggregatedOutput) return undefined;
+  const lines = [];
+  if (item.status) lines.push(`状态：${item.status}`);
+  if (item.exitCode !== undefined && item.exitCode !== null) lines.push(`退出码：${item.exitCode}`);
+  if (item.durationMs !== undefined && item.durationMs !== null) lines.push(`耗时：${item.durationMs}ms`);
+  const output = typeof item.aggregatedOutput === "string" ? item.aggregatedOutput.trim() : "";
+  if (output) lines.push(`输出\n\n${output}`);
+  return lines.length ? lines.join("\n") : "已完成";
+}
+
+function fileChangeToolPart(item) {
+  const changes = fileChangeRows(item);
+  const result = changes.length
+    ? changes.map((change) => `- ${change.path} (${change.action})`).join("\n")
+    : "文件变更已完成。";
+  return processedToolPart(item, "文件变更", {}, result);
+}
+
+function genericToolPart(item, name, fallbackName) {
+  const result = item.error ?? item.result ?? item.contentItems ?? (isRunningStatus(item.status) ? undefined : "已完成");
+  return processedToolPart(item, name ?? fallbackName, safeObject(item.arguments), result, Boolean(item.error));
+}
+
+function processedToolPart(item, toolName, args, result, isError = false) {
+  const normalizedArgs = safeObject(args);
+  const argsText = Object.keys(normalizedArgs).length ? JSON.stringify(normalizedArgs, null, 2) : "";
+  const hasResult = result !== undefined && result !== null && !isRunningStatus(item.status);
+  return {
+    type: "tool-call",
+    toolCallId: item.id ?? `${item.type}-${hashText(`${toolName}:${JSON.stringify(normalizedArgs)}`)}`,
+    toolName,
+    args: normalizedArgs,
+    argsText,
+    ...(hasResult ? { result } : {}),
+    ...(isError ? { isError: true } : {}),
+  };
+}
+
+function withActivityMetadata(part, parentId, activity) {
+  if (!activity) return { ...part, parentId };
+  return {
+    ...part,
+    parentId,
+    codexActivityKind: activity.kind,
+    ...(activity.label ? { codexActivityLabel: activity.label } : {}),
+    ...(activity.text !== undefined && activity.text !== null ? { codexActivityText: activity.text } : {}),
+    ...(activity.command ? { codexActivityCommand: activity.command } : {}),
+    ...(activity.output ? { codexActivityOutput: activity.output } : {}),
+    ...(activity.changes ? { codexActivityChanges: activity.changes } : {}),
+  };
+}
+
+function commandExecutionLabel(item, pending) {
+  const actions = Array.isArray(item.commandActions) ? item.commandActions : [];
+  if (actions.length !== 1) return commandStatusLabel(pending);
+  const action = actions[0];
+  if (action.type === "read") return `${pending ? "正在读取" : "已读取"} ${action.name ?? ""}`.trim();
+  if (action.type === "search") return `${pending ? "正在搜索" : "已搜索"} ${action.query ?? ""}`.trim();
+  if (action.type === "listFiles") return `${pending ? "正在列出" : "已列出"} ${action.path ?? ""}`.trim();
+  return commandStatusLabel(pending);
+}
+
+function commandStatusLabel(pending) {
+  return pending ? "正在运行命令" : "已运行命令";
+}
+
+function fileChangeRows(item) {
   const changes = Array.isArray(item.changes) ? item.changes : [];
-  if (!changes.length) return "文件变更已完成。";
-  return `文件变更\n\n${changes.map((change) => `- ${change.path ?? "未知文件"} (${change.kind?.type ?? "change"})`).join("\n")}`;
+  return changes.map((change) => ({
+    path: change.path ?? "未知文件",
+    action: fileChangeActionLabel(change.kind?.type, item.status),
+    kind: change.kind?.type ?? "change",
+    diff: change.diff ?? "",
+  }));
 }
 
-function formatToolCall(label, name, item) {
-  const status = item.status ? `\n状态：${item.status}` : "";
-  const args = item.arguments ? `\n\n参数\n\n\`\`\`json\n${JSON.stringify(item.arguments, null, 2)}\n\`\`\`` : "";
-  return `${label}：${name ?? "unknown"}${status}${args}`;
+function fileChangeActionLabel(kind, status) {
+  if (status === "inProgress") {
+    if (kind === "add") return "正在创建";
+    if (kind === "delete") return "正在删除";
+    return "正在编辑";
+  }
+  if (status === "declined" || status === "failed") return "已拒绝";
+  if (kind === "add") return "已创建";
+  if (kind === "delete") return "已删除";
+  return "已编辑";
+}
+
+function assistantRefsForTurn(turn) {
+  return (turn.items ?? [])
+    .map((item, itemIndex) => ({ turn, item, itemIndex }))
+    .filter((ref) => ref.item && typeof ref.item === "object" && ref.item.type !== "userMessage");
+}
+
+function splitTurnFollowups(followups) {
+  const finalIndex = findFinalIndex(followups);
+  if (finalIndex < 0) {
+    const hasProcessSignals = followups.some(isProcessSignal);
+    if (hasProcessSignals) {
+      const processFollowups = followups.filter(isProcessSignal);
+      return {
+        processFollowups,
+        finalFollowup: null,
+        streamFollowups: followups.filter((ref) => !processFollowups.includes(ref)),
+      };
+    }
+    return {
+      processFollowups: [],
+      finalFollowup: null,
+      streamFollowups: followups,
+    };
+  }
+
+  const beforeFinal = followups.slice(0, finalIndex);
+  const afterFinal = followups.slice(finalIndex + 1);
+  const hasProcessSignals = beforeFinal.some(isProcessSignal);
+  const processFollowups = beforeFinal.filter((ref) => isProcessSignal(ref) || (hasProcessSignals && isAssistant(ref)));
+  const streamFollowups = [
+    ...beforeFinal.filter((ref) => !processFollowups.includes(ref)),
+    ...afterFinal,
+  ];
+  return {
+    processFollowups,
+    finalFollowup: followups[finalIndex],
+    streamFollowups,
+  };
+}
+
+function findFinalIndex(followups) {
+  for (let index = followups.length - 1; index >= 0; index -= 1) {
+    const ref = followups[index];
+    if (isAssistant(ref) && ref.item.phase === "final_answer" && !isStreamingAssistant(ref)) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function isProcessSignal(ref) {
+  if ([
+    "reasoning",
+    "commandExecution",
+    "fileChange",
+    "webSearch",
+    "mcpToolCall",
+    "dynamicToolCall",
+    "contextCompaction",
+    "imageView",
+    "sleep",
+  ].includes(ref.item.type)) return true;
+  return isAssistant(ref) && ref.item.phase === "commentary";
+}
+
+function isVisibleProcessFollowup(ref) {
+  return ref.item.type !== "reasoning";
+}
+
+function mergeAdjacentActivityMessages(followups) {
+  const merged = [];
+  let messages = [];
+
+  const flushMessages = () => {
+    if (!messages.length) return;
+    merged.push(mergedActivityMessage(messages));
+    messages = [];
+  };
+
+  for (const ref of followups) {
+    if (isAssistant(ref)) {
+      messages.push(ref);
+      continue;
+    }
+    flushMessages();
+    merged.push(ref);
+  }
+
+  flushMessages();
+  return merged;
+}
+
+function mergedActivityMessage(refs) {
+  if (refs.length === 1) return refs[0];
+  const first = refs[0];
+  const text = refs
+    .map((ref) => ref.item.text ?? "")
+    .filter((value) => value.trim())
+    .join("\n\n");
+  return {
+    ...first,
+    item: {
+      ...first.item,
+      id: `${first.turn.id}-activity-message-${hashText(text)}`,
+      text,
+    },
+  };
+}
+
+function isAssistant(ref) {
+  return ref.item.type === "agentMessage";
+}
+
+function isStreamingAssistant(ref) {
+  return isAssistant(ref) && ref.turn.status === "inProgress" && ref.itemIndex === (ref.turn.items?.length ?? 0) - 1;
+}
+
+function activityParentId(turn) {
+  return `codex-activity:${turn.id}`;
+}
+
+function activitySummaryLabel(turn) {
+  if (turn.durationMs === null || turn.durationMs === undefined) return "已处理";
+  return `已处理 ${formatDurationMs(turn.durationMs)}`;
+}
+
+function formatDurationMs(durationMs) {
+  const totalSeconds = Math.floor(durationMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes <= 0) return `${seconds}s`;
+  if (minutes < 60) return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+  return restMinutes ? `${hours}h ${restMinutes}m` : `${hours}h`;
+}
+
+function safeObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+function isRunningStatus(status) {
+  return status === "inProgress" || status === "running" || status === "pending";
 }
 
 function formatError(error) {
