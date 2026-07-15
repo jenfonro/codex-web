@@ -106,8 +106,8 @@ function ToolGroupTrigger({
     <CollapsibleTrigger
       data-slot="tool-group-trigger"
       className={cn(
-        "aui-tool-group-trigger group/trigger flex origin-left items-center gap-2 text-sm transition-[color,scale] active:scale-[0.98]",
-        "group-data-[variant=ghost]/tool-group-root:text-muted-foreground group-data-[variant=ghost]/tool-group-root:hover:text-foreground group-data-[variant=ghost]/tool-group-root:py-1.5",
+        "aui-tool-group-trigger group/trigger flex origin-left items-center gap-1.5 text-[13px] leading-5 transition-[color,scale] active:scale-[0.98]",
+        "group-data-[variant=ghost]/tool-group-root:text-muted-foreground group-data-[variant=ghost]/tool-group-root:hover:text-foreground group-data-[variant=ghost]/tool-group-root:py-0",
         "group-data-[variant=outline]/tool-group-root:w-full group-data-[variant=outline]/tool-group-root:px-4",
         "group-data-[variant=muted]/tool-group-root:w-full group-data-[variant=muted]/tool-group-root:px-4",
         className,
@@ -123,18 +123,18 @@ function ToolGroupTrigger({
       <span
         data-slot="tool-group-trigger-label"
         className={cn(
-          "aui-tool-group-trigger-label-wrapper relative inline-block text-start leading-none font-medium",
+          "aui-tool-group-trigger-label-wrapper relative inline-block text-start text-[13px] leading-5 font-medium",
           "group-data-[variant=ghost]/tool-group-root:font-normal",
           "group-data-[variant=outline]/tool-group-root:grow",
           "group-data-[variant=muted]/tool-group-root:grow",
         )}
       >
-        <span className="text-xs">{displayLabel}</span>
+        <span>{displayLabel}</span>
         {active && (
           <span
             aria-hidden
             data-slot="tool-group-trigger-shimmer"
-            className="aui-tool-group-trigger-shimmer shimmer pointer-events-none absolute inset-0 text-xs motion-reduce:animate-none"
+            className="aui-tool-group-trigger-shimmer shimmer pointer-events-none absolute inset-0 motion-reduce:animate-none"
           >
             {shimmerLabel}
           </span>
@@ -145,9 +145,7 @@ function ToolGroupTrigger({
         className={cn(
           "aui-tool-group-trigger-chevron size-3 shrink-0",
           "transition-transform duration-(--animation-duration) ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
-          "-rotate-90",
-          "group-data-open/trigger:rotate-0",
-          "group-data-panel-open/trigger:rotate-0",
+          "-rotate-90 data-[state=open]:rotate-0",
         )}
       />
     </CollapsibleTrigger>
@@ -172,7 +170,7 @@ function ToolGroupContent({
       <div
         className={cn(
           "aui-tool-group-pullout-body mt-2 flex min-h-0 flex-col gap-1 overflow-hidden",
-          "group-data-[variant=ghost]/tool-group-root:mt-1",
+          "group-data-[variant=ghost]/tool-group-root:mt-2 group-data-[variant=ghost]/tool-group-root:gap-3 group-data-[variant=ghost]/tool-group-root:border-t group-data-[variant=ghost]/tool-group-root:border-border group-data-[variant=ghost]/tool-group-root:pt-3",
           "group-data-[variant=outline]/tool-group-root:mt-3 group-data-[variant=outline]/tool-group-root:border-t group-data-[variant=outline]/tool-group-root:px-4 group-data-[variant=outline]/tool-group-root:pt-3",
           "group-data-[variant=muted]/tool-group-root:mt-3 group-data-[variant=muted]/tool-group-root:border-t group-data-[variant=muted]/tool-group-root:px-4 group-data-[variant=muted]/tool-group-root:pt-3",
         )}

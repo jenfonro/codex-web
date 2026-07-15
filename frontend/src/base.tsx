@@ -74,6 +74,7 @@ import {
   RefreshCwIcon,
   ShareIcon,
   SlashIcon,
+  SquareTerminalIcon,
   SquareIcon,
   WrenchIcon,
 } from "lucide-react";
@@ -82,6 +83,7 @@ import {
   type DirectiveChipProps,
 } from "@assistant-ui/react-lexical";
 import {
+  Children,
   createContext,
   useContext,
   useState,
@@ -827,7 +829,10 @@ const CodexActivityPart: FC<{ part: any }> = ({ part }) => {
       return <CodexActivityText text={text} />;
     case "command":
       return (
-        <CodexActivityDisclosure label={label}>
+        <CodexActivityDisclosure
+          icon={<SquareTerminalIcon className="size-3.5 shrink-0" aria-hidden />}
+          label={label}
+        >
           {part.codexActivityCommand ? (
             <CodexActivityPre
               text={part.codexActivityCommand}
@@ -846,7 +851,10 @@ const CodexActivityPart: FC<{ part: any }> = ({ part }) => {
       return <CodexActivityFileChange changes={part.codexActivityChanges} />;
     case "webSearch":
       return (
-        <CodexActivityPlainRow label={label}>
+        <CodexActivityPlainRow
+          icon={<GlobeIcon className="size-3.5 shrink-0" aria-hidden />}
+          label={label}
+        >
           {text ? <span className="text-muted-foreground ms-1">{text}</span> : null}
         </CodexActivityPlainRow>
       );
@@ -854,7 +862,10 @@ const CodexActivityPart: FC<{ part: any }> = ({ part }) => {
       return <CodexActivityPlainRow label={text ?? label} />;
     case "tool":
       return (
-        <CodexActivityDisclosure label={label}>
+        <CodexActivityDisclosure
+          icon={<WrenchIcon className="size-3.5 shrink-0" aria-hidden />}
+          label={label}
+        >
           {part.argsText ? (
             <CodexActivityPre
               text={part.argsText}
@@ -885,34 +896,54 @@ const CodexActivityPre: FC<{
 
 const CodexActivityDisclosure: FC<{
   label: ReactNode;
+  icon?: ReactNode;
+  bodyClassName?: string;
   children?: ReactNode;
-}> = ({ label, children }) => {
+}> = ({ label, icon, bodyClassName, children }) => {
+  const body = Children.toArray(children);
+  const hasBody = body.length > 0;
   return (
     <details
       data-slot="codex-activity-disclosure"
-      className="group/codex-activity-disclosure py-1"
+      className="group/codex-activity-disclosure py-0"
     >
-      <summary className="text-muted-foreground hover:text-foreground flex w-fit cursor-pointer list-none items-center gap-2 text-sm transition-colors [&::-webkit-details-marker]:hidden">
-        <CheckIcon className="size-3.5 shrink-0" aria-hidden />
-        <span>{label}</span>
-        <ChevronRightIcon className="size-3 shrink-0 transition-transform group-open/codex-activity-disclosure:rotate-90" />
+      <summary
+        className={cn(
+          "codex-activity-row group/activity-header inline-flex max-w-full list-none items-center gap-1.5 text-left text-[13px] leading-5 text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden",
+          hasBody ? "cursor-pointer" : "cursor-default",
+        )}
+      >
+        {icon ? (
+          <span className="text-muted-foreground/75 group-hover/activity-header:text-foreground">
+            {icon}
+          </span>
+        ) : null}
+        <span className="min-w-0 flex-1 truncate whitespace-nowrap">{label}</span>
+        {hasBody ? (
+          <ChevronRightIcon className="size-3 shrink-0 text-muted-foreground/60 opacity-0 transition-[opacity,transform,color] duration-200 group-hover/activity-header:opacity-100 group-hover/activity-header:text-foreground group-open/codex-activity-disclosure:rotate-90 group-open/codex-activity-disclosure:opacity-100" />
+        ) : null}
       </summary>
-      <div className="ps-5 pt-1.5 pb-1">{children}</div>
+      {hasBody ? (
+        <div className={cn("ps-5 pt-1 pb-0.5", bodyClassName)}>{body}</div>
+      ) : null}
     </details>
   );
 };
 
 const CodexActivityPlainRow: FC<{
   label: ReactNode;
+  icon?: ReactNode;
   children?: ReactNode;
-}> = ({ label, children }) => {
+}> = ({ label, icon, children }) => {
   return (
     <div
       data-slot="codex-activity-row"
-      className="text-muted-foreground flex items-center gap-2 py-1 text-sm"
+      className="codex-activity-row flex max-w-full items-center gap-1.5 py-0 text-[13px] leading-5 text-muted-foreground"
     >
-      <CheckIcon className="size-3.5 shrink-0" aria-hidden />
-      <span>{label}</span>
+      {icon ? (
+        <span className="text-muted-foreground/75">{icon}</span>
+      ) : null}
+      <span className="min-w-0 truncate">{label}</span>
       {children}
     </div>
   );
@@ -927,7 +958,7 @@ const CodexActivityText: FC<{ text: unknown; className?: string }> = ({
     <MarkdownTextContent
       text={text}
       className={cn(
-        "codex-activity-markdown text-muted-foreground font-sans text-sm leading-relaxed",
+        "codex-activity-markdown text-foreground font-sans text-sm leading-relaxed",
         className,
       )}
     />
@@ -937,31 +968,81 @@ const CodexActivityText: FC<{ text: unknown; className?: string }> = ({
 const CodexActivityFileChange: FC<{ changes: unknown }> = ({ changes }) => {
   const rows = Array.isArray(changes) ? changes : [];
   if (!rows.length) return <CodexActivityPlainRow label="文件变更已完成" />;
+  if (rows.length === 1) return <CodexActivityFileChangeRow change={rows[0]} />;
+  const label = fileChangeGroupLabel(rows);
   return (
-    <div data-slot="codex-activity-file-change" className="flex flex-col gap-1 py-1">
-      {rows.map((change: any, index) => (
-        <details key={`${change.path ?? index}-${index}`} className="group/codex-file">
-          <summary className="text-muted-foreground hover:text-foreground flex w-fit cursor-pointer list-none items-center gap-2 text-sm transition-colors [&::-webkit-details-marker]:hidden">
-            <CheckIcon className="size-3.5 shrink-0" aria-hidden />
-            <span>{change.action ?? "已编辑"}</span>
-            <span className="text-foreground/80 font-mono text-xs">
-              {change.path ?? "未知文件"}
-            </span>
+    <CodexActivityDisclosure
+      icon={<CheckIcon className="size-3.5 shrink-0" aria-hidden />}
+      label={label}
+      bodyClassName="ps-5"
+    >
+      <div data-slot="codex-activity-file-change" className="flex flex-col gap-0.5">
+        {rows.map((change: any, index) => (
+          <div
+            key={`${change.path ?? index}-${index}`}
+            className="codex-activity-file-row flex min-w-0 flex-col gap-0.5"
+          >
+            <div className="flex min-w-0 items-center text-[13px] leading-5 text-muted-foreground">
+              <span className="min-w-0 truncate whitespace-nowrap">
+                <span className="shrink-0">{change.action ?? "已编辑"}</span>
+                <span className="font-mono text-xs text-foreground/75">
+                  {" "}
+                  {change.path ?? "未知文件"}
+                </span>
+              </span>
+            </div>
             {change.diff ? (
-              <ChevronRightIcon className="size-3 shrink-0 transition-transform group-open/codex-file:rotate-90" />
+              <CodexActivityPre
+                text={change.diff}
+                className="bg-muted/40 text-foreground/90 rounded-md p-2.5 text-xs"
+              />
             ) : null}
-          </summary>
-          {change.diff ? (
-            <CodexActivityPre
-              text={change.diff}
-              className="bg-muted/40 text-foreground/90 ms-5 mt-1 rounded-md p-2.5 text-xs"
-            />
-          ) : null}
-        </details>
-      ))}
-    </div>
+          </div>
+        ))}
+      </div>
+    </CodexActivityDisclosure>
   );
 };
+
+const CodexActivityFileChangeRow: FC<{ change: any }> = ({ change }) => {
+  return (
+    <details
+      data-slot="codex-activity-disclosure"
+      className="group/codex-activity-disclosure py-0"
+    >
+      <summary className="codex-activity-row group/activity-header inline-flex max-w-full cursor-pointer list-none items-center gap-1.5 text-left text-[13px] leading-5 text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+        <CheckIcon className="size-3.5 shrink-0 text-muted-foreground/75 group-hover/activity-header:text-foreground" aria-hidden />
+        <span className="min-w-0 truncate whitespace-nowrap">
+          <span className="shrink-0">{change.action ?? "已编辑"}</span>
+          <span className="font-mono text-xs text-foreground/75">
+            {" "}
+            {change.path ?? "未知文件"}
+          </span>
+        </span>
+        {change.diff ? (
+          <ChevronRightIcon className="size-3 shrink-0 text-muted-foreground/60 opacity-0 transition-[opacity,transform,color] duration-200 group-hover/activity-header:opacity-100 group-hover/activity-header:text-foreground group-open/codex-activity-disclosure:rotate-90 group-open/codex-activity-disclosure:opacity-100" />
+        ) : null}
+      </summary>
+      {change.diff ? (
+        <div className="ps-5 pt-1 pb-0.5">
+          <CodexActivityPre
+            text={change.diff}
+            className="bg-muted/40 text-foreground/90 rounded-md p-2.5 text-xs"
+          />
+        </div>
+      ) : null}
+    </details>
+  );
+};
+
+function fileChangeGroupLabel(rows: any[]) {
+  const action = rows.length
+    ? rows.every((row) => row.action === rows[0]?.action)
+      ? rows[0]?.action
+      : "已编辑"
+    : "已编辑";
+  return `${action || "已编辑"} ${rows.length} 个文件`;
+}
 
 const AssistantActionBar: FC = () => {
   return (

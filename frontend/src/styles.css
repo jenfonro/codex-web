@@ -313,7 +313,7 @@ input {
 }
 
 .codex-activity-markdown {
-  color: var(--muted-foreground);
+  color: var(--foreground);
 }
 
 .codex-activity-markdown .aui-md-p,
@@ -336,4 +336,16 @@ input {
 .codex-activity-markdown .aui-md-inline-code {
   background: color-mix(in oklab, var(--muted) 70%, transparent);
   color: var(--foreground);
+}
+
+.aui-tool-group-trigger,
+.aui-tool-group-trigger-label-wrapper,
+.codex-activity-row {
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.aui-tool-group-trigger {
+  min-height: 20px;
+  padding-block: 0;
 }

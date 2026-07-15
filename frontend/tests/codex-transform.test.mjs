@@ -51,6 +51,42 @@ describe("codex transform", () => {
     assert.ok(!messages[1].content.some((part) => part.toolName === "已思考"));
   });
 
+  it("strips Codex app file envelopes from displayed user messages", () => {
+    const state = {
+      turns: [
+        {
+          id: "turn-1",
+          status: "completed",
+          error: null,
+          startedAt: 1783950000,
+          items: [
+            {
+              id: "user-1",
+              type: "userMessage",
+              content: [
+                {
+                  type: "text",
+                  text: [
+                    "# Files mentioned by the user:",
+                    "",
+                    "## screenshot.png: C:/Users/example/AppData/Local/Temp/screenshot.png",
+                    "",
+                    "## My request for Codex:",
+                    "比如这个",
+                  ].join("\n"),
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      turnErrors: [],
+    };
+
+    const [message] = messagesFromCodexState(state);
+    assert.equal(message.content[0].text, "比如这个");
+  });
+
   it("converts processed codex items into assistant-ui tool-call parts", () => {
     const state = {
       turns: [
@@ -88,6 +124,64 @@ describe("codex transform", () => {
     assert.match(message.content[0].result, /M file\.go/);
     assert.equal(message.content[1].type, "text");
     assert.equal(message.content[1].text, "Done");
+  });
+
+  it("uses a compact label for grouped command activity", () => {
+    const state = {
+      turns: [
+        {
+          id: "turn-1",
+          status: "completed",
+          error: null,
+          startedAt: 1783950000,
+          items: [
+            {
+              id: "cmd-1",
+              type: "commandExecution",
+              status: "completed",
+              command: "git status --short",
+              commandActions: [
+                { type: "read", name: "base.tsx" },
+                { type: "search", query: "activity" },
+              ],
+            },
+          ],
+        },
+      ],
+      turnErrors: [],
+    };
+
+    const [message] = messagesFromCodexState(state);
+    assert.equal(message.content[0].codexActivityLabel, "运行了多个命令");
+  });
+
+  it("summarizes internal dynamic tool calls as command activity", () => {
+    const state = {
+      turns: [
+        {
+          id: "turn-1",
+          status: "completed",
+          error: null,
+          startedAt: 1783950000,
+          items: [
+            {
+              id: "tool-1",
+              type: "dynamicToolCall",
+              namespace: "node_repl",
+              tool: "js",
+              status: "completed",
+              result: "ok",
+            },
+          ],
+        },
+      ],
+      turnErrors: [],
+    };
+
+    const [message] = messagesFromCodexState(state);
+    assert.equal(message.content[0].codexActivityKind, "command");
+    assert.equal(message.content[0].codexActivityLabel, "运行了多个命令");
+    assert.ok(!JSON.stringify(message.content).includes("node_repl.js"));
   });
 
   it("moves completed pre-final activity out of the visible answer", () => {

@@ -157,9 +157,16 @@ function assistantMessage(turn, item, content, running, custom = undefined) {
 
 function userTextForItem(item) {
   return (item.content ?? [])
-    .map((part) => (part?.type === "text" ? part.text ?? "" : ""))
+    .map((part) => (part?.type === "text" ? stripCodexAppEnvelope(part.text ?? "") : ""))
     .filter(Boolean)
     .join("\n\n");
+}
+
+function stripCodexAppEnvelope(text) {
+  const value = String(text ?? "");
+  const markerMatch = value.match(/^## My request for Codex:\s*$/m);
+  if (!markerMatch || markerMatch.index === undefined) return value;
+  return value.slice(markerMatch.index + markerMatch[0].length).trim();
 }
 
 function turnErrorMessage(turn) {
@@ -237,12 +244,12 @@ function activityPartForItem(item, turn) {
       activity = { kind: "fileChange", changes: fileChangeRows(item) };
       break;
     case "mcpToolCall":
-      part = genericToolPart(item, item.server ? `${item.server}.${item.tool}` : item.tool, "MCP 工具");
-      activity = { kind: "tool", label: part?.toolName, text: part?.result };
+      part = genericToolPart(item, genericActivityLabel(item), "MCP 工具");
+      activity = { kind: "command", label: genericActivityLabel(item) };
       break;
     case "dynamicToolCall":
-      part = genericToolPart(item, item.namespace ? `${item.namespace}.${item.tool}` : item.tool, "工具调用");
-      activity = { kind: "tool", label: part?.toolName, text: part?.result };
+      part = genericToolPart(item, genericActivityLabel(item), "工具调用");
+      activity = { kind: "command", label: genericActivityLabel(item) };
       break;
     case "webSearch":
       part = processedToolPart(item, "搜索", { query: item.action?.query ?? item.query ?? "" }, "已完成");
@@ -366,12 +373,25 @@ function withActivityMetadata(part, parentId, activity) {
 
 function commandExecutionLabel(item, pending) {
   const actions = Array.isArray(item.commandActions) ? item.commandActions : [];
+  if (actions.length > 1) return pending ? "正在运行多个命令" : "运行了多个命令";
   if (actions.length !== 1) return commandStatusLabel(pending);
   const action = actions[0];
   if (action.type === "read") return `${pending ? "正在读取" : "已读取"} ${action.name ?? ""}`.trim();
   if (action.type === "search") return `${pending ? "正在搜索" : "已搜索"} ${action.query ?? ""}`.trim();
   if (action.type === "listFiles") return `${pending ? "正在列出" : "已列出"} ${action.path ?? ""}`.trim();
   return commandStatusLabel(pending);
+}
+
+function genericActivityLabel(item) {
+  const name = `${item.namespace ?? item.server ?? ""}.${item.tool ?? ""}`.toLowerCase();
+  if (
+    name.includes("node_repl") ||
+    name.includes("exec_command") ||
+    name.includes("functions.")
+  ) {
+    return isRunningStatus(item.status) ? "正在运行多个命令" : "运行了多个命令";
+  }
+  return isRunningStatus(item.status) ? "正在调用工具" : "调用了工具";
 }
 
 function commandStatusLabel(pending) {
